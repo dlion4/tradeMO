@@ -2,13 +2,23 @@
 // __root.tsx — document shell + global style layer (Bootstrap 5.3, then tokens).
 // Page-scoped styles are imported by the individual route modules.
 // =============================================================================
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute as rootFactory, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import bootstrapCss from "bootstrap/dist/css/bootstrap.min.css?url";
 import globalCss from "../styles/global.scss?url";
 import { ToastProvider } from "../components/ui/primitives";
 
-export const Route = createRootRoute({
+// -----------------------------------------------------------------------------
+// DEV-SERVER WORKAROUND (see docs/MASTER_THEME.md §14)
+// The router plugin's auto code splitter matches a route file with the regex
+// /\bcreateFileRoute\s*\(/ and re-emits its Vite HMR scaffolding. Under Vite 8
+// that transform runs twice on these modules and the second pass hits the first
+// pass's `const hot = import.meta.hot`, so the dev server answers
+// "500 Duplicate declaration \"hot\"" and the client bundle never loads.
+// Importing the factory under a local name keeps this file out of that filter.
+// Route-level code splitting is declared by hand below (lazyRouteComponent).
+// -----------------------------------------------------------------------------
+export const Route = rootFactory({
   head: () => ({
     meta: [
       { charSet: "utf-8" },

@@ -176,16 +176,33 @@ Bootstrap 5.3 (CSS only, dark mode via `data-bs-theme="dark"`) · Sass 1.105 · 
 2. `server.allowedHosts: true` + `server.hmr.clientPort = 443 / protocol "wss"` — the sandbox serves the dev
    server through a per-session `*.e2b.app` preview host; without it Vite returns 403 "Blocked request".
 
-**Route component wiring** (`src/routes/index.tsx`, `src/routes/home.tsx`)
+**Route-file rule (dev-server bug workaround — read before adding a route)**
 
-The router plugin's automatic code splitting rewrites a `component:` option inside a route-factory call into a
-`TSRSplitComponent` binding that is *not emitted for the SSR environment* under Vite 8's module runner
-(`ReferenceError: TSRSplitComponent is not defined` → HTTP 500 on every route). Both route files therefore:
-- declare the component **outside** the factory call: `Route.update({ component: LandingPage })`, and
-- declare the chunk boundary by hand with `lazyRouteComponent(() => import("..."), "LandingPage")`.
+`vite.config.ts` passes `autoCodeSplitting: false` to `tanstackRouter()`, and no route module may contain the
+literal `createFileRoute(` / `createRootRoute(` text. Both are required for the dev server to work:
 
-Result: `Route.update` keeps SSR/dev working, `lazyRouteComponent` restores route-level code splitting —
-`dist/client/assets/LandingPage-*.js` + the page-scoped `index-*.css` ship separately from the router chunk.
+- `tanstackStart()` already registers its own env-scoped router code splitters (client + server).
+- The router plugin's splitter matches a route file with the regex `/\bcreateFileRoute\s*\(/` and re-emits its
+  Vite HMR scaffolding (a module-scope `const hot = import.meta.hot`). Under Vite 8 that transform runs twice on
+  the module, so the second pass collides with the first pass's declaration: the dev server answers
+  **`500 Duplicate declaration "hot"`** for `/src/routes/*.tsx`. The stylesheet and the page chunk then never
+  load in the browser — the shipped HTML looks fine (curl returns 200) but the client bundle is dead.
+
+Fix applied in this repo:
+
+1. Route files import the factory under a local name — `import { createFileRoute as routeFactory }` /
+   `createRootRoute as rootFactory` — so the splitter's code filter no longer matches them
+   (`src/routes/index.tsx`, `src/routes/home.tsx`, `src/routes/__root.tsx`). The route id/path still come from the
+   file name through `routeTree.gen.ts`; nothing else changes.
+2. Route-level code splitting is declared **by hand** in the route module:
+   `const Page = lazyRouteComponent(() => import("..."), "Page")` → `dist/client/assets/LandingPage-*.js` plus the
+   page-scoped CSS still ship as their own chunk.
+3. `tools/smoke/run.mjs` probes the exact dev modules the browser requests (`/src/routes/*.tsx`, the router entry,
+   the page component and its SCSS) and fails the run on any non-200 or transform error, so this class of bug
+   cannot come back unnoticed. **After adding any route, run `npm run smoke`.**
+
+Consequence: route files fall back to a full page reload for HMR (they no longer take part in the router's
+route-level hot accept). Edit-and-reload still works; dev server restarts are not needed.
 
 **Page-scoped CSS**: a page's `src/styles/pages/*.scss` is imported only by its own route module; the rules are
 nested under the page root class (§12 mapping). Shell chrome (`.dx-nav*`, `.dx-footer*`, `.dx-app-shell`,

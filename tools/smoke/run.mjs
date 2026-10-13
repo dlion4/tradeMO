@@ -6,6 +6,29 @@ import { JSDOM, VirtualConsole } from "jsdom";
 
 const base = process.argv[2] ?? "http://127.0.0.1:5173";
 
+// ---- 1) module-graph guard ------------------------------------------------
+// The TanStack router code splitter can break the dev pipeline itself (it once
+// re-emitted its HMR scaffolding and every route module answered
+// "500 Duplicate declaration hot", leaving the client bundle dead). Probe the
+// modules the browser actually requests before doing anything else.
+const MODULES = [
+  "/src/routes/__root.tsx",
+  "/src/routes/index.tsx",
+  "/src/routes/home.tsx",
+  "/src/router.tsx",
+  "/src/components/marketing/LandingPage.tsx",
+  "/src/styles/pages/home.scss",
+];
+const moduleFailures = [];
+for (const id of MODULES) {
+  const res = await fetch(`${base}${id}`);
+  const body = await res.text();
+  const broken = /Internal server error|Plugin: tanstack|Duplicate declaration/.test(body.replace(/\/\/ .*/g, ""));
+  if (res.status !== 200 || broken) {
+    moduleFailures.push(`${id} → HTTP ${res.status}${broken ? " (transform error in body)" : ""}`);
+  }
+}
+
 const html = await (await fetch(`${base}/`)).text();
 const start = html.indexOf('<div id="app-root">') + '<div id="app-root">'.length;
 const end = html.lastIndexOf("</div><script");
@@ -69,6 +92,12 @@ const result = window.__smokeResult ?? { ok: false, errors: ["smoke never reache
 const significant = messages.filter(
   (m) => !/Not implemented: |Could not parse CSS|jsdom does not|Error: Not implemented/.test(m),
 );
+if (moduleFailures.length) {
+  console.log("MODULE GRAPH BROKEN:");
+  for (const f of moduleFailures) console.log(" ✗", f);
+} else {
+  console.log(`module graph: ${MODULES.length}/${MODULES.length} dev modules served clean`);
+}
 console.log(`console messages: ${significant.length}`);
 for (const m of significant.slice(0, 40)) console.log(" •", m.slice(0, 400));
 console.log(`\nclick-phase errors: ${result.errors.length}`);
@@ -88,4 +117,4 @@ const fp = window.__firstPaint;
 console.log("\nhydration check (ssr markup vs first client paint):");
 console.log("  ", fp ? (fp.same ? `identical (${fp.ssrLen} chars)` : `DIFFERENT — ${fp.firstDiff.join(" | ")}`) : "not captured");
 console.log("ssr/csr text check:", result.textDiff.length ? result.textDiff.join("\n") : "identical");
-process.exit(significant.length || result.errors.length ? 1 : 0);
+process.exit(significant.length || result.errors.length || moduleFailures.length ? 1 : 0);

@@ -9,16 +9,20 @@ export default defineConfig({
     port: 5173,
     // The sandbox proxies the dev server through a per-session preview host
     // (*.e2b.app). Allow any host so the proxied preview is not rejected.
-    // The HMR endpoint is left to Vite's inference (it follows the page's
-    // protocol/host), which is what the proxy expects.
+    // HMR is left to Vite's inference (it follows the page's protocol/host).
     allowedHosts: true,
   },
   plugins: [
-    // autoCodeSplitting is disabled: the router-plugin transform emits a
-    // TSRSplitComponent global that Vite 8's module runner cannot resolve in dev.
-    // Route modules are still lazy-loaded by the router itself.
-    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
-    react(),
+    // tanstackStart() registers its own env-scoped router code splitters
+    // (client + server). The composed router plugin additionally registers an
+    // UNRESTRICTED splitter, so every route module was transformed twice and
+    // the dev HMR scaffolding ("const hot = import.meta.hot") was emitted
+    // twice -> Vite failed with `Duplicate declaration "hot"` and served 500
+    // for /src/routes/*.tsx, which broke the whole client bundle.
+    // With autoCodeSplitting disabled here, only Start's splitters run, and
+    // route-level chunking is declared by hand in the route files.
+    tanstackRouter({ target: 'react', autoCodeSplitting: false }),
     tanstackStart(),
+    react(),
   ],
 })

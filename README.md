@@ -29,8 +29,15 @@ npm run build            # client + SSR production build
 npm run preview
 ```
 
-`vite.config.ts` notes: `tanstackStart()` must precede `@vitejs/plugin-react`, and `server.allowedHosts` is
-opened up so the sandboxed preview host can proxy the dev server. See `docs/MASTER_THEME.md` §14.
+`vite.config.ts` / routing notes (details in `docs/MASTER_THEME.md` §14):
+
+- `@vitejs/plugin-react` must come **after** `tanstackStart()`.
+- `server.allowedHosts` is opened up so the sandboxed preview host can proxy the dev server.
+- The composed router plugin runs with `autoCodeSplitting: false`, and route files import their factory under a
+  local name (`createFileRoute as routeFactory`) so the plugin's splitter skips them. Otherwise Vite 8 answers
+  `500 Duplicate declaration "hot"` for every `/src/routes/*.tsx` and the client bundle never loads. Route-level
+  chunking is declared by hand with `lazyRouteComponent` inside each route module.
+- After adding or changing a route run `npm run smoke` — it probes the dev module graph before anything else.
 
 ## Repository layout
 
