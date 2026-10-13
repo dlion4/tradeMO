@@ -94,32 +94,53 @@ export function useOnEscape(handler: () => void, active: boolean) {
 }
 
 /** Simple scroll-reveal observer (honours prefers-reduced-motion via CSS). */
-export function useInView<T extends HTMLElement>(once = true) {
+/**
+ * Visibility hook used by Reveal/CountUp.
+ * Robustness contract: content must NEVER stay hidden. If the observer is
+ * missing, throws, or simply never reports (clipped/zero-height containers, a
+ * scaled preview iframe, reduced-motion browsers), a 1.6 s fallback flips the
+ * flag so the section/stat always becomes visible.
+ */
+export function useInView<T extends HTMLElement>(once = true, fallbackMs = 1600) {
   const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
+
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
-    if (typeof IntersectionObserver === "undefined") {
+    let io: IntersectionObserver | null = null;
+    const fallback = window.setTimeout(() => setInView(true), fallbackMs);
+
+    if (!node || typeof IntersectionObserver === "undefined") {
       setInView(true);
-      return;
+      return () => window.clearTimeout(fallback);
     }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setInView(true);
-            if (once) io.unobserve(entry.target);
-          } else if (!once) {
-            setInView(false);
-          }
-        });
-      },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
-    );
-    io.observe(node);
-    return () => io.disconnect();
-  }, [once]);
+
+    try {
+      io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              setInView(true);
+              window.clearTimeout(fallback);
+              if (once) io?.unobserve(entry.target);
+            } else if (!once) {
+              setInView(false);
+            }
+          });
+        },
+        { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
+      );
+      io.observe(node);
+    } catch {
+      setInView(true);
+    }
+
+    return () => {
+      window.clearTimeout(fallback);
+      io?.disconnect();
+    };
+  }, [once, fallbackMs]);
+
   return { ref, inView };
 }
 
@@ -197,25 +218,32 @@ export function CountUp({
   className?: string;
 }) {
   const reduced = useReducedMotion();
-  const [display, setDisplay] = useState(0);
+  // Starts at the FINAL value so SSR output and the first paint are correct
+  // (never "0 traders" / "0 ms"). The roll-up runs client-side once the stat
+  // scrolls into view, and only ever replaces the final value with itself.
+  const [display, setDisplay] = useState(value);
+  const animatedFor = useRef<number | null>(null);
   const { ref, inView } = useInView<HTMLSpanElement>();
 
   useEffect(() => {
-    if (!inView) return;
-    if (reduced) {
-      setDisplay(value);
-      return;
-    }
+    if (!inView || reduced) return;
+    if (animatedFor.current === value) return;
+    animatedFor.current = value;
     let raf = 0;
     const start = performance.now();
+    setDisplay(0);
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
       setDisplay(value * eased);
       if (p < 1) raf = requestAnimationFrame(tick);
+      else setDisplay(value);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      setDisplay(value);
+    };
   }, [inView, value, duration, reduced]);
 
   return (

@@ -22,6 +22,7 @@ export const Route = createRootRoute({
       { name: "color-scheme", content: "dark" },
     ],
     links: [
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: bootstrapCss },
       { rel: "stylesheet", href: globalCss },
     ],

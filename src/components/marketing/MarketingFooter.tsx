@@ -16,6 +16,8 @@ export interface FooterActions {
   onOpenAbout: () => void;
   onOpenChangelog: () => void;
   onOpenSitemap: () => void;
+  /** opens the contact/support dialog (topic: support | sales | billing | bug) */
+  onOpenContact: (topic?: string) => void;
   onSubscribe: (email: string) => void;
   onOpenPresets: () => void;
   onOpenBacktests: () => void;
@@ -127,6 +129,9 @@ export function MarketingFooter(actions: FooterActions) {
             </button>
             <button type="button" className="dx-footer-link" onClick={actions.onOpenChangelog}>
               Release notes
+            </button>
+            <button type="button" className="dx-footer-link" onClick={() => actions.onOpenContact("support")}>
+              Contact support
             </button>
           </div>
 

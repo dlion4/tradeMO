@@ -9,9 +9,9 @@ export default defineConfig({
     port: 5173,
     // The sandbox proxies the dev server through a per-session preview host
     // (*.e2b.app). Allow any host so the proxied preview is not rejected.
+    // The HMR endpoint is left to Vite's inference (it follows the page's
+    // protocol/host), which is what the proxy expects.
     allowedHosts: true,
-    // Same story for the HMR websocket origin check.
-    hmr: { clientPort: 443, protocol: 'wss' },
   },
   plugins: [
     // autoCodeSplitting is disabled: the router-plugin transform emits a

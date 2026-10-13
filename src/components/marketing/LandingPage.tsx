@@ -261,6 +261,10 @@ export function LandingPage() {
         onOpenAbout={() => setAboutOpen(true)}
         onOpenChangelog={() => setChangelogOpen(true)}
         onOpenSitemap={() => setSitemapOpen(true)}
+        onOpenContact={(topic) => {
+          setContactTopic(topic);
+          setContactOpen(true);
+        }}
         onSubscribe={c.subscribe}
         onOpenPresets={() => setPresetsOpen(true)}
         onOpenBacktests={() => setBacktestOpen(true)}

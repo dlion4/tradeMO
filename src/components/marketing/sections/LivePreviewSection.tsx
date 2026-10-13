@@ -37,7 +37,9 @@ export function LivePreviewSection({ c }: { c: LandingController }) {
 
   useInterval(
     () => {
-      setDigitCounts((prev) => prev.map((v, i) => Math.round((v + (Math.random() - 0.5) * 0.6) * 10) / 10 + (i === 5 ? 0.01 : 0)));
+      setDigitCounts((prev) =>
+        prev.map((v) => Math.round((v + (Math.random() - 0.5) * 0.6) * 100) / 100),
+      );
       setSimTicks((n) => n + 1);
     },
     tab === "analytics" ? 2200 : null,

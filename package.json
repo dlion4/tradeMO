@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "generate-routes": "tsr generate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke": "vite build --config tools/smoke/vite.config.ts && node tools/smoke/run.mjs"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.170.44",
@@ -27,6 +28,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "jsdom": "^27.4.0",
     "sass": "^1.105.1",
     "typescript": "^5.9.3",
     "vite": "^8.3.4"

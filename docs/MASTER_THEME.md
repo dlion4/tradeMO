@@ -191,8 +191,27 @@ Result: `Route.update` keeps SSR/dev working, `lazyRouteComponent` restores rout
 nested under the page root class (§12 mapping). Shell chrome (`.dx-nav*`, `.dx-footer*`, `.dx-app-shell`,
 `.dx-auth-shell`) lives in `global.scss`; both `global.scss` and page sheets `@use "./tokens"`.
 
+**Live-widget robustness contract (shared primitives)**
+
+- `useInView(once?, fallbackMs = 1600)` — Reveal/CountUp must **never** leave content hidden. If
+  `IntersectionObserver` is missing, throws, or never reports (clipped or zero-height containers, a scaled
+  preview iframe, reduced-motion browsers), the fallback timer flips the flag. Sections always become visible.
+- `CountUp` — renders the **final value in SSR and on the first paint** and rolls up from 0 only once it is
+  scrolled into view on the client. Never render `0` for a stat the server can compute (`0 ms`, `0 traders`
+  in the HTML source is treated as a bug), and never let the animation be the only path to the real number.
+- Live simulators in `src/lib/live.ts` seed from static data so SSR markup and hydration agree; they only start
+  changing state after mount (never in a render body).
+
+**In-repo smoke harness** (`npm run smoke`, needs the dev server running)
+
+`tools/smoke/` builds `entry.tsx` with plain Vite, hydrates the landing page into a jsdom document pre-filled
+with the SSR markup, compares the SSR markup with the first client paint (hydration check), drives every primary
+control, then fuzzes each overlay (up to 14 inner controls per overlay). It fails the run on any console error,
+uncaught error, thrown click handler or missing control. Output: `tools/smoke/out/` (git-ignored).
+
 **Verification protocol used for H-1** (repeat after every page):
 `npm run generate-routes && npm run typecheck && npm run build` → curl the dev server for `/` and `/home`
-(expect 200 + hero copy) → grep the source for `lorem|TODO|coming soon|console.log` → grep `.tsx` for raw
+(expect 200 + hero copy, and **no `0` in place of a stat value**) → `npm run smoke` (expect 0 console errors and
+0 click errors) → grep the source for `lorem|TODO|coming soon|console.log` → grep `.tsx` for raw
 hex/rgb values → confirm every `<Link to>` exists in `routeTree.gen.ts` → confirm every `dx-*` class used in a
 component exists in `src/styles/**.scss`.
