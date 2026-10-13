@@ -3,12 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "DerivX (TradeMO) — Deriv-connected trading platform UI. Front-end only, mock data.",
+  "description": "DerivX (TradeMO) \u2014 Deriv-connected trading platform UI. Front-end only, mock data.",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "generate-routes": "tsr generate",
     "typecheck": "tsc --noEmit",
     "smoke": "vite build --config tools/smoke/vite.config.ts && node tools/smoke/run.mjs"
   },

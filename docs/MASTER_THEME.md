@@ -168,7 +168,13 @@ Pages compose them; pages never re-implement them.
 Bootstrap 5.3 (CSS only, dark mode via `data-bs-theme="dark"`) · Sass 1.105 · lucide-react · TypeScript 5.9.
 
 **Scripts**: `npm run dev` (Vite dev server on `0.0.0.0:5173`) · `npm run build` · `npm run preview` ·
-`npm run generate-routes` (TanStack router CLI) · `npm run typecheck`.
+`npm run typecheck` · `npm run smoke`.
+
+**Route tree**: `src/routeTree.gen.ts` is owned by the TanStack Start plugin — it is written on dev-server start
+and whenever routes are added/removed, including a type-only footer that registers the router with Start
+(`declare module '@tanstack/react-start'`). Never run the standalone router CLI (`tsr generate`) here: it emits the
+file **without that footer**, so the plugin then rewrites the file and every reload churns the module graph.
+Never hand-edit the file either.
 
 **`vite.config.ts` requirements**
 1. `tanstackStart()` must be declared **before** `@vitejs/plugin-react` — the router plugin asserts this order in
@@ -225,7 +231,7 @@ control, then fuzzes each overlay (up to 14 inner controls per overlay). It fail
 uncaught error, thrown click handler or missing control. Output: `tools/smoke/out/` (git-ignored).
 
 **Verification protocol used for H-1** (repeat after every page):
-`npm run generate-routes && npm run typecheck && npm run build` → curl the dev server for `/` and `/home`
+`npm run typecheck && npm run build` → curl the dev server for `/` and `/home`
 (expect 200 + hero copy, and **no `0` in place of a stat value**) → `npm run smoke` (expect 0 console errors and
 0 click errors) → grep the source for `lorem|TODO|coming soon|console.log` → grep `.tsx` for raw
 hex/rgb values → confirm every `<Link to>` exists in `routeTree.gen.ts` → confirm every `dx-*` class used in a
