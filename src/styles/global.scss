@@ -1,0 +1,282 @@
+// =============================================================================
+// global.scss — layer 2 of the stack (§1.4): tokens first, then shell chrome.
+// Bootstrap 5.3 CSS is layer 1 and is imported by src/routes/__root.tsx.
+// =============================================================================
+@use "./tokens";
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+// -----------------------------------------------------------------------------
+// Marketing shell chrome (H-* group) — shared by /, /home, /features, /pricing
+// -----------------------------------------------------------------------------
+.dx-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1040;
+  background: rgba(7, 11, 20, 0.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--dx-border);
+}
+
+.dx-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--dx-sp-5);
+  min-height: 66px;
+}
+
+.dx-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.06rem;
+  letter-spacing: -0.02em;
+  color: var(--dx-text);
+  text-decoration: none;
+  flex: 0 0 auto;
+
+  &:hover {
+    color: var(--dx-text);
+  }
+}
+
+.dx-brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--dx-accent), var(--dx-accent-2));
+  color: #04140f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--dx-font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.dx-nav-links {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+
+  @media (min-width: 992px) {
+    display: flex;
+  }
+}
+
+.dx-nav-link {
+  background: none;
+  border: 0;
+  color: var(--dx-text-dim);
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: var(--dx-r-sm);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &:hover {
+    color: var(--dx-text);
+    background: var(--dx-surface-2);
+  }
+
+  &.is-active {
+    color: var(--dx-accent);
+  }
+}
+
+.dx-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--dx-sp-2);
+  margin-left: auto;
+}
+
+.dx-nav-mobile-only {
+  display: inline-flex;
+
+  @media (min-width: 992px) {
+    display: none;
+  }
+}
+
+.dx-nav-desktop-only {
+  display: none;
+
+  @media (min-width: 992px) {
+    display: inline-flex;
+  }
+}
+
+.dx-nav-banner {
+  background: linear-gradient(90deg, rgba(23, 199, 165, 0.14), rgba(108, 140, 255, 0.14));
+  border-bottom: 1px solid var(--dx-border);
+  font-size: 0.78rem;
+  color: var(--dx-text-dim);
+  padding: 7px 0;
+}
+
+.dx-shell-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: var(--dx-r-pill);
+  border: 1px dashed var(--dx-border-strong);
+  color: var(--dx-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+// -----------------------------------------------------------------------------
+// Footer (H-* group + shared legal chrome)
+// -----------------------------------------------------------------------------
+.dx-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--dx-border);
+  background: var(--dx-bg-2);
+  padding: 48px 0 24px;
+}
+
+.dx-footer-head {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dx-muted);
+  font-weight: 650;
+  margin-bottom: var(--dx-sp-3);
+}
+
+.dx-footer-link {
+  display: block;
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  color: var(--dx-text-dim);
+  font-size: 0.84rem;
+  text-align: left;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--dx-accent);
+  }
+}
+
+.dx-footer-social {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--dx-r-sm);
+  border: 1px solid var(--dx-border);
+  background: var(--dx-surface-2);
+  color: var(--dx-text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: var(--dx-accent);
+    border-color: var(--dx-border-strong);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Auth shell (A-* group) & dashboard shell (D-* group) — scaffolding for later
+// pages; H-1 does not render these but the group shells must exist (§1.4/§1.6).
+// -----------------------------------------------------------------------------
+.dx-auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--dx-sp-6) var(--dx-sp-4);
+  background:
+    radial-gradient(900px 480px at 12% -10%, rgba(23, 199, 165, 0.12), transparent 65%),
+    radial-gradient(760px 420px at 92% 8%, rgba(108, 140, 255, 0.12), transparent 62%),
+    var(--dx-bg);
+}
+
+.dx-app-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+
+  @media (min-width: 992px) {
+    grid-template-columns: 250px 1fr;
+  }
+}
+
+.dx-sidebar {
+  background: var(--dx-bg-2);
+  border-right: 1px solid var(--dx-border);
+  padding: var(--dx-sp-4);
+
+  @media (min-width: 992px) {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+.dx-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--dx-sp-3);
+  padding: var(--dx-sp-3) var(--dx-sp-4);
+  border-bottom: 1px solid var(--dx-border);
+  background: rgba(11, 17, 31, 0.75);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+.dx-main {
+  min-width: 0;
+  padding: var(--dx-sp-5);
+}
+
+.dx-side-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: var(--dx-r-sm);
+  border: 0;
+  background: none;
+  color: var(--dx-text-dim);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: left;
+
+  &:hover {
+    background: var(--dx-surface-2);
+    color: var(--dx-text);
+  }
+
+  &.is-active {
+    background: var(--dx-accent-soft);
+    color: var(--dx-accent);
+  }
+}

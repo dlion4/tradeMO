@@ -1,0 +1,111 @@
+// =============================================================================
+// src/styles/pages/home.scss — H-1 ONLY (.page-home)
+// Imported exclusively by src/routes/index.tsx and src/routes/home.tsx so it
+// code-splits with the landing route chunk. Tokens only, no new colors/fonts.
+// Documented in docs/MASTER_THEME.md §13.
+// =============================================================================
+@use "../tokens";
+
+.page-home {
+  // ---- hero art ------------------------------------------------------------
+  .dx-hero {
+    position: relative;
+    padding: 56px 0 40px;
+    overflow: hidden;
+
+    @media (min-width: 992px) {
+      padding: 84px 0 56px;
+    }
+  }
+
+  .dx-hero-glow {
+    position: absolute;
+    inset: -30% -10% auto -10%;
+    height: 620px;
+    background:
+      radial-gradient(560px 300px at 18% 30%, rgba(23, 199, 165, 0.16), transparent 68%),
+      radial-gradient(520px 300px at 84% 12%, rgba(108, 140, 255, 0.14), transparent 66%);
+    pointer-events: none;
+  }
+
+  .dx-grid-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(148, 175, 226, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 175, 226, 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(70% 60% at 50% 30%, black, transparent 78%);
+    pointer-events: none;
+  }
+
+  // ---- hero headline accent ------------------------------------------------
+  .dx-h-hero .dx-up {
+    text-shadow: 0 0 34px rgba(23, 199, 165, 0.35);
+  }
+
+  // ---- execution tape rows -------------------------------------------------
+  .dx-list-row {
+    transition: border-color var(--dx-t-fast) var(--dx-ease), background var(--dx-t-fast) var(--dx-ease);
+
+    &:hover {
+      background: var(--dx-surface-2);
+    }
+  }
+
+  // ---- terminal tape (bot logs) -------------------------------------------
+  .dx-terminal-line {
+    font-size: 0.74rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    animation: dx-tape-in 260ms var(--dx-ease);
+
+    & + & {
+      margin-top: 2px;
+    }
+  }
+
+  @keyframes dx-tape-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+  }
+
+  // ---- section separators --------------------------------------------------
+  .dx-section + .dx-section {
+    border-top: 1px solid var(--dx-border);
+  }
+
+  // ---- market table zebra helpers -----------------------------------------
+  .dx-table tbody tr td:first-child {
+    border-left: 2px solid transparent;
+  }
+
+  .dx-table tbody tr:hover td:first-child {
+    border-left-color: var(--dx-accent);
+  }
+
+  // ---- testimonial cards ---------------------------------------------------
+  .dx-quote {
+    font-style: italic;
+  }
+
+  // ---- wizard / dialog density on small screens ----------------------------
+  @media (max-width: 575.98px) {
+    .dx-dialog-head,
+    .dx-dialog-body,
+    .dx-dialog-foot {
+      padding: 14px;
+    }
+
+    .dx-kpi-value {
+      font-size: 1.35rem;
+    }
+
+    .dx-hero {
+      padding-top: 32px;
+    }
+  }
+}
