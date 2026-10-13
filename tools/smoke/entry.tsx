@@ -16,6 +16,7 @@ interface SmokeResult {
   controls: number;
   labels?: string[];
   fuzzLog?: string[];
+  themeLog?: string[];
 }
 
 declare global {
@@ -189,6 +190,38 @@ async function drive() {
     await wait(120);
   }
 
+  // ---- theme toggle round-trip ---------------------------------------------
+  // Light is the default, so the toggle must move <html> light → dark → light
+  // and persist the choice under localStorage("dx-theme").
+  const themeLog: string[] = [];
+  const themeBtn = () =>
+    window.document.querySelector<HTMLButtonElement>('button[aria-label^="Switch to"][data-dx-theme-state]');
+  try {
+    if (!themeBtn()) {
+      themeLog.push("toggle missing");
+      errors.push("THEME: no theme toggle rendered in the marketing shell");
+    } else {
+      const root = window.document.documentElement;
+      const before = root.getAttribute("data-bs-theme");
+      themeBtn()!.click();
+      await wait(80);
+      const dark = root.getAttribute("data-bs-theme");
+      const stored = window.localStorage.getItem("dx-theme");
+      themeLog.push(`click 1: data-bs-theme ${before ?? "(none)"} → ${dark}, localStorage dx-theme=${stored}`);
+      if (dark !== "dark") errors.push(`THEME: first click left data-bs-theme=${dark ?? "(none)"}, expected dark`);
+      if (stored !== "dark") errors.push(`THEME: first click did not persist dx-theme=dark (got ${stored})`);
+      themeBtn()!.click();
+      await wait(80);
+      const light = root.getAttribute("data-bs-theme");
+      themeLog.push(`click 2: data-bs-theme → ${light ?? "(none)"}, localStorage dx-theme=${window.localStorage.getItem("dx-theme")}`);
+      if (light !== null) errors.push(`THEME: second click left data-bs-theme=${light}, expected it removed (light default)`);
+      if (window.localStorage.getItem("dx-theme") !== "light")
+        errors.push("THEME: second click did not persist dx-theme=light");
+    }
+  } catch (error) {
+    errors.push(`THEME THREW: ${(error as Error).message}`);
+  }
+
   const labels = Array.from(new Set(Array.from(window.document.querySelectorAll("button, a")).map((n) => (n.textContent ?? "").trim().slice(0, 32)).filter(Boolean)));
   window.__smokeResult = {
     ok: errors.length === 0,
@@ -198,6 +231,7 @@ async function drive() {
     controls: window.document.querySelectorAll("button, a").length,
     labels,
     fuzzLog,
+    themeLog,
   };
 }
 

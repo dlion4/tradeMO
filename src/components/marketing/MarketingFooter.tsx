@@ -4,6 +4,7 @@
 // =============================================================================
 import { useState } from "react";
 import { Activity, AtSign, BookOpen, Code2, Mail, MessageCircle, PlayCircle, Send, ShieldCheck } from "lucide-react";
+import { ThemeToggle } from "../ui/primitives";
 import { MARKETING_NAV } from "./MarketingNav";
 
 export interface FooterActions {
@@ -197,6 +198,7 @@ export function MarketingFooter(actions: FooterActions) {
             <span className="dx-chip dx-chip-muted">
               <Activity size={12} /> ws relay 12 ms
             </span>
+            <ThemeToggle labelled />
           </div>
         </div>
 

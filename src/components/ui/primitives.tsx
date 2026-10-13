@@ -25,6 +25,8 @@ import {
   Copy,
   Inbox,
   Search,
+  Moon,
+  Sun,
   X,
 } from "lucide-react";
 
@@ -47,6 +49,78 @@ export function useReducedMotion(): boolean {
     return () => mq.removeEventListener("change", onChange);
   }, []);
   return reduced;
+}
+
+// -----------------------------------------------------------------------------
+// Theme — light is the DEFAULT. The palette lives in tokens.scss (`:root` = light,
+// `[data-bs-theme="dark"]` = dark). A pre-paint script in __root.tsx restores a
+// stored dark preference before first paint; React never renders the attribute,
+// so hydration cannot clash with it.
+// -----------------------------------------------------------------------------
+export type ThemeName = "light" | "dark";
+export const THEME_STORAGE_KEY = "dx-theme";
+
+export function readTheme(): ThemeName {
+  if (typeof document === "undefined") return "light";
+  return document.documentElement.getAttribute("data-bs-theme") === "dark" ? "dark" : "light";
+}
+
+export function applyTheme(theme: ThemeName, persist = true): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (theme === "dark") root.setAttribute("data-bs-theme", "dark");
+  else root.removeAttribute("data-bs-theme");
+  root.setAttribute("data-dx-theme", theme);
+  if (!persist) return;
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    /* storage blocked (private mode) — the theme still applies for this session */
+  }
+}
+
+export function useTheme(): [ThemeName, (theme: ThemeName) => void] {
+  // SSR and the first client render are always light; the effect then adopts
+  // whatever the pre-paint script restored from storage.
+  const [theme, setTheme] = useState<ThemeName>("light");
+  useEffect(() => setTheme(readTheme()), []);
+  const update = useCallback(
+    (next: ThemeName) => {
+      applyTheme(next);
+      setTheme(next);
+    },
+    [],
+  );
+  return [theme, update];
+}
+
+/**
+ * Light/dark switch. Rendered in the marketing nav and footer; the FOUC-free
+ * restore path lives in __root.tsx, persistence in localStorage("dx-theme").
+ */
+export function ThemeToggle({
+  className = "",
+  labelled = false,
+}: {
+  className?: string;
+  labelled?: boolean;
+}) {
+  const [theme, setTheme] = useTheme();
+  const next: ThemeName = theme === "dark" ? "light" : "dark";
+  const Icon = theme === "dark" ? Sun : Moon;
+  return (
+    <button
+      type="button"
+      className={`dx-btn dx-btn-sm dx-btn-ghost ${className}`.trim()}
+      onClick={() => setTheme(next)}
+      aria-label={`Switch to ${next} theme`}
+      title={`Switch to ${next} theme`}
+      data-dx-theme-state={theme}
+    >
+      <Icon size={15} />
+      {labelled ? <span>Switch to {next} theme</span> : null}
+    </button>
+  );
 }
 
 /** Deterministic-ish PRNG for simulated feeds (client-only usage). */

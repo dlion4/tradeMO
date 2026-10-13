@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, LayoutGrid, LogIn, Menu, Sparkles } from "lucide-react";
-import { Dropdown } from "../ui/primitives";
+import { Dropdown, ThemeToggle } from "../ui/primitives";
 
 export interface MarketingNavItem {
   id: string;
@@ -108,6 +108,7 @@ export function MarketingNav({
             <span className="dx-shell-badge d-none d-xl-inline-flex">
               <Sparkles size={12} /> H-1 Landing
             </span>
+            <ThemeToggle />
             <button type="button" className="dx-btn dx-btn-sm dx-btn-ghost" onClick={onSignIn}>
               <LogIn size={14} /> Log in
             </button>

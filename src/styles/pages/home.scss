@@ -23,8 +23,8 @@
     inset: -30% -10% auto -10%;
     height: 620px;
     background:
-      radial-gradient(560px 300px at 18% 30%, rgba(23, 199, 165, 0.16), transparent 68%),
-      radial-gradient(520px 300px at 84% 12%, rgba(108, 140, 255, 0.14), transparent 66%);
+      radial-gradient(560px 300px at 18% 30%, color-mix(in srgb, var(--dx-accent) 16%, transparent), transparent 68%),
+      radial-gradient(520px 300px at 84% 12%, var(--dx-accent-soft-2), transparent 66%);
     pointer-events: none;
   }
 
@@ -32,8 +32,8 @@
     content: "";
     position: absolute;
     inset: 0;
-    background-image: linear-gradient(rgba(148, 175, 226, 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 175, 226, 0.06) 1px, transparent 1px);
+    background-image: linear-gradient(var(--dx-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--dx-grid-line) 1px, transparent 1px);
     background-size: 56px 56px;
     mask-image: radial-gradient(70% 60% at 50% 30%, black, transparent 78%);
     pointer-events: none;
@@ -41,7 +41,7 @@
 
   // ---- hero headline accent ------------------------------------------------
   .dx-h-hero .dx-up {
-    text-shadow: 0 0 34px rgba(23, 199, 165, 0.35);
+    text-shadow: 0 0 34px var(--dx-accent-line);
   }
 
   // ---- execution tape rows -------------------------------------------------

@@ -5,42 +5,71 @@
 // Page-unique visuals live in src/styles/pages/*.scss (namespaced, route-scoped).
 // =============================================================================
 
+// =============================================================================
+// DerivX (TradeMO) — tokens.scss
+// Design bible: docs/MASTER_THEME.md (read it before editing this file)
+//
+// LIGHT IS THE DEFAULT THEME. Every colour in the app is a token declared here;
+// dark mode is the exact same contract re-declared under [data-bs-theme="dark"]
+// (set on <html> — see the theme toggle in src/components/ui/primitives.tsx).
+// No rule outside these two blocks may contain a literal colour.
+// =============================================================================
+
 :root {
-  // ---- color -----------------------------------------------------------------
-  --dx-bg: #070b14;
-  --dx-bg-2: #0b111f;
-  --dx-surface: #111827;
-  --dx-surface-2: #151f33;
-  --dx-surface-3: #1b2740;
-  --dx-border: rgba(148, 175, 226, 0.14);
-  --dx-border-strong: rgba(148, 175, 226, 0.32);
+  // ---- palette (LIGHT — default) ---------------------------------------------
+  --dx-bg: #f5f7fb;              // page canvas
+  --dx-bg-2: #eaeff7;            // wells, inset panels, code blocks
+  --dx-surface: #ffffff;         // cards, dialogs, drawers
+  --dx-surface-2: #f3f6fc;       // raised rows, hover, input fills
+  --dx-surface-3: #e7edf8;       // pressed / strongest tint of a surface
+  --dx-ink: #16223a;             // border + shadow ink (mixed with alpha below)
 
-  --dx-text: #e9eefb;
-  --dx-text-dim: #b3c0d9;
-  --dx-muted: #7f8dab;
+  --dx-text: #0f172a;
+  --dx-text-dim: #3d4a62;
+  --dx-muted: #5b6a86;
 
-  --dx-accent: #17c7a5;
-  --dx-accent-2: #6c8cff;
-  --dx-accent-soft: rgba(23, 199, 165, 0.14);
-  --dx-accent-soft-2: rgba(108, 140, 255, 0.14);
+  --dx-accent: #0a7365;          // brand teal — AA on white AND on its own 12% tint
+  --dx-accent-2: #3a55d6;        // brand indigo
+  --dx-accent-strong: #086655;
+  --dx-accent-hover: #08695a;
+  --dx-accent-2-strong: #3247bd;
+  --dx-on-accent: #f2fffb;       // ink on a teal fill (light mode fills are deep)
+  --dx-on-accent-2: #f7f9ff;     // ink on an indigo fill
 
-  --dx-up: #17c7a5;
-  --dx-down: #ff4d6a;
-  --dx-warn: #ffb020;
-  --dx-info: #5aa9ff;
+  --dx-up: #0a7660;
+  --dx-down: #c62843;
+  --dx-warn: #8a5a00;
+  --dx-info: #1d5ec7;
 
-  --dx-risk-low: #17c7a5;
-  --dx-risk-med: #ffb020;
-  --dx-risk-high: #ff4d6a;
+  --dx-risk-low: var(--dx-up);
+  --dx-risk-med: var(--dx-warn);
+  --dx-risk-high: var(--dx-down);
 
-  --dx-glow: rgba(23, 199, 165, 0.55);
+  --dx-glow: color-mix(in srgb, var(--dx-accent) 38%, transparent);
+
+  // ---- themed surfaces -------------------------------------------------------
+  --dx-nav-bg: color-mix(in srgb, #ffffff 84%, transparent);
+  --dx-panel-translucent: color-mix(in srgb, var(--dx-surface) 78%, transparent);
+  --dx-ticker-item-bg: color-mix(in srgb, var(--dx-surface) 72%, transparent);
+  --dx-overlay: color-mix(in srgb, #0f172a 34%, transparent);
+  --dx-drawer-overlay: color-mix(in srgb, #0f172a 28%, transparent);
+
+  // ---- elevation -------------------------------------------------------------
+  --dx-shadow-1: 0 1px 2px color-mix(in srgb, var(--dx-ink) 8%, transparent),
+    0 8px 22px -16px color-mix(in srgb, var(--dx-ink) 22%, transparent);
+  --dx-shadow-2: 0 14px 32px -18px color-mix(in srgb, var(--dx-ink) 26%, transparent);
+  --dx-shadow-3: 0 30px 70px -26px color-mix(in srgb, var(--dx-ink) 34%, transparent);
+
+  // ---- code surface (intentionally dark in BOTH themes) ----------------------
+  --dx-code-bg: #0f1a2e;
+  --dx-code-text: #dfe8f6;
 
   // ---- type ------------------------------------------------------------------
   --dx-font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --dx-font-display: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Segoe UI Mono",
     "Roboto Mono", Menlo, Consolas, monospace;
 
-  // ---- space / radius / elevation -------------------------------------------
+  // ---- space / radius --------------------------------------------------------
   --dx-sp-1: 4px;
   --dx-sp-2: 8px;
   --dx-sp-3: 12px;
@@ -56,20 +85,83 @@
   --dx-r-xl: 22px;
   --dx-r-pill: 999px;
 
-  --dx-shadow-1: 0 1px 2px rgba(3, 7, 18, 0.5), 0 8px 24px -18px rgba(3, 7, 18, 0.9);
-  --dx-shadow-2: 0 14px 34px -16px rgba(3, 7, 18, 0.85);
-  --dx-shadow-3: 0 32px 80px -28px rgba(3, 7, 18, 0.95);
-
   // ---- motion ----------------------------------------------------------------
   --dx-t-fast: 120ms;
   --dx-t: 200ms;
   --dx-t-slow: 320ms;
   --dx-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  color-scheme: light;
 }
 
-// Bootstrap dark-theme harmony (5.3 native `data-bs-theme="dark"`)
+// -----------------------------------------------------------------------------
+// DARK THEME — identical token contract, previous palette. Applied by setting
+// data-bs-theme="dark" on <html> (Bootstrap 5.3 switches its own variables too).
+// -----------------------------------------------------------------------------
 [data-bs-theme="dark"] {
+  --dx-bg: #070b14;
+  --dx-bg-2: #0b111f;
+  --dx-surface: #111827;
+  --dx-surface-2: #151f33;
+  --dx-surface-3: #1b2740;
+  --dx-ink: #94afe2;
+
+  --dx-text: #e9eefb;
+  --dx-text-dim: #b3c0d9;
+  --dx-muted: #7f8dab;
+
+  --dx-accent: #17c7a5;
+  --dx-accent-2: #6c8cff;
+  --dx-accent-strong: #12a98c;
+  --dx-accent-hover: #1ad8b4;
+  --dx-accent-2-strong: #4f6fe8;
+  --dx-on-accent: #04140f;
+  --dx-on-accent-2: #05091a;
+
+  --dx-up: #17c7a5;
+  --dx-down: #ff4d6a;
+  --dx-warn: #ffb020;
+  --dx-info: #5aa9ff;
+
+  --dx-glow: color-mix(in srgb, var(--dx-accent) 55%, transparent);
+
+  --dx-nav-bg: color-mix(in srgb, #070b14 82%, transparent);
+  --dx-panel-translucent: color-mix(in srgb, #070b14 75%, transparent);
+  --dx-ticker-item-bg: color-mix(in srgb, #111827 72%, transparent);
+  --dx-overlay: color-mix(in srgb, #030712 72%, transparent);
+  --dx-drawer-overlay: color-mix(in srgb, #030712 65%, transparent);
+
+  --dx-shadow-1: 0 1px 2px color-mix(in srgb, #030712 50%, transparent),
+    0 8px 24px -18px color-mix(in srgb, #030712 90%, transparent);
+  --dx-shadow-2: 0 14px 34px -16px color-mix(in srgb, #030712 85%, transparent);
+  --dx-shadow-3: 0 32px 80px -28px color-mix(in srgb, #030712 95%, transparent);
+
   color-scheme: dark;
+}
+
+// -----------------------------------------------------------------------------
+// Derived tokens — theme independent, they follow whichever palette is active.
+// -----------------------------------------------------------------------------
+:root {
+  --dx-border: color-mix(in srgb, var(--dx-ink) 18%, transparent);
+  --dx-border-strong: color-mix(in srgb, var(--dx-ink) 38%, transparent);
+
+  --dx-accent-soft: color-mix(in srgb, var(--dx-accent) 12%, transparent);
+  --dx-accent-soft-2: color-mix(in srgb, var(--dx-accent-2) 12%, transparent);
+  --dx-accent-line: color-mix(in srgb, var(--dx-accent) 35%, transparent);
+  --dx-accent-line-strong: color-mix(in srgb, var(--dx-accent) 45%, transparent);
+
+  --dx-up-soft: color-mix(in srgb, var(--dx-up) 12%, transparent);
+  --dx-up-line: color-mix(in srgb, var(--dx-up) 35%, transparent);
+  --dx-down-soft: color-mix(in srgb, var(--dx-down) 12%, transparent);
+  --dx-down-line: color-mix(in srgb, var(--dx-down) 36%, transparent);
+  --dx-warn-soft: color-mix(in srgb, var(--dx-warn) 12%, transparent);
+  --dx-warn-line: color-mix(in srgb, var(--dx-warn) 36%, transparent);
+  --dx-info-soft: color-mix(in srgb, var(--dx-info) 12%, transparent);
+  --dx-info-line: color-mix(in srgb, var(--dx-info) 35%, transparent);
+  --dx-muted-soft: color-mix(in srgb, var(--dx-muted) 10%, transparent);
+  --dx-muted-line: color-mix(in srgb, var(--dx-muted) 30%, transparent);
+  --dx-grid-line: color-mix(in srgb, var(--dx-ink) 7%, transparent);
 }
 
 body {
@@ -197,7 +289,7 @@ body {
 }
 
 .dx-section-band {
-  background: linear-gradient(180deg, rgba(21, 31, 51, 0.55), rgba(7, 11, 20, 0));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dx-surface-2) 55%, transparent), transparent);
   border-top: 1px solid var(--dx-border);
   border-bottom: 1px solid var(--dx-border);
 }
@@ -307,7 +399,7 @@ a.dx-card,
 .dx-card-foot {
   padding: var(--dx-sp-3) var(--dx-sp-5);
   border-top: 1px solid var(--dx-border);
-  background: rgba(11, 17, 31, 0.5);
+  background: color-mix(in srgb, var(--dx-bg-2) 50%, transparent);
 }
 
 .dx-card-accent {
@@ -321,8 +413,8 @@ a.dx-card,
 }
 
 .dx-card-live {
-  border-color: rgba(23, 199, 165, 0.4);
-  box-shadow: var(--dx-shadow-1), 0 0 0 1px rgba(23, 199, 165, 0.12) inset;
+  border-color: var(--dx-accent-line-strong);
+  box-shadow: var(--dx-shadow-1), 0 0 0 1px var(--dx-accent-soft) inset;
 }
 
 .dx-card-inset {
@@ -515,7 +607,7 @@ a.dx-card,
   gap: var(--dx-sp-3);
   padding: var(--dx-sp-3) var(--dx-sp-4);
   border-top: 1px solid var(--dx-border);
-  background: rgba(11, 17, 31, 0.55);
+  background: color-mix(in srgb, var(--dx-bg-2) 55%, transparent);
 }
 
 .dx-page-btn {
@@ -539,7 +631,7 @@ a.dx-card,
 
   &.is-active {
     background: var(--dx-accent-soft);
-    border-color: rgba(23, 199, 165, 0.45);
+    border-color: var(--dx-accent-line-strong);
     color: var(--dx-accent);
     font-weight: 650;
   }
@@ -613,56 +705,56 @@ a.dx-card,
 
 .dx-chip-up {
   color: var(--dx-up);
-  background: rgba(23, 199, 165, 0.12);
-  border-color: rgba(23, 199, 165, 0.35);
+  background: var(--dx-accent-soft);
+  border-color: var(--dx-accent-line);
 }
 
 .dx-chip-down {
   color: var(--dx-down);
-  background: rgba(255, 77, 106, 0.12);
-  border-color: rgba(255, 77, 106, 0.35);
+  background: var(--dx-down-soft);
+  border-color: var(--dx-down-line);
 }
 
 .dx-chip-warn {
   color: var(--dx-warn);
-  background: rgba(255, 176, 32, 0.12);
-  border-color: rgba(255, 176, 32, 0.35);
+  background: var(--dx-warn-soft);
+  border-color: var(--dx-warn-line);
 }
 
 .dx-chip-info {
   color: var(--dx-info);
-  background: rgba(90, 169, 255, 0.12);
-  border-color: rgba(90, 169, 255, 0.35);
+  background: var(--dx-info-soft);
+  border-color: var(--dx-info-line);
 }
 
 .dx-chip-accent {
   color: var(--dx-accent);
   background: var(--dx-accent-soft);
-  border-color: rgba(23, 199, 165, 0.35);
+  border-color: var(--dx-accent-line);
 }
 
 .dx-chip-muted {
   color: var(--dx-muted);
-  background: rgba(127, 141, 171, 0.1);
-  border-color: rgba(127, 141, 171, 0.28);
+  background: var(--dx-muted-soft);
+  border-color: var(--dx-muted-line);
 }
 
 .dx-risk-low {
   color: var(--dx-risk-low);
-  background: rgba(23, 199, 165, 0.12);
-  border-color: rgba(23, 199, 165, 0.35);
+  background: var(--dx-accent-soft);
+  border-color: var(--dx-accent-line);
 }
 
 .dx-risk-med {
   color: var(--dx-risk-med);
-  background: rgba(255, 176, 32, 0.12);
-  border-color: rgba(255, 176, 32, 0.38);
+  background: var(--dx-warn-soft);
+  border-color: var(--dx-warn-line);
 }
 
 .dx-risk-high {
   color: var(--dx-risk-high);
-  background: rgba(255, 77, 106, 0.12);
-  border-color: rgba(255, 77, 106, 0.38);
+  background: var(--dx-down-soft);
+  border-color: var(--dx-down-line);
 }
 
 .dx-dot {
@@ -738,7 +830,7 @@ a.dx-card,
 
 @keyframes dx-flash-up {
   from {
-    background-color: rgba(23, 199, 165, 0.22);
+    background-color: color-mix(in srgb, var(--dx-accent) 22%, transparent);
   }
 
   to {
@@ -748,7 +840,7 @@ a.dx-card,
 
 @keyframes dx-flash-down {
   from {
-    background-color: rgba(255, 77, 106, 0.22);
+    background-color: color-mix(in srgb, var(--dx-down) 22%, transparent);
   }
 
   to {
@@ -843,7 +935,7 @@ a.dx-card,
   padding: 6px 10px;
   border-radius: var(--dx-r-sm);
   border: 1px solid var(--dx-border);
-  background: rgba(17, 24, 39, 0.72);
+  background: var(--dx-ticker-item-bg);
   font-size: 0.8rem;
   white-space: nowrap;
 }
@@ -912,24 +1004,24 @@ a.dx-card,
 }
 
 .dx-btn-primary {
-  background: linear-gradient(135deg, var(--dx-accent), #12a98c);
+  background: linear-gradient(135deg, var(--dx-accent), var(--dx-accent-strong));
   border-color: transparent;
-  color: #04140f;
+  color: var(--dx-on-accent);
   box-shadow: 0 10px 26px -14px var(--dx-glow);
 
   &:hover {
-    background: linear-gradient(135deg, #1ad8b4, var(--dx-accent));
-    color: #04140f;
+    background: linear-gradient(135deg, var(--dx-accent-hover), var(--dx-accent));
+    color: var(--dx-on-accent);
   }
 }
 
 .dx-btn-blue {
-  background: linear-gradient(135deg, var(--dx-accent-2), #4f6fe8);
+  background: linear-gradient(135deg, var(--dx-accent-2), var(--dx-accent-2-strong));
   border-color: transparent;
-  color: #05091a;
+  color: var(--dx-on-accent-2);
 
   &:hover {
-    color: #05091a;
+    color: var(--dx-on-accent-2);
     filter: brightness(1.06);
   }
 }
@@ -946,12 +1038,12 @@ a.dx-card,
 }
 
 .dx-btn-danger {
-  background: rgba(255, 77, 106, 0.14);
-  border-color: rgba(255, 77, 106, 0.4);
+  background: var(--dx-down-soft);
+  border-color: color-mix(in srgb, var(--dx-down) 40%, transparent);
   color: var(--dx-down);
 
   &:hover {
-    background: rgba(255, 77, 106, 0.22);
+    background: color-mix(in srgb, var(--dx-down) 22%, transparent);
     color: var(--dx-down);
   }
 }
@@ -1047,7 +1139,7 @@ a.dx-card,
 
   &.is-invalid {
     border-color: var(--dx-down);
-    box-shadow: 0 0 0 3px rgba(255, 77, 106, 0.16);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dx-down) 16%, transparent);
   }
 }
 
@@ -1150,7 +1242,7 @@ a.dx-card,
 
   &.is-active {
     background: var(--dx-accent-soft);
-    border-color: rgba(23, 199, 165, 0.45);
+    border-color: var(--dx-accent-line-strong);
     color: var(--dx-accent);
   }
 }
@@ -1213,7 +1305,7 @@ a.dx-card,
 
   input:checked + .dx-switch-track {
     background: var(--dx-accent-soft);
-    border-color: rgba(23, 199, 165, 0.5);
+    border-color: color-mix(in srgb, var(--dx-accent) 50%, transparent);
 
     &::after {
       transform: translateX(18px);
@@ -1280,7 +1372,7 @@ a.dx-card,
   position: fixed;
   inset: 0;
   z-index: 1080;
-  background: rgba(3, 7, 18, 0.72);
+  background: var(--dx-overlay);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-start;
@@ -1349,7 +1441,7 @@ a.dx-card,
   gap: var(--dx-sp-4);
   padding: var(--dx-sp-5);
   border-bottom: 1px solid var(--dx-border);
-  background: linear-gradient(180deg, rgba(27, 39, 64, 0.65), transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dx-surface-3) 65%, transparent), transparent);
 }
 
 .dx-dialog-title {
@@ -1379,7 +1471,7 @@ a.dx-card,
   gap: var(--dx-sp-3);
   padding: var(--dx-sp-4) var(--dx-sp-5);
   border-top: 1px solid var(--dx-border);
-  background: rgba(11, 17, 31, 0.6);
+  background: color-mix(in srgb, var(--dx-bg-2) 60%, transparent);
 }
 
 .dx-x-btn {
@@ -1404,7 +1496,7 @@ a.dx-card,
   position: fixed;
   inset: 0;
   z-index: 1090;
-  background: rgba(3, 7, 18, 0.65);
+  background: var(--dx-drawer-overlay);
   backdrop-filter: blur(4px);
   animation: dx-fade var(--dx-t) var(--dx-ease);
 }
@@ -1508,7 +1600,7 @@ a.dx-card,
     color: var(--dx-down);
 
     &:hover {
-      background: rgba(255, 77, 106, 0.14);
+      background: var(--dx-down-soft);
       color: var(--dx-down);
     }
   }
@@ -1636,7 +1728,7 @@ a.dx-card,
   color: var(--dx-text-dim);
 
   .dx-step-dot {
-    border-color: rgba(23, 199, 165, 0.5);
+    border-color: color-mix(in srgb, var(--dx-accent) 50%, transparent);
     background: var(--dx-accent-soft);
     color: var(--dx-accent);
   }
@@ -1863,13 +1955,13 @@ a.dx-card,
 }
 
 .dx-code {
-  background: var(--dx-bg-2);
+  background: var(--dx-code-bg);
   border: 1px solid var(--dx-border);
   border-radius: var(--dx-r);
   padding: var(--dx-sp-4);
   font-family: var(--dx-font-display);
   font-size: 0.78rem;
-  color: var(--dx-text-dim);
+  color: var(--dx-code-text);
   overflow-x: auto;
   margin: 0;
   line-height: 1.65;
@@ -1956,7 +2048,7 @@ a.dx-card,
   padding: 0 5px;
   border-radius: var(--dx-r-pill);
   background: var(--dx-accent);
-  color: #04140f;
+  color: var(--dx-on-accent);
   font-size: 0.66rem;
   font-weight: 700;
   font-family: var(--dx-font-display);

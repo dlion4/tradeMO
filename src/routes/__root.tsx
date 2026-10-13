@@ -45,8 +45,18 @@ export const Route = rootFactory({
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-bs-theme="dark">
+    // LIGHT IS THE DEFAULT: no data-bs-theme attribute means Bootstrap's light
+    // palette, and :root in tokens.scss carries the light design tokens. The
+    // inline script below restores a stored dark choice before the first paint
+    // (React never renders the attribute, so hydration cannot fight it).
+    <html lang="en">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(localStorage.getItem("dx-theme")==="dark"){var e=document.documentElement;e.setAttribute("data-bs-theme","dark");e.setAttribute("data-dx-theme","dark")}}catch(e){}',
+          }}
+        />
         <HeadContent />
       </head>
       <body>

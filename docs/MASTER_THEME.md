@@ -8,32 +8,70 @@
 
 ## §1 Color tokens (`src/styles/tokens.scss`)
 
-Dark trading-floor palette, Bootstrap 5.3 `data-bs-theme="dark"` native.
+**LIGHT IS THE DEFAULT THEME** (a first-time visitor lands on the light palette); the dark trading-floor
+palette is the alternate, applied by putting `data-bs-theme="dark"` on `<html>`. Both palettes declare the
+*same* token names, so no component knows or cares which theme is active. Bootstrap 5.3 reads the same
+attribute, so Bootstrap's own variables flip with ours.
 
-| Token | Use |
-| --- | --- |
-| `--dx-bg` | app background (deep navy-black) |
-| `--dx-bg-2` | inset / sunken panels |
-| `--dx-surface` | card + panel surface |
-| `--dx-surface-2` | raised surface (dialogs, drawers, popovers) |
-| `--dx-surface-3` | hover surface / table stripe |
-| `--dx-border` | 1px hairline borders |
-| `--dx-border-strong` | focus + active borders |
-| `--dx-text` | primary text |
-| `--dx-text-dim` | secondary text |
-| `--dx-muted` | labels, meta, helper text |
-| `--dx-accent` | brand teal (primary actions, live state) |
-| `--dx-accent-2` | indigo-blue (secondary actions, links) |
-| `--dx-accent-soft` | accent tint fills (chips, bars) |
-| `--dx-up` | long / win / profit (**risk-low**) |
-| `--dx-down` | short / loss (**risk-high**) |
-| `--dx-warn` | pending, margin call, elevated risk |
-| `--dx-info` | neutral information, sync state |
-| `--dx-risk-low` `--dx-risk-med` `--dx-risk-high` | risk scale used by `.dx-risk-*` |
-| `--dx-glow` | focus ring / live glow |
+| Token | Use | light | dark |
+| --- | --- | --- | --- |
+| `--dx-bg` | app background | `#f5f7fb` | `#070b14` |
+| `--dx-bg-2` | inset / sunken panels | `#eaeff7` | `#0b111f` |
+| `--dx-surface` | card + panel surface | `#ffffff` | `#111827` |
+| `--dx-surface-2` | raised surface (dialogs, drawers, popovers) | `#f3f6fc` | `#151f33` |
+| `--dx-surface-3` | hover surface / table stripe | `#e7edf8` | `#1b2740` |
+| `--dx-ink` | border + shadow ink (alpha-mixed below) | `#16223a` | `#94afe2` |
+| `--dx-border` | 1px hairline borders | 18% ink | 14% ink |
+| `--dx-border-strong` | focus + active borders | 38% ink | 32% ink |
+| `--dx-text` | primary text | `#0f172a` | `#e9eefb` |
+| `--dx-text-dim` | secondary text | `#3d4a62` | `#b3c0d9` |
+| `--dx-muted` | labels, meta, helper text | `#5b6a86` | `#7f8dab` |
+| `--dx-accent` | brand teal (primary actions, live state) | `#0a7365` | `#17c7a5` |
+| `--dx-accent-2` | indigo-blue (secondary actions, links) | `#3a55d6` | `#6c8cff` |
+| `--dx-accent-strong` | primary-button gradient end | `#086655` | `#12a98c` |
+| `--dx-accent-hover` | primary-button hover start | `#08695a` | `#1ad8b4` |
+| `--dx-accent-2-strong` | secondary-button gradient end | `#3247bd` | `#4f6fe8` |
+| `--dx-on-accent` | ink **on** a solid teal fill (buttons, badges, brand mark) | `#f2fffb` | `#04140f` |
+| `--dx-on-accent-2` | ink **on** a solid indigo fill | `#f7f9ff` | `#05091a` |
+| `--dx-accent-soft` `--dx-accent-soft-2` | accent tint fills (chips, bars, hero wash) | 12% accent | 12% accent |
+| `--dx-accent-line` `--dx-accent-line-strong` | accent hairlines / focus tints | 35% / 45% | 35% / 45% |
+| `--dx-*-soft` `--dx-*-line` | semantic tint fills + hairlines (`up/down/warn/info/muted`) | 10–12% | 10–12% |
+| `--dx-grid-line` | hero/panel grid wash | 7% ink | 7% ink |
+| `--dx-up` | long / win / profit (**risk-low**) | `#0a7660` | `#17c7a5` |
+| `--dx-down` | short / loss (**risk-high**) | `#c62843` | `#ff4d6a` |
+| `--dx-warn` | pending, margin call, elevated risk | `#8a5a00` | `#ffb020` |
+| `--dx-info` | neutral information, sync state | `#1d5ec7` | `#5aa9ff` |
+| `--dx-risk-low` `--dx-risk-med` `--dx-risk-high` | risk scale used by `.dx-risk-*` | = up / warn / down | = up / warn / down |
+| `--dx-glow` | focus ring / live glow | 38% accent | 55% accent |
+| `--dx-nav-bg` | sticky nav backdrop (translucent) | white 84% | `#070b14` 82% |
+| `--dx-panel-translucent` | floating panels over content | surface 78% | `#070b14` 75% |
+| `--dx-ticker-item-bg` | ticker pill fill | surface 72% | `#111827` 72% |
+| `--dx-overlay` `--dx-drawer-overlay` | modal / drawer scrims | slate 34% / 28% | `#030712` 72% / 65% |
+| `--dx-shadow-1/2/3` | elevation ladder (alpha-mixed `--dx-ink`) | light | deep |
+| `--dx-code-bg` `--dx-code-text` | `.dx-code` blocks — **intentionally dark in both themes** | `#0f1a2e` / `#dfe8f6` | same |
 
 Semantic rule: **green = money in, red = money out, amber = waiting, blue = information.**
 Never use raw color words inside components.
+
+**Token law (enforced by `npm run smoke`)**
+
+1. The two palette blocks (`:root` = light, `[data-bs-theme="dark"]` = dark) are the **only** places in the
+   codebase where a colour literal may appear. Every other rule uses `var(--dx-*)` or
+   `color-mix(in srgb, var(--dx-…) N%, transparent)`; the smoke theme guard fails the run if a
+   `background:`/`color:`/`border*:` rule carries a hex or `rgba()` again.
+2. Light is declared **first** so the dark block wins by source order at equal specificity (`:root` and
+   the attribute selector are both 0-1-0). The guard also checks that ordering.
+3. Theme-dependent chrome (nav backdrop, scrims, ticker pills, elevation) is a token, never an inline
+   colour, so a new theme is a token block and nothing else.
+4. Contrast: every text token clears WCAG AA (4.5:1) on both `--dx-bg` and `--dx-surface` in both themes;
+   solid brand fills use `--dx-on-accent*` ink, which is near-white in light (fills are deep there) and
+   near-black in dark (fills are bright there).
+
+**Switching themes** — `useTheme()` / `applyTheme()` / `ThemeToggle` live in `src/components/ui/primitives.tsx`
+(storage key `dx-theme`, `readTheme()` treats anything that is not `dark` as light). The toggle is rendered in
+the marketing nav and the footer. `src/routes/__root.tsx` ships a tiny **pre-paint** inline script that restores
+a stored `dark` choice before first paint, so returning dark users never see a light flash; React never renders
+the attribute, which is what keeps hydration clean. **Never default the attribute back onto `<html>`.**
 
 ## §2 Typography
 
@@ -151,6 +189,7 @@ Class inventory is defined in `src/styles/tokens.scss` (grep `^\.dx-` there). Ad
 | 2026-10-13 | `.dx-meter`, `.dx-meter-bar` | H-1 feature/plan/backtest capability meters | shared |
 | 2026-10-13 | `.dx-card-inset-value` | single emphasised value inside an inset card (wizard receipts, KV blocks) | shared (§5) |
 | 2026-10-13 | `.dx-step-*`, `.dx-tabs`, `.dx-minitabs`, `.dx-dd-*` | overlay + wizard primitive styling | shared (§10) |
+| 2026-10-13 | *(no new classes)* `ThemeToggle` | light default: token-layer split + nav/footer theme switch (button reuses `.dx-btn .dx-btn-sm .dx-btn-ghost`) | shared (§1) |
 
 ---
 
@@ -165,10 +204,10 @@ Pages compose them; pages never re-implement them.
 
 **Stack pins** (installed and verified together): Vite 8.3.4 · React 19.3.0 · `@tanstack/react-start` 1.169.1 ·
 `@tanstack/react-router` 1.170.44 · `@tanstack/router-plugin` 1.168.45 (pulled in by Start) ·
-Bootstrap 5.3 (CSS only, dark mode via `data-bs-theme="dark"`) · Sass 1.105 · lucide-react · TypeScript 5.9.
+Bootstrap 5.3 (CSS only, themed through `data-bs-theme="dark"` — set only for the dark alternate) · Sass 1.105 · lucide-react · TypeScript 5.9.
 
 **Scripts**: `npm run dev` (Vite dev server on `0.0.0.0:5173`) · `npm run build` · `npm run preview` ·
-`npm run typecheck` · `npm run smoke`.
+`npm run typecheck` · `npm run smoke` (module-graph guard + **theme guard** + jsdom hydration/click fuzz).
 
 **Route tree**: `src/routeTree.gen.ts` is owned by the TanStack Start plugin — it is written on dev-server start
 and whenever routes are added/removed, including a type-only footer that registers the router with Start

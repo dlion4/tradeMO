@@ -27,7 +27,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 1040;
-  background: rgba(7, 11, 20, 0.82);
+  background: var(--dx-nav-bg);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--dx-border);
 }
@@ -60,7 +60,7 @@ body {
   height: 32px;
   border-radius: 10px;
   background: linear-gradient(135deg, var(--dx-accent), var(--dx-accent-2));
-  color: #04140f;
+  color: var(--dx-on-accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -127,7 +127,7 @@ body {
 }
 
 .dx-nav-banner {
-  background: linear-gradient(90deg, rgba(23, 199, 165, 0.14), rgba(108, 140, 255, 0.14));
+  background: linear-gradient(90deg, var(--dx-accent-soft), var(--dx-accent-soft-2));
   border-bottom: 1px solid var(--dx-border);
   font-size: 0.78rem;
   color: var(--dx-text-dim);
@@ -209,8 +209,8 @@ body {
   place-items: center;
   padding: var(--dx-sp-6) var(--dx-sp-4);
   background:
-    radial-gradient(900px 480px at 12% -10%, rgba(23, 199, 165, 0.12), transparent 65%),
-    radial-gradient(760px 420px at 92% 8%, rgba(108, 140, 255, 0.12), transparent 62%),
+    radial-gradient(900px 480px at 12% -10%, var(--dx-accent-soft), transparent 65%),
+    radial-gradient(760px 420px at 92% 8%, var(--dx-accent-soft-2), transparent 62%),
     var(--dx-bg);
 }
 
@@ -243,7 +243,7 @@ body {
   gap: var(--dx-sp-3);
   padding: var(--dx-sp-3) var(--dx-sp-4);
   border-bottom: 1px solid var(--dx-border);
-  background: rgba(11, 17, 31, 0.75);
+  background: color-mix(in srgb, var(--dx-bg-2) 75%, transparent);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;

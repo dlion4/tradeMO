@@ -30,6 +30,24 @@ for (const id of MODULES) {
 }
 
 const html = await (await fetch(`${base}/`)).text();
+
+// ---- 1b) theme guard: LIGHT IS THE DEFAULT --------------------------------
+// The document shell must not hard-code data-bs-theme="dark" (that would make a
+// first-time visitor land on the dark palette), must carry the pre-paint
+// restore script, and the tokens layer must ship both palettes.
+const themeFailures = [];
+const htmlTag = html.match(/<html[^>]*>/)?.[0] ?? "";
+if (/data-bs-theme="dark"/.test(htmlTag)) themeFailures.push(`document shell renders ${htmlTag} — light must be the default`);
+if (!/localStorage\.getItem\("dx-theme"\)/.test(html)) themeFailures.push("pre-paint theme restore script missing from <head>");
+const css = await (await fetch(`${base}/src/styles/global.scss?direct`)).text();
+const lightAt = css.search(/--dx-bg:\s*#f5f7fb/);
+// the CSS pipeline strips the quotes from the attribute selector → allow both
+const darkAt = css.search(/\[\s*data-bs-theme=(?:"dark"|dark)\s*\]\s*\{[^}]*--dx-bg:\s*#070b14/);
+if (lightAt < 0) themeFailures.push("light --dx-bg token missing from tokens.scss");
+if (darkAt < 0) themeFailures.push("dark --dx-bg token missing from the [data-bs-theme=\"dark\"] block");
+if (lightAt >= 0 && darkAt >= 0 && lightAt > darkAt) themeFailures.push("dark palette is declared before the light one — the default would flip");
+const literalRules = (css.match(/^\s*(background|color|border[\w-]*):\s*(#[0-9a-f]{3,8}|rgba?\()/gim) ?? []).length;
+if (literalRules > 0) themeFailures.push(`${literalRules} colour literal(s) outside the palette blocks — tokenise them`);
 const start = html.indexOf('<div id="app-root">') + '<div id="app-root">'.length;
 const end = html.lastIndexOf("</div><script");
 const ssr = html.slice(start, end);
@@ -98,10 +116,18 @@ if (moduleFailures.length) {
 } else {
   console.log(`module graph: ${MODULES.length}/${MODULES.length} dev modules served clean`);
 }
+if (themeFailures.length) {
+  console.log("THEME GUARD BROKEN:");
+  for (const f of themeFailures) console.log(" ✗", f);
+} else {
+  console.log("theme: light default + dark override present, pre-paint restore wired");
+}
 console.log(`console messages: ${significant.length}`);
 for (const m of significant.slice(0, 40)) console.log(" •", m.slice(0, 400));
 console.log(`\nclick-phase errors: ${result.errors.length}`);
 for (const e of result.errors) console.log(" ✗", e.slice(0, 400));
+console.log("\ntheme toggle:");
+for (const l of result.themeLog ?? []) console.log("   ", l);
 console.log(`\ndom: sections=${window.document.querySelectorAll(".dx-section").length} nav=${window.document.querySelectorAll(".dx-nav").length} controls=${result.controls}`);
 console.log("overlay opens per control:");
 for (const d of result.dialogs) console.log("   ", d);
@@ -117,4 +143,4 @@ const fp = window.__firstPaint;
 console.log("\nhydration check (ssr markup vs first client paint):");
 console.log("  ", fp ? (fp.same ? `identical (${fp.ssrLen} chars)` : `DIFFERENT — ${fp.firstDiff.join(" | ")}`) : "not captured");
 console.log("ssr/csr text check:", result.textDiff.length ? result.textDiff.join("\n") : "identical");
-process.exit(significant.length || result.errors.length || moduleFailures.length ? 1 : 0);
+process.exit(significant.length || result.errors.length || moduleFailures.length || themeFailures.length ? 1 : 0);
