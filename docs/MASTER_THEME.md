@@ -210,10 +210,12 @@ Bootstrap 5.3 (CSS only, themed through `data-bs-theme="dark"` — set only for 
 `npm run typecheck` · `npm run smoke` (module-graph guard + **theme guard** + jsdom hydration/click fuzz).
 
 **Route tree**: `src/routeTree.gen.ts` is owned by the TanStack Start plugin — it is written on dev-server start
-and whenever routes are added/removed, including a type-only footer that registers the router with Start
-(`declare module '@tanstack/react-start'`). Never run the standalone router CLI (`tsr generate`) here: it emits the
-file **without that footer**, so the plugin then rewrites the file and every reload churns the module graph.
-Never hand-edit the file either.
+and whenever routes are added/removed. Two legitimate shapes exist and both build:
+the **dev** plugin appends the type-only footer that registers the router with Start
+(`declare module '@tanstack/react-start'`), while `vite build` rewrites the file **without** it. So
+`git status` showing the file as modified right after a production build is expected — the next `npm run dev`
+restores the footer. Never run the standalone router CLI (`tsr generate`) here (its output makes the plugin
+rewrite the file on every reload, churning the module graph), and never hand-edit the file.
 
 **`vite.config.ts` requirements**
 1. `tanstackStart()` must be declared **before** `@vitejs/plugin-react` — the router plugin asserts this order in
