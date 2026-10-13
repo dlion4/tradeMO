@@ -194,13 +194,11 @@ Fix applied in this repo:
    `createRootRoute as rootFactory` — so the splitter's code filter no longer matches them
    (`src/routes/index.tsx`, `src/routes/home.tsx`, `src/routes/__root.tsx`). The route id/path still come from the
    file name through `routeTree.gen.ts`; nothing else changes.
-2. Route-level code splitting is declared **by hand** in the route module:
-   `const Page = lazyRouteComponent(() => import("..."), "Page")` → `dist/client/assets/LandingPage-*.js` plus the
-   page-scoped CSS still ship as their own chunk.
-3. `tools/smoke/run.mjs` probes the exact dev modules the browser requests (`/src/routes/*.tsx`, the router entry,
-   the page component and its SCSS) and fails the run on any non-200 or transform error, so this class of bug
-   cannot come back unnoticed. **After adding any route, run `npm run smoke`.**
-
+2. Page components stay **static imports** referenced directly by the route factory call
+   (`component: LandingPage`). `lazyRouteComponent(() => import("..."))` was tried and reverted: the dev SSR
+   stream does not await the lazily imported chunk and served a ~3 kB skeleton instead of the rendered page.
+   The landing chunk therefore ships inside the entry bundle (`dist/client/assets/index-*.js`); the page-scoped
+   CSS still loads through its own route import.
 Consequence: route files fall back to a full page reload for HMR (they no longer take part in the router's
 route-level hot accept). Edit-and-reload still works; dev server restarts are not needed.
 
