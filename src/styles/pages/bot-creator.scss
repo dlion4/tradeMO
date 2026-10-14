@@ -1,0 +1,182 @@
+/* =============================================================================
+   D-5 Bot creator / config — page-scoped styles only (docs/MASTER_THEME.md §12).
+   Root class: .page-bot-new. Tokens only, no literals outside tokens.scss.
+   Imported by the D-5 route modules only.
+   ============================================================================= */
+.page-bot-new {
+  /* ---- selectable strategy cards (step 2) ---- */
+  .dx-strategy-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+    text-align: left;
+    padding: var(--dx-sp-4);
+    border: 1px solid var(--dx-border);
+    border-radius: var(--dx-r-lg);
+    background: var(--dx-surface);
+    color: inherit;
+    transition: transform var(--dx-t), box-shadow var(--dx-t), border-color var(--dx-t);
+    min-height: 132px;
+  }
+  .dx-strategy-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--dx-shadow-2);
+    border-color: var(--dx-border-strong);
+  }
+  .dx-strategy-card:focus-visible {
+    outline: 2px solid var(--dx-accent);
+    outline-offset: 2px;
+  }
+  .dx-strategy-card.is-selected {
+    border-color: var(--dx-accent-line-strong);
+    box-shadow: var(--dx-shadow-2);
+    background: color-mix(in srgb, var(--dx-accent) 6%, var(--dx-surface));
+  }
+  .dx-strategy-card.is-selected::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    border-radius: var(--dx-r-lg) 0 0 var(--dx-r-lg);
+    background: var(--dx-accent);
+  }
+  .dx-strategy-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--dx-r-pill);
+    background: var(--dx-accent-soft);
+    color: var(--dx-accent);
+    flex: 0 0 auto;
+  }
+  .dx-strategy-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .dx-strategy-tagline {
+    font-size: 0.82rem;
+    color: var(--dx-text-dim);
+  }
+  .dx-strategy-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: auto;
+  }
+
+  /* ---- wizard scaffolding ---- */
+  .dx-step-panel {
+    min-height: 420px;
+  }
+  .dx-wizard-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    border-top: 1px solid var(--dx-border);
+    padding-top: var(--dx-sp-4);
+    margin-top: var(--dx-sp-4);
+  }
+  .dx-wizard-bar .dx-wizard-hint {
+    flex: 1 1 180px;
+    min-width: 150px;
+  }
+
+  /* ---- symbol quote block ---- */
+  .dx-symbol-quote {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: var(--dx-sp-3) var(--dx-sp-4);
+    border: 1px solid var(--dx-border);
+    border-radius: var(--dx-r);
+    background: var(--dx-bg-2);
+  }
+  .dx-symbol-quote-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .dx-symbol-quote-meta {
+    font-size: 0.78rem;
+    color: var(--dx-muted);
+  }
+
+  /* ---- recovery ladder ---- */
+  .dx-ladder {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .dx-ladder-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 84px;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.82rem;
+  }
+  .dx-ladder-bar {
+    height: 10px;
+    border-radius: var(--dx-r-pill);
+    background: var(--dx-accent-soft);
+    position: relative;
+    overflow: hidden;
+  }
+  .dx-ladder-bar span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: var(--dx-r-pill);
+    background: var(--dx-accent);
+  }
+  .dx-ladder-row.is-breach .dx-ladder-bar span {
+    background: var(--dx-warn);
+  }
+  .dx-ladder-row.is-over .dx-ladder-bar span {
+    background: var(--dx-down);
+  }
+  .dx-ladder-value {
+    text-align: right;
+    font-weight: 600;
+  }
+
+  /* ---- key/value summary rows ---- */
+  .dx-kv {
+    display: grid;
+    grid-template-columns: minmax(120px, 40%) 1fr;
+    gap: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .dx-kv dt {
+    color: var(--dx-muted);
+    font-weight: 500;
+  }
+  .dx-kv dd {
+    margin: 0;
+    text-align: right;
+  }
+
+  /* ---- live strip (review step) ---- */
+  .dx-live-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: var(--dx-sp-3) var(--dx-sp-4);
+    border: 1px solid var(--dx-accent-line);
+    border-radius: var(--dx-r);
+    background: var(--dx-accent-soft);
+  }
+
+  @media (max-width: 575.98px) {
+    .dx-ladder-row {
+      grid-template-columns: 38px 1fr 74px;
+    }
+    .dx-step-panel {
+      min-height: 0;
+    }
+  }
+}

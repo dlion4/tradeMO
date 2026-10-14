@@ -6,6 +6,10 @@
 // =============================================================================
 import {
   MARKET_SYMBOLS,
+  fmtDur,
+  mulberry32,
+  seedFrom,
+  usd,
   type ContractTypeId,
   type DurationUnit,
 } from "./market";
@@ -2780,3 +2784,1217 @@ export const WATCHLISTS: Watchlist[] = [
   { id: "wl_02", name: "High Vol Synthetics", symbols: ["R_75", "R_100", "1HZ100V", "R_50"], note: "Scalper fleet hunting ground — tight caps." },
   { id: "wl_03", name: "Crypto watch", symbols: ["cryBTCUSD", "cryETHUSD"], note: "Weekend liquidity checks before sizing up." },
 ];
+
+// =============================================================================
+// PAGE D-5 — Bot Creator / Config
+// (/dashboard/bots/new · /dashboard/bots/:id/config)
+// FRONT-END ONLY. Feeds the configurator wizard: strategy templates, community
+// marketplace strategies, drafts, parameter sets, config audit trail, version
+// history, engine log tape, halted-symbol fallbacks and the deterministic
+// backtest / optimizer / Monte-Carlo maths. Shapes mirror the bot_jobs,
+// strategy_* and proposal payloads so the fetch layer can be swapped for the
+// live DerivWS socket without touching the wizard UI.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Strategy templates (STEP 2 cards — strategy.md presets, parameterised)
+// -----------------------------------------------------------------------------
+export type StrategyCategory = "preset" | "custom" | "ai";
+
+export interface StrategyParamDef {
+  key: string;
+  label: string;
+  kind: "number" | "select" | "text";
+  suffix?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: string[];
+  help: string;
+}
+
+export interface BotStrategyTemplate {
+  id: string;
+  name: string;
+  icon: "layers" | "trending-up" | "repeat" | "target" | "shield" | "spiral" | "code" | "brain";
+  category: StrategyCategory;
+  tagline: string;
+  description: string;
+  riskLevel: "low" | "medium" | "high";
+  markets: string[];
+  typicalDrawdown: number;
+  historicalWinRate: number;
+  recoveryPerLoss: number;
+  engineNote: string;
+  rules: string[];
+  defaultParams: Record<string, number | string>;
+  params: StrategyParamDef[];
+}
+
+export const BOT_STRATEGY_TEMPLATES: BotStrategyTemplate[] = [
+  {
+    id: "st_martingale",
+    name: "Martingale",
+    icon: "layers",
+    category: "preset",
+    tagline: "Double stake on loss",
+    description: "Multiplies the stake after every loss and resets it to the initial stake on a win. Fast recovery on Volatility indices, brutal if the losing streak outruns your cap.",
+    riskLevel: "high",
+    markets: ["synthetics", "forex"],
+    typicalDrawdown: -318.4,
+    historicalWinRate: 68.4,
+    recoveryPerLoss: 2.1,
+    engineNote: "Stake is recomputed client-side and re-validated by the engine before every proposal.",
+    rules: ["Stake × multiplier on a loss", "Reset to initial stake on a win", "Hard cap at max stake, halt at stop-loss"],
+    defaultParams: { multiplier: 2.1, onWin: "Reset to initial stake", onLoss: "Multiply stake", maxSteps: 5 },
+    params: [
+      { key: "multiplier", label: "Multiplier", kind: "number", suffix: "×", min: 1.1, max: 4, step: 0.1, help: "Stake growth per losing step." },
+      { key: "maxSteps", label: "Max steps", kind: "number", min: 1, max: 10, step: 1, help: "Losing steps before the bot halts for the day." },
+      { key: "onWin", label: "On win", kind: "select", options: ["Reset to initial stake", "Hold current stake", "Step down one level"], help: "What the ladder does after a winning contract." },
+      { key: "onLoss", label: "On loss", kind: "select", options: ["Multiply stake", "Add flat increment"], help: "Growth style for the next leg." },
+    ],
+  },
+  {
+    id: "st_fixed",
+    name: "Fixed Stake",
+    icon: "target",
+    category: "preset",
+    tagline: "Same stake every trade",
+    description: "Flat staking with no progression. The honest baseline — pair it with a directional filter and let the entry edge do the work.",
+    riskLevel: "low",
+    markets: ["synthetics", "forex", "crypto", "commodities", "indices"],
+    typicalDrawdown: -96.4,
+    historicalWinRate: 57.2,
+    recoveryPerLoss: 1,
+    engineNote: "No stake progression — the safest way to validate a new entry rule for a week.",
+    rules: ["Identical stake on every contract", "No recovery ladder", "Daily stop-loss only"],
+    defaultParams: { onWin: "Hold current stake", onLoss: "Hold current stake" },
+    params: [
+      { key: "onWin", label: "On win", kind: "select", options: ["Hold current stake", "Step up one level"], help: "Flat is the default; stepping up turns it into an anti-Martingale." },
+      { key: "onLoss", label: "On loss", kind: "select", options: ["Hold current stake", "Cooldown 1 cycle"], help: "Keep it flat or pause one cycle after a loss." },
+    ],
+  },
+  {
+    id: "st_dca",
+    name: "DCA / Average",
+    icon: "trending-up",
+    category: "preset",
+    tagline: "Lower average entry price",
+    description: "Adds legs while the market moves against the basket so the average entry improves. Best on index and crypto trends with generous expiry.",
+    riskLevel: "medium",
+    markets: ["indices", "crypto", "forex"],
+    typicalDrawdown: -642.9,
+    historicalWinRate: 61.7,
+    recoveryPerLoss: 1.25,
+    engineNote: "Basket exposure is capped by the engine before each additional leg is accepted.",
+    rules: ["One add-leg per step while in drawdown", "1.25× add step, max 4 legs", "Scales out at basket target P&L"],
+    defaultParams: { addStep: 1.25, maxLegs: 4, addTrigger: "-0.4% from average" },
+    params: [
+      { key: "addStep", label: "Add step", kind: "number", suffix: "×", min: 1, max: 3, step: 0.05, help: "Leg size relative to the previous leg." },
+      { key: "maxLegs", label: "Max legs", kind: "number", min: 2, max: 8, step: 1, help: "Hard basket cap." },
+      { key: "addTrigger", label: "Add trigger", kind: "select", options: ["-0.4% from average", "-1 ATR", "Every 20 ticks against basket"], help: "Distance that arms the next add." },
+    ],
+  },
+  {
+    id: "st_oscar",
+    name: "Oscar's Grind",
+    icon: "repeat",
+    category: "preset",
+    tagline: "Grind one unit at a time",
+    description: "Never increases the stake after a loss; only steps up one unit after a win until the session target is met. Slow, flat equity curve.",
+    riskLevel: "low",
+    markets: ["synthetics", "forex", "indices"],
+    typicalDrawdown: -142.8,
+    historicalWinRate: 64.1,
+    recoveryPerLoss: 1,
+    engineNote: "Session target is checked after every settlement; the engine resets the unit on hit.",
+    rules: ["Flat stake after a loss", "+1 unit after a win", "Stop the cycle at the session target"],
+    defaultParams: { unit: 0.35, sessionTarget: 25, maxCycles: 3 },
+    params: [
+      { key: "unit", label: "Unit size", kind: "number", suffix: "USD", min: 0.35, max: 50, step: 0.05, help: "One grind unit — the base stake." },
+      { key: "sessionTarget", label: "Session target", kind: "number", suffix: "USD", min: 1, max: 500, step: 1, help: "Cycle profit target before reset." },
+      { key: "maxCycles", label: "Max cycles", kind: "number", min: 1, max: 10, step: 1, help: "Cycles per day before the bot pauses." },
+    ],
+  },
+  {
+    id: "st_anti_martingale",
+    name: "Anti-Martingale",
+    icon: "shield",
+    category: "preset",
+    tagline: "Press winners, cut losers",
+    description: "Increases the stake while the bot is winning and steps back down on a loss. Compounding upside with a flatter left tail.",
+    riskLevel: "medium",
+    markets: ["synthetics", "crypto", "indices"],
+    typicalDrawdown: -228.6,
+    historicalWinRate: 59.8,
+    recoveryPerLoss: 0.5,
+    engineNote: "Win streaks are tracked per symbol so two bots on the same feed never share a ladder.",
+    rules: ["Stake × multiplier after a win", "Halve the stake after a loss", "Reset after 3 consecutive wins"],
+    defaultParams: { multiplier: 1.5, maxSteps: 4, resetAfterWins: 3 },
+    params: [
+      { key: "multiplier", label: "Win multiplier", kind: "number", suffix: "×", min: 1.1, max: 3, step: 0.1, help: "Press size after a win." },
+      { key: "maxSteps", label: "Max presses", kind: "number", min: 1, max: 8, step: 1, help: "Consecutive presses before a reset." },
+      { key: "resetAfterWins", label: "Reset after", kind: "number", suffix: "wins", min: 1, max: 10, step: 1, help: "Streak length that returns to the base stake." },
+    ],
+  },
+  {
+    id: "st_fibonacci",
+    name: "Fibonacci",
+    icon: "spiral",
+    category: "preset",
+    tagline: "Stake follows the sequence",
+    description: "Walks the Fibonacci ladder 1, 1, 2, 3, 5, 8 on losing runs and steps back two levels after a win. Gentler than Martingale, slower to recover.",
+    riskLevel: "high",
+    markets: ["synthetics", "forex"],
+    typicalDrawdown: -412.6,
+    historicalWinRate: 66.2,
+    recoveryPerLoss: 1.618,
+    engineNote: "The ladder is clamped to max stake, so the tail of the sequence shrinks rather than breaches your cap.",
+    rules: ["+1 Fibonacci level per loss", "Two levels back per win", "Ladder clamped to max stake"],
+    defaultParams: { levels: 8, baseStake: 0.35, stepBack: 2 },
+    params: [
+      { key: "levels", label: "Ladder depth", kind: "number", min: 3, max: 12, step: 1, help: "Sequence levels before halting." },
+      { key: "baseStake", label: "Base stake", kind: "number", suffix: "USD", min: 0.35, max: 25, step: 0.05, help: "First level of the sequence." },
+      { key: "stepBack", label: "Step back on win", kind: "number", min: 1, max: 4, step: 1, help: "Levels to unwind after a win." },
+    ],
+  },
+  {
+    id: "st_custom",
+    name: "Custom Script",
+    icon: "code",
+    category: "custom",
+    tagline: "Write your own entry logic",
+    description: "Point the bot at one of your sandboxed JavaScript strategies. Parameter edits stay in the form — no code changes needed.",
+    riskLevel: "medium",
+    markets: ["synthetics", "forex", "crypto", "commodities", "indices"],
+    typicalDrawdown: -284.4,
+    historicalWinRate: 58.4,
+    recoveryPerLoss: 1.2,
+    engineNote: "Scripts run in the VM2 sandbox; a lint pass must pass before the bot can be armed.",
+    rules: ["Engine calls api.buy() with your stake", "risk.assert() halts on breach", "Lint must be clean to arm"],
+    defaultParams: { scriptId: "scr_01", strictLint: "Yes" },
+    params: [
+      { key: "strictLint", label: "Strict lint", kind: "select", options: ["Yes", "Warn only"], help: "Block arming on lint errors." },
+    ],
+  },
+  {
+    id: "st_ai_adaptive",
+    name: "AI Adaptive",
+    icon: "brain",
+    category: "ai",
+    tagline: "ML-adjusted sizing",
+    description: "Size and direction adapt to realised volatility, recent win rate and session liquidity. Every adaptation is written to the config audit trail.",
+    riskLevel: "medium",
+    markets: ["synthetics", "forex", "crypto"],
+    typicalDrawdown: -196.2,
+    historicalWinRate: 63.4,
+    recoveryPerLoss: 1.35,
+    engineNote: "Adaptations are capped at ±35% of the configured stake and logged field-by-field.",
+    rules: ["Volatility-scaled stake", "Win-rate dampener", "Hard caps always win over the model"],
+    defaultParams: { aggressiveness: "Balanced", maxAdapt: 35, model: "vl-7 volatility mixer" },
+    params: [
+      { key: "aggressiveness", label: "Aggressiveness", kind: "select", options: ["Cautious", "Balanced", "Aggressive"], help: "How hard the model is allowed to size." },
+      { key: "maxAdapt", label: "Max adaptation", kind: "number", suffix: "%", min: 5, max: 50, step: 5, help: "Ceiling on any model-driven stake change." },
+      { key: "model", label: "Model", kind: "select", options: ["vl-7 volatility mixer", "vr-3 win-rate dampener", "dual: vl-7 + vr-3"], help: "Which tuned model drives the sizing." },
+    ],
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Community strategy marketplace (advanced feature #2 — one-click import)
+// -----------------------------------------------------------------------------
+export interface MarketplaceStrategy {
+  id: string;
+  name: string;
+  author: string;
+  authorTier: "verified" | "pro" | "member";
+  symbol: string;
+  contractType: ContractTypeId;
+  duration: number;
+  durationUnit: DurationUnit;
+  stake: number;
+  risk: "low" | "medium" | "high";
+  winRate: number;
+  maxDrawdown: number;
+  trades: number;
+  sharpe: number;
+  rating: number;
+  reviews: number;
+  imports: number;
+  price: number;
+  version: string;
+  category: StrategyCategory;
+  tags: string[];
+  description: string;
+  rules: string[];
+  updatedMin: number;
+}
+
+export const MARKETPLACE_STRATEGIES: MarketplaceStrategy[] = [
+  {
+    id: "mkt_01", name: "Vol10 Martingale Core", author: "Ade F.", authorTier: "verified", symbol: "R_10", contractType: "rise_fall",
+    duration: 5, durationUnit: "ticks", stake: 0.35, risk: "medium", winRate: 68.4, maxDrawdown: -318.4, trades: 4218, sharpe: 1.42,
+    rating: 4.8, reviews: 412, imports: 1840, price: 0, version: "7.2.1", category: "preset", tags: ["martingale", "synthetics", "ticks"],
+    description: "The classic 2.1× recovery ladder on Volatility 10 with a $50 stake cap and engine-enforced stop-loss. Tuned over 4,218 demo contracts.",
+    rules: ["5-tick Rise/Fall on R_10", "2.1× step after a loss, reset on a win", "Hard stake cap $50 · stop-loss $250"],
+    updatedMin: 140,
+  },
+  {
+    id: "mkt_02", name: "1s Accumulator Sniper", author: "Mina L.", authorTier: "pro", symbol: "1HZ10V", contractType: "accumulator",
+    duration: 5, durationUnit: "ticks", stake: 3, risk: "low", winRate: 82.1, maxDrawdown: -82.4, trades: 2864, sharpe: 1.88,
+    rating: 4.9, reviews: 268, imports: 2680, price: 0, version: "3.0.4", category: "preset", tags: ["accumulator", "1s-index", "range"],
+    description: "Rides the ±0.1% range on the 1-second Volatility 10 and exits on the first range break. One live accumulator at a time.",
+    rules: ["5-tick Accumulator, 3% growth rate", "Exit on the first range break", "Max 1 live accumulator at a time"],
+    updatedMin: 320,
+  },
+  {
+    id: "mkt_03", name: "Digit Differ 5 Sniper", author: "Jozef K.", authorTier: "verified", symbol: "R_25", contractType: "digits",
+    duration: 3, durationUnit: "ticks", stake: 1, risk: "high", winRate: 88.9, maxDrawdown: -188.2, trades: 9840, sharpe: 2.06,
+    rating: 4.6, reviews: 344, imports: 2210, price: 29, version: "5.1.0", category: "preset", tags: ["digits", "frequency", "ticks"],
+    description: "DIGITDIFFER excluding the two coldest digits over the last 1,000 ticks. Recalibrates the frequency table every 1,000 ticks.",
+    rules: ["DIGITDIFF on the coldest digit", "3-tick duration, flat $1 stake", "Recalibrate every 1,000 ticks"],
+    updatedMin: 1180,
+  },
+  {
+    id: "mkt_04", name: "London FX Breakout", author: "Priya N.", authorTier: "pro", symbol: "frxEURUSD", contractType: "rise_fall",
+    duration: 15, durationUnit: "minutes", stake: 25, risk: "medium", winRate: 57.6, maxDrawdown: -412.6, trades: 268, sharpe: 0.94,
+    rating: 4.7, reviews: 189, imports: 1840, price: 49, version: "4.4.2", category: "preset", tags: ["breakout", "forex", "session"],
+    description: "Arms 07:00–10:30 UTC and trades the first break of the 4-hour Asian range on EUR/USD with an exposure cap of $150.",
+    rules: ["Arm 07:00–10:30 UTC", "Trade the 4h Asian range break", "Exposure cap $150 open stakes"],
+    updatedMin: 640,
+  },
+  {
+    id: "mkt_05", name: "Gold Touch Ladder", author: "Tomas B.", authorTier: "member", symbol: "frxXAUUSD", contractType: "touch",
+    duration: 8, durationUnit: "hours", stake: 20, risk: "high", winRate: 48.7, maxDrawdown: -684.2, trades: 146, sharpe: -0.38,
+    rating: 3.9, reviews: 96, imports: 640, price: 0, version: "2.2.0", category: "preset", tags: ["touch", "metals", "ladder"],
+    description: "Eight-hour one-touch ladder $5.40 above spot, blacked out 30 minutes either side of US CPI. High variance — size accordingly.",
+    rules: ["One-touch $5.40 above spot", "Blackout around US CPI", "Max 2 concurrent legs"],
+    updatedMin: 2600,
+  },
+  {
+    id: "mkt_06", name: "BTC ATR Grid", author: "Lena S.", authorTier: "verified", symbol: "cryBTCUSD", contractType: "rise_fall",
+    duration: 30, durationUnit: "minutes", stake: 12, risk: "medium", winRate: 59.2, maxDrawdown: -386.4, trades: 802, sharpe: 1.24,
+    rating: 4.5, reviews: 231, imports: 1420, price: 19, version: "3.6.1", category: "preset", tags: ["crypto", "grid", "atr"],
+    description: "Fixed-stake 30-minute grid on BTC/USD with spacing recalculated weekly from the 14-day ATR. Weekend sizing halved automatically.",
+    rules: ["30-minute Rise/Fall grid", "ATR(14) weekly recalibration", "Weekend stake halved"],
+    updatedMin: 880,
+  },
+  {
+    id: "mkt_07", name: "GBP Mean Reversion", author: "Ade F.", authorTier: "verified", symbol: "frxGBPUSD", contractType: "rise_fall",
+    duration: 1, durationUnit: "hours", stake: 8, risk: "medium", winRate: 63.4, maxDrawdown: -196.4, trades: 372, sharpe: 1.36,
+    rating: 4.6, reviews: 154, imports: 1180, price: 0, version: "2.9.3", category: "preset", tags: ["forex", "z-score", "fade"],
+    description: "Fades 1.5-sigma deviations from the 60-tick mean on GBP/USD with a hard $120 daily stop.",
+    rules: ["Fade ±1.5σ from the 60-tick mean", "1-hour expiry", "Daily stop $120"],
+    updatedMin: 1520,
+  },
+  {
+    id: "mkt_08", name: "ETH Multiplier Trend", author: "Kai W.", authorTier: "pro", symbol: "cryETHUSD", contractType: "multiplier",
+    duration: 2, durationUnit: "days", stake: 60, risk: "high", winRate: 60.9, maxDrawdown: -742.8, trades: 92, sharpe: 1.06,
+    rating: 4.4, reviews: 88, imports: 860, price: 39, version: "1.8.0", category: "preset", tags: ["crypto", "multiplier", "trend"],
+    description: "50× multiplier trend leg with stop-out at half the stake and take-profit at 1.5×, max two legs per day.",
+    rules: ["50× MULTUP on daily entries", "Stop-out at 50% of stake", "Max 2 legs per day"],
+    updatedMin: 3200,
+  },
+  {
+    id: "mkt_09", name: "Index DCA Basket", author: "Nadia R.", authorTier: "verified", symbol: "OTC_NDX", contractType: "higher_lower",
+    duration: 1, durationUnit: "days", stake: 20, risk: "medium", winRate: 61.7, maxDrawdown: -642.9, trades: 412, sharpe: 1.18,
+    rating: 4.7, reviews: 176, imports: 1540, price: 25, version: "4.1.5", category: "preset", tags: ["indices", "dca", "basket"],
+    description: "Adds one daily Higher/Lower leg while price holds above the 20-day mean and scales out at +12% basket P&L.",
+    rules: ["Daily Higher/Lower at +0.15% barrier", "1.25× add step, max 4 legs", "Scale out at +12% basket P&L"],
+    updatedMin: 430,
+  },
+  {
+    id: "mkt_10", name: "Vol75 Touch Sniper", author: "Mina L.", authorTier: "pro", symbol: "R_75", contractType: "touch",
+    duration: 2, durationUnit: "hours", stake: 2, risk: "high", winRate: 48.7, maxDrawdown: -284.4, trades: 304, sharpe: 1.02,
+    rating: 4.5, reviews: 112, imports: 990, price: 0, version: "2.0.7", category: "preset", tags: ["touch", "synthetics"],
+    description: "One-touch contracts 0.04% above spot on Volatility 75 with a two-hour expiry window and a 3-loss cooldown.",
+    rules: ["One-touch 0.04% above spot", "2-hour expiry", "Cooldown 5 min after 3 losses"],
+    updatedMin: 1980,
+  },
+  {
+    id: "mkt_11", name: "Even/Odd Parity Filter", author: "Sam O.", authorTier: "member", symbol: "R_100", contractType: "even_odd",
+    duration: 5, durationUnit: "ticks", stake: 0.5, risk: "medium", winRate: 55.8, maxDrawdown: -96.2, trades: 6420, sharpe: 1.14,
+    rating: 4.2, reviews: 74, imports: 1730, price: 0, version: "1.4.2", category: "preset", tags: ["digits", "parity", "ticks"],
+    description: "Trades last-digit parity only when the previous 100 ticks skew at least 58/42 one way. Long grind, tiny stakes.",
+    rules: ["DIGITEVEN/DIGITODD on 58/42 skew", "5-tick duration, $0.50 flat", "Skip 3 ticks after any loss"],
+    updatedMin: 3400,
+  },
+  {
+    id: "mkt_12", name: "Fibonacci Forex Ladder", author: "Jozef K.", authorTier: "verified", symbol: "frxEURUSD", contractType: "rise_fall",
+    duration: 30, durationUnit: "minutes", stake: 0.35, risk: "high", winRate: 66.2, maxDrawdown: -412.6, trades: 1840, sharpe: 0.81,
+    rating: 4.1, reviews: 63, imports: 720, price: 15, version: "3.3.0", category: "preset", tags: ["fibonacci", "forex", "recovery"],
+    description: "Fibonacci recovery ladder on EUR/USD clamped to an $80 stake ceiling; steps two levels back after each win.",
+    rules: ["1-1-2-3-5-8 recovery ladder", "Two levels back per win", "Clamp at $80, halt at $300 daily loss"],
+    updatedMin: 2240,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Draft auto-save & resume (advanced feature #7)
+// -----------------------------------------------------------------------------
+export interface BotDraft {
+  id: string;
+  name: string;
+  symbol: string;
+  strategy: Bot["strategy"];
+  stake: number;
+  step: number;
+  origin: "cloud" | "local";
+  completeness: number;
+  updatedMin: number;
+  loginId: string;
+  note: string;
+  tags: string[];
+}
+
+export const BOT_DRAFTS: BotDraft[] = [
+  { id: "drf_01", name: "Vol10 Martingale Core v8", symbol: "R_10", strategy: "martingale", stake: 0.35, step: 4, origin: "cloud", completeness: 92, updatedMin: 3, loginId: "VRTC9031442", note: "Backtest queued — waiting on the 30-day sweep before arming.", tags: ["recovery", "synthetics"] },
+  { id: "drf_02", name: "1s Accumulator Sniper", symbol: "1HZ10V", strategy: "accumulator", stake: 3, step: 3, origin: "cloud", completeness: 78, updatedMin: 22, loginId: "VRTC9031442", note: "Risk limits still on the default daily loss — tighten before going live.", tags: ["range", "1s-index"] },
+  { id: "drf_03", name: "Digit Differ 5 clone", symbol: "R_25", strategy: "digit", stake: 1, step: 2, origin: "local", completeness: 54, updatedMin: 41, loginId: "VRTC9031442", note: "Imported from the marketplace; parameter mapping left at author defaults.", tags: ["digits"] },
+  { id: "drf_04", name: "London Breakout FX", symbol: "frxEURUSD", strategy: "scalping", stake: 25, step: 4, origin: "cloud", completeness: 88, updatedMin: 96, loginId: "CR8842197", note: "Session window set to 07:00–10:30 UTC. Needs the weekend blackout rule.", tags: ["forex", "session"] },
+  { id: "drf_05", name: "GBP Mean Reversion v2", symbol: "frxGBPUSD", strategy: "scalping", stake: 8, step: 3, origin: "cloud", completeness: 71, updatedMin: 168, loginId: "CR8842197", note: "Z-score threshold at 1.5σ — testing 1.8σ variant next.", tags: ["forex", "fade"] },
+  { id: "drf_06", name: "BTC ATR Grid weekend", symbol: "cryBTCUSD", strategy: "fixed", stake: 12, step: 2, origin: "local", completeness: 46, updatedMin: 214, loginId: "CR8842197", note: "Weekend sizing halved; ATR recalibration cron not configured yet.", tags: ["crypto", "grid"] },
+  { id: "drf_07", name: "ETH Multiplier Trend", symbol: "cryETHUSD", strategy: "swing", stake: 60, step: 3, origin: "cloud", completeness: 82, updatedMin: 402, loginId: "MX5520143", note: "50× multiplier with stop-out at half stake. Multi-account routing pending.", tags: ["crypto", "multiplier"] },
+  { id: "drf_08", name: "Vol75 Touch Sniper", symbol: "R_75", strategy: "scalping", stake: 2, step: 4, origin: "cloud", completeness: 95, updatedMin: 640, loginId: "VRTC9031442", note: "Ready to arm — cooldown after 3 losses set to 5 minutes.", tags: ["touch", "synthetics"] },
+  { id: "drf_09", name: "Index DCA Basket", symbol: "OTC_NDX", strategy: "dca", stake: 20, step: 3, origin: "local", completeness: 63, updatedMin: 1180, loginId: "MX5520143", note: "Max legs still 6; author preset suggests 4 for this margin profile.", tags: ["indices", "dca"] },
+  { id: "drf_10", name: "Even/Odd Parity Filter", symbol: "R_100", strategy: "digit", stake: 0.5, step: 2, origin: "cloud", completeness: 49, updatedMin: 1920, loginId: "VRTC9031442", note: "Skew threshold 58/42; needs a 500-tick sample before arming.", tags: ["digits", "parity"] },
+  { id: "drf_11", name: "Gold Touch Ladder", symbol: "frxXAUUSD", strategy: "swing", stake: 20, step: 3, origin: "cloud", completeness: 74, updatedMin: 2600, loginId: "CR8842197", note: "CPI blackout copied from the marketplace rules — verify the window.", tags: ["metals", "touch"] },
+  { id: "drf_12", name: "USDJPY Range Fade", symbol: "frxUSDJPY", strategy: "fixed", stake: 5, step: 1, origin: "local", completeness: 28, updatedMin: 4320, loginId: "CR8842197", note: "Only the symbol and stake are set — strategy not chosen yet.", tags: ["forex", "range"] },
+];
+
+// -----------------------------------------------------------------------------
+// Saved parameter sets (templates with variables — advanced feature #6)
+// -----------------------------------------------------------------------------
+export interface StrategyParameterSet {
+  id: string;
+  name: string;
+  strategy: Bot["strategy"];
+  symbol: string;
+  stake: number;
+  multiplier: number;
+  maxSteps: number;
+  duration: number;
+  durationUnit: DurationUnit;
+  takeProfit: number;
+  stopLoss: number;
+  winRate: number;
+  pnl: number;
+  drawdown: number;
+  sharpe: number;
+  uses: number;
+  owner: string;
+  updatedMin: number;
+  visibility: "private" | "team" | "public";
+}
+
+const DUR = (n: number, u: DurationUnit) => ({ n, u });
+
+export const STRATEGY_PARAMETER_SETS: StrategyParameterSet[] = [
+  { id: "ps_01", name: "Martingale base 0.35", strategy: "martingale", symbol: "R_10", stake: 0.35, multiplier: 2.1, maxSteps: 5, duration: DUR(5, "ticks").n, durationUnit: "ticks", takeProfit: 50, stopLoss: 25, winRate: 68.4, pnl: 128.4, drawdown: -318.4, sharpe: 1.42, uses: 214, owner: "Ade F.", updatedMin: 41, visibility: "team" },
+  { id: "ps_02", name: "Martingale aggressive 2.6×", strategy: "martingale", symbol: "R_25", stake: 1, multiplier: 2.6, maxSteps: 6, duration: 3, durationUnit: "ticks", takeProfit: 180, stopLoss: 120, winRate: 64.1, pnl: 402.6, drawdown: -642.8, sharpe: 0.88, uses: 62, owner: "Ade F.", updatedMin: 320, visibility: "private" },
+  { id: "ps_03", name: "Accumulator 1s tight", strategy: "accumulator", symbol: "1HZ10V", stake: 3, multiplier: 1, maxSteps: 1, duration: 5, durationUnit: "ticks", takeProfit: 30, stopLoss: 18, winRate: 82.1, pnl: 314.8, drawdown: -82.4, sharpe: 1.88, uses: 186, owner: "Mina L.", updatedMin: 96, visibility: "public" },
+  { id: "ps_04", name: "Digit differ cold-2", strategy: "digit", symbol: "R_25", stake: 1, multiplier: 1.2, maxSteps: 4, duration: 3, durationUnit: "ticks", takeProfit: 45, stopLoss: 60, winRate: 88.9, pnl: 862.4, drawdown: -188.2, sharpe: 2.06, uses: 342, owner: "Jozef K.", updatedMin: 1180, visibility: "public" },
+  { id: "ps_05", name: "DCA index 4-leg", strategy: "dca", symbol: "OTC_NDX", stake: 20, multiplier: 1.25, maxSteps: 4, duration: 1, durationUnit: "days", takeProfit: 620, stopLoss: 400, winRate: 61.7, pnl: 412.18, drawdown: -642.9, sharpe: 1.18, uses: 128, owner: "Nadia R.", updatedMin: 430, visibility: "team" },
+  { id: "ps_06", name: "Fixed stake scalp 15m", strategy: "fixed", symbol: "frxEURUSD", stake: 10, multiplier: 1, maxSteps: 1, duration: 15, durationUnit: "minutes", takeProfit: 90, stopLoss: 75, winRate: 57.6, pnl: 96.75, drawdown: -148.6, sharpe: 0.94, uses: 302, owner: "Priya N.", updatedMin: 640, visibility: "team" },
+  { id: "ps_07", name: "Anti-martingale press", strategy: "martingale", symbol: "R_50", stake: 2, multiplier: 1.5, maxSteps: 4, duration: 5, durationUnit: "ticks", takeProfit: 140, stopLoss: 90, winRate: 59.8, pnl: 248.2, drawdown: -228.6, sharpe: 1.31, uses: 74, owner: "Sam O.", updatedMin: 880, visibility: "private" },
+  { id: "ps_08", name: "Fibonacci EURUSD 8-level", strategy: "martingale", symbol: "frxEURUSD", stake: 0.35, multiplier: 1.618, maxSteps: 8, duration: 30, durationUnit: "minutes", takeProfit: 60, stopLoss: 300, winRate: 66.2, pnl: -84.4, drawdown: -412.6, sharpe: 0.81, uses: 51, owner: "Jozef K.", updatedMin: 2240, visibility: "public" },
+  { id: "ps_09", name: "BTC grid 30m ATR", strategy: "fixed", symbol: "cryBTCUSD", stake: 12, multiplier: 1, maxSteps: 1, duration: 30, durationUnit: "minutes", takeProfit: 320, stopLoss: 260, winRate: 59.2, pnl: 2184.2, drawdown: -386.4, sharpe: 1.24, uses: 156, owner: "Lena S.", updatedMin: 1520, visibility: "public" },
+  { id: "ps_10", name: "ETH multiplier 50× daily", strategy: "swing", symbol: "cryETHUSD", stake: 60, multiplier: 1, maxSteps: 2, duration: 2, durationUnit: "days", takeProfit: 900, stopLoss: 600, winRate: 60.9, pnl: 3025.5, drawdown: -742.8, sharpe: 1.06, uses: 38, owner: "Kai W.", updatedMin: 3200, visibility: "team" },
+  { id: "ps_11", name: "Vol75 touch 2h", strategy: "scalping", symbol: "R_75", stake: 2, multiplier: 1.4, maxSteps: 3, duration: 2, durationUnit: "hours", takeProfit: 75, stopLoss: 140, winRate: 48.7, pnl: 749.2, drawdown: -284.4, sharpe: 1.02, uses: 88, owner: "Mina L.", updatedMin: 1980, visibility: "team" },
+  { id: "ps_12", name: "Even/Odd skew 58/42", strategy: "digit", symbol: "R_100", stake: 0.5, multiplier: 1, maxSteps: 1, duration: 5, durationUnit: "ticks", takeProfit: 40, stopLoss: 55, winRate: 55.8, pnl: 132.6, drawdown: -96.2, sharpe: 1.14, uses: 268, owner: "Sam O.", updatedMin: 3400, visibility: "private" },
+];
+
+// -----------------------------------------------------------------------------
+// Config audit trail — every field the creator, AI assistant, optimizer or an
+// API client changed (rendered on the D-5 audit table).
+// -----------------------------------------------------------------------------
+export interface ConfigAuditEntry {
+  id: string;
+  botId: string;
+  botName: string;
+  atMin: number;
+  actor: string;
+  field: string;
+  from: string;
+  to: string;
+  source: "wizard" | "ai-assistant" | "optimizer" | "marketplace-import" | "api" | "rollback";
+  status: "applied" | "reverted" | "pending";
+  riskDelta: "up" | "down" | "flat";
+  note: string;
+}
+
+export const BOT_CONFIG_AUDIT: ConfigAuditEntry[] = [
+  { id: "aud_01", botId: "bot_mart_10", botName: "Vol10 Martingale Core", atMin: 3, actor: "Amara O.", field: "strategyParams.multiplier", from: "2.0×", to: "2.1×", source: "optimizer", status: "applied", riskDelta: "up", note: "Grid search winner over the last 30 days (1,284 demo contracts)." },
+  { id: "aud_02", botId: "bot_accu_1s", botName: "1s Accumulator Sniper", atMin: 9, actor: "Amara O.", field: "risk.maxDailyLoss", from: "$150.00", to: "$100.00", source: "wizard", status: "applied", riskDelta: "down", note: "Tightened after two breach alerts in the previous session." },
+  { id: "aud_03", botId: "bot_digit_diff", botName: "Digit Differ Guard", atMin: 22, actor: "AI assistant", field: "tradeParams.duration", from: "5 ticks", to: "3 ticks", source: "ai-assistant", status: "applied", riskDelta: "down", note: "Brief: “shorter holds, fewer dwell ticks on R_25”." },
+  { id: "aud_04", botId: "bot_dca_trend", botName: "DCA Trend Rider", atMin: 41, actor: "Amara O.", field: "tradeParams.stake", from: "$15.00", to: "$20.00", source: "wizard", status: "applied", riskDelta: "up", note: "Basket target raised in the same edit; margin headroom checked." },
+  { id: "aud_05", botId: "bot_btc_grid", botName: "BTC ATR Grid", atMin: 64, actor: "Amara O.", field: "strategyParams.addStep", from: "1.10×", to: "1.25×", source: "marketplace-import", status: "applied", riskDelta: "up", note: "Author preset imported — step mapped from 1.25× default." },
+  { id: "aud_06", botId: "bot_gbp_rev", botName: "GBP Mean Reversion", atMin: 96, actor: "API client dx_cli_7f31", field: "risk.cooldownMinutes", from: "5 min", to: "12 min", source: "api", status: "applied", riskDelta: "down", note: "PATCH /api/bots/bot_gbp_rev from the automation hub." },
+  { id: "aud_07", botId: "bot_mart_10", botName: "Vol10 Martingale Core", atMin: 148, actor: "Amara O.", field: "tradeParams.stopLoss", from: "$200.00", to: "$250.00", source: "wizard", status: "reverted", riskDelta: "up", note: "Rolled back after the drawdown review — see version v7.1.4." },
+  { id: "aud_08", botId: "bot_eth_mult", botName: "ETH Multiplier Trend", atMin: 212, actor: "AI assistant", field: "strategyParams.maxAdapt", from: "50%", to: "35%", source: "ai-assistant", status: "applied", riskDelta: "down", note: "Adaptation ceiling lowered to match the $600 stop-out." },
+  { id: "aud_09", botId: "bot_vol75_touch", botName: "Vol75 Touch Sniper", atMin: 268, actor: "Amara O.", field: "tradeParams.barrier", from: "+0.06%", to: "+0.04%", source: "wizard", status: "applied", riskDelta: "up", note: "Barrier tightened to lift hit probability in the 2-hour window." },
+  { id: "aud_10", botId: "bot_index_dca", botName: "Index DCA Basket", atMin: 340, actor: "Amara O.", field: "strategyParams.maxLegs", from: "6 legs", to: "4 legs", source: "optimizer", status: "applied", riskDelta: "down", note: "Optimizer flagged leg 5–6 as the entire left tail on the 12-month sample." },
+  { id: "aud_11", botId: "bot_accu_1s", botName: "1s Accumulator Sniper", atMin: 402, actor: "Amara O.", field: "tradeParams.contractType", from: "Rise/Fall", to: "Accumulator", source: "wizard", status: "applied", riskDelta: "down", note: "Switched to range contracts after the 1s index regime change." },
+  { id: "aud_12", botId: "bot_gold_touch", botName: "Gold Touch Ladder", atMin: 610, actor: "API client dx_cli_2b09", field: "schedule.blackoutNews", from: "false", to: "true", source: "api", status: "pending", riskDelta: "down", note: "Awaiting the next tick window to apply the CPI blackout." },
+  { id: "aud_13", botId: "bot_digit_diff", botName: "Digit Differ Guard", atMin: 880, actor: "Amara O.", field: "tradeParams.stake", from: "$0.50", to: "$1.00", source: "wizard", status: "applied", riskDelta: "up", note: "Flat stake doubled; win-rate model unchanged." },
+  { id: "aud_14", botId: "bot_btc_grid", botName: "BTC ATR Grid", atMin: 1180, actor: "Amara O.", field: "risk.maxDailyTrades", from: "240", to: "500", source: "rollback", status: "applied", riskDelta: "up", note: "Restored from template “BTC ATR Grid weekend” after the weekend test." },
+];
+
+// -----------------------------------------------------------------------------
+// Config versions (edit history for /dashboard/bots/:id/config)
+// -----------------------------------------------------------------------------
+export interface ConfigVersion {
+  id: string;
+  botId: string;
+  version: string;
+  atMin: number;
+  author: string;
+  label: string;
+  changes: number;
+  status: "current" | "live" | "rolled-back" | "draft";
+  summary: string;
+  hash: string;
+}
+
+export const CONFIG_VERSIONS: ConfigVersion[] = [
+  { id: "cv_01", botId: "bot_mart_10", version: "v7.2.1", atMin: 3, author: "Amara O.", label: "Optimizer winner applied", changes: 3, status: "current", summary: "Multiplier 2.0× → 2.1×, max steps 4 → 5, cooldown 5 → 8 min.", hash: "9f2ac41" },
+  { id: "cv_02", botId: "bot_mart_10", version: "v7.2.0", atMin: 118, author: "Amara O.", label: "Stop-loss raised", changes: 1, status: "live", summary: "Stop-loss $200 → $250 ahead of the weekend gap risk.", hash: "77be103" },
+  { id: "cv_03", botId: "bot_mart_10", version: "v7.1.4", atMin: 148, author: "Amara O.", label: "Rollback", changes: 1, status: "rolled-back", summary: "Reverted stop-loss to $200 after the drawdown review.", hash: "4011de9" },
+  { id: "cv_04", botId: "bot_mart_10", version: "v7.1.3", atMin: 402, author: "AI assistant", label: "Draft from brief", changes: 6, status: "draft", summary: "“R_10 every 5 ticks, double on loss, cap 5 steps” parsed into config.", hash: "c0ffee2" },
+  { id: "cv_05", botId: "bot_accu_1s", version: "v3.0.4", atMin: 9, author: "Amara O.", label: "Daily loss cut", changes: 2, status: "current", summary: "Max daily loss $150 → $100, cooldown 5 → 6 min.", hash: "5d81ba7" },
+  { id: "cv_06", botId: "bot_accu_1s", version: "v3.0.3", atMin: 402, author: "Amara O.", label: "Contract type switch", changes: 2, status: "live", summary: "Rise/Fall → Accumulator, growth rate 3% pinned.", hash: "bb02ae4" },
+  { id: "cv_07", botId: "bot_digit_diff", version: "v5.1.0", atMin: 22, author: "AI assistant", label: "Duration shortened", changes: 2, status: "current", summary: "5 ticks → 3 ticks, cold-digit window 800 → 1,000 ticks.", hash: "aa19f07" },
+  { id: "cv_08", botId: "bot_digit_diff", version: "v5.0.2", atMin: 880, author: "Amara O.", label: "Stake doubled", changes: 1, status: "live", summary: "Flat stake $0.50 → $1.00, stop-loss unchanged at $60.", hash: "de77031" },
+  { id: "cv_09", botId: "bot_index_dca", version: "v4.1.5", atMin: 340, author: "Optimizer", label: "Leg cap reduced", changes: 1, status: "current", summary: "Max legs 6 → 4; add step held at 1.25×.", hash: "3110cd8" },
+  { id: "cv_10", botId: "bot_index_dca", version: "v4.1.2", atMin: 2270, author: "Amara O.", label: "Scale-out raised", changes: 3, status: "live", summary: "Basket target +9% → +12%, higher/lower barrier +0.15%.", hash: "6ba4e20" },
+  { id: "cv_11", botId: "bot_btc_grid", version: "v3.6.1", atMin: 64, author: "Amara O.", label: "Marketplace import", changes: 5, status: "current", summary: "Imported “BTC ATR Grid”; ATR window mapped to 14 days.", hash: "82c9f13" },
+  { id: "cv_12", botId: "bot_btc_grid", version: "v3.6.0", atMin: 1180, author: "Amara O.", label: "Weekend sizing", changes: 2, status: "rolled-back", summary: "Weekend stake halved — rolled back after thin-liquidity slippage.", hash: "0a7712f" },
+];
+
+// -----------------------------------------------------------------------------
+// Engine log tape (creation + runtime channel for the live drawer)
+// -----------------------------------------------------------------------------
+export interface CreatorLogLine {
+  id: string;
+  atMin: number;
+  level: "info" | "warn" | "error";
+  channel: "engine" | "risk" | "feed" | "config";
+  message: string;
+}
+
+export const CREATOR_LOG_LINES: CreatorLogLine[] = [
+  { id: "lg_01", atMin: 1, level: "info", channel: "config", message: "Draft drf_01 autosaved (4 fields dirty) → cloud" },
+  { id: "lg_02", atMin: 2, level: "info", channel: "engine", message: "Strategy st_martingale validated against bot_jobs schema v12" },
+  { id: "lg_03", atMin: 4, level: "warn", channel: "risk", message: "Max stake $100.00 is 285× the initial stake — recovery depth capped at 5 steps" },
+  { id: "lg_04", atMin: 6, level: "info", channel: "feed", message: "Subscribed R_10 tick stream · latency 12 ms · pip size 3" },
+  { id: "lg_05", atMin: 9, level: "error", channel: "config", message: "Script scr_07 line 14: unexpected token '}' — lint blocked step 4" },
+  { id: "lg_06", atMin: 12, level: "info", channel: "engine", message: "Backtest bt_13 queued on the 30-day demo tape (R_10, 5 ticks)" },
+  { id: "lg_07", atMin: 13, level: "info", channel: "engine", message: "Backtest bt_13 complete · 4,218 contracts · win rate 68.4% · P&L +$1,284.60" },
+  { id: "lg_08", atMin: 18, level: "info", channel: "risk", message: "Risk guard armed: daily loss $100.00 · 500 trades · 3-loss cooldown 5 min" },
+  { id: "lg_09", atMin: 24, level: "warn", channel: "feed", message: "OTC_NDX feed delayed 4.2 s — index rollover window, sizing paused" },
+  { id: "lg_10", atMin: 31, level: "info", channel: "config", message: "Parameter set ps_01 applied (multiplier 2.1×, 5 steps, $0.35 base)" },
+  { id: "lg_11", atMin: 42, level: "info", channel: "engine", message: "Monte-Carlo mc_04 finished 1,000 runs · p05 −$412.80 · ruin 4.1%" },
+  { id: "lg_12", atMin: 58, level: "warn", channel: "risk", message: "Cooldown triggered after 3 consecutive losses — paused 5 min 00 s" },
+  { id: "lg_13", atMin: 74, level: "info", channel: "engine", message: "Engine slot 3/8 reserved for 4 h · queue depth 0" },
+  { id: "lg_14", atMin: 96, level: "error", channel: "feed", message: "Reconnect to wss://ws.derivws.com/websockets/v3 after ping timeout (1 attempt)" },
+];
+
+// -----------------------------------------------------------------------------
+// Symbol health (edge case: a symbol goes unavailable mid-config)
+// -----------------------------------------------------------------------------
+export interface HaltedSymbol {
+  code: string;
+  reason: string;
+  untilMin: number;
+  impact: string;
+  alternatives: string[];
+}
+
+export const HALTED_SYMBOLS: HaltedSymbol[] = [
+  { code: "OTC_NDX", reason: "Index rollover — quote feed paused", untilMin: 34, impact: "DCA legs will not be accepted until the feed resumes.", alternatives: ["OTC_SPC", "OTC_DJI", "R_100"] },
+  { code: "frxXAUUSD", reason: "US CPI release — metals blackout window", untilMin: 52, impact: "Touch ladders would open with a widened spread.", alternatives: ["frxXAGUSD", "frxEURUSD", "R_75"] },
+  { code: "cryETHUSD", reason: "Exchange maintenance on the ETH spot feed", untilMin: 88, impact: "Multiplier stop-outs would execute late.", alternatives: ["cryBTCUSD", "R_100", "1HZ100V"] },
+  { code: "frxUSDJPY", reason: "BoJ statement blackout", untilMin: 141, impact: "Range-fade entries would fire into a spread spike.", alternatives: ["frxAUDUSD", "frxGBPUSD", "frxUSDCAD"] },
+  { code: "OTC_N225", reason: "Japan 225 outside its 00:00–06:00 UTC session", untilMin: 610, impact: "Bot would sit idle — schedule it for the Tokyo open instead.", alternatives: ["OTC_NDX", "OTC_DJI", "1HZ100V"] },
+];
+
+// -----------------------------------------------------------------------------
+// AI strategy assistant briefs (advanced feature #1 — natural language → config)
+// -----------------------------------------------------------------------------
+export interface AiStrategyBrief {
+  id: string;
+  prompt: string;
+  title: string;
+  strategyId: string;
+  patch: Partial<BotConfigDraft>;
+  script: string;
+  changes: string[];
+  assumptions: string[];
+  confidence: number;
+}
+
+export const AI_STRATEGY_BRIEFS: AiStrategyBrief[] = [
+  {
+    id: "ai_01",
+    prompt: "I want a bot that trades R_10 every 5 ticks and doubles stake on loss, max 5 steps, keep it under $50 a leg",
+    title: "R_10 Martingale, capped at 5 steps",
+    strategyId: "st_martingale",
+    patch: { symbol: "R_10", contractType: "rise_fall", stake: 0.35, maxStake: 50, duration: 5, durationUnit: "ticks", takeProfit: 50, stopLoss: 25, strategyParams: { multiplier: 2, onWin: "Reset to initial stake", onLoss: "Multiply stake", maxSteps: 5 } },
+    script: "const { api, risk } = DerivX;\napi.onTick(\"R_10\", (t) => {\n  const step = api.get(\"step\", 0);           // 0..5 recovery ladder\n  const stake = Math.min(0.35 * Math.pow(2, step), 50);\n  risk.assert(stake <= 50, \"stake cap\");\n  api.buy({ symbol: \"R_10\", contract_type: \"CALL\", amount: stake, duration: 5, duration_unit: \"t\" });\n});",
+    changes: ["symbol → R_10", "duration → 5 ticks", "stake → $0.35", "maxStake → $50.00", "strategy → Martingale (2× · 5 steps)"],
+    assumptions: ["Direction uses the engine's default momentum filter (20-tick SMA).", "Take-profit $50 / stop-loss $25 suggested from the Martingale baseline."],
+    confidence: 0.94,
+  },
+  {
+    id: "ai_02",
+    prompt: "Make an accumulator bot on the 1-second index that takes profit after five in-range ticks and never risks more than $18 a day",
+    title: "1s index Accumulator, $18 daily risk",
+    strategyId: "st_dca",
+    patch: { symbol: "1HZ10V", contractType: "accumulator", stake: 3, maxStake: 9, duration: 5, durationUnit: "ticks", takeProfit: 30, stopLoss: 18, risk: { maxDailyLoss: 18, maxDailyTrades: 240, cooldownCount: 2, cooldownMinutes: 5, maxConsecutiveLosses: 4 } },
+    script: "const { api, risk } = DerivX;\nlet inRange = 0;\napi.onTick(\"1HZ10V\", (t) => {\n  if (!api.within(t.quote, 0.001)) { inRange = 0; return; }\n  inRange += 1;\n  if (inRange >= 5) { api.sellAll(\"take profit after 5 in-range ticks\"); inRange = 0; return; }\n  risk.assert(api.dailyPnl() > -18, \"daily loss cap\");\n  api.buy({ symbol: \"1HZ10V\", contract_type: \"ACCU\", amount: 3, growth_rate: 0.03, duration: 5, duration_unit: \"t\" });\n});",
+    changes: ["symbol → 1HZ10V", "contractType → Accumulator", "stake → $3.00", "duration → 5 ticks", "risk.maxDailyLoss → $18.00"],
+    assumptions: ["Growth rate pinned at the 3% Deriv default for 1s indices.", "Sell-out is evaluated on every tick, not on bar close."],
+    confidence: 0.9,
+  },
+  {
+    id: "ai_03",
+    prompt: "Fade GBPUSD when it stretches 1.5 sigma from the 60-tick mean, one hour expiry, stop the day at $120",
+    title: "GBP/USD mean reversion, $120 daily stop",
+    strategyId: "st_fixed",
+    patch: { symbol: "frxGBPUSD", contractType: "rise_fall", stake: 8, maxStake: 24, duration: 1, durationUnit: "hours", takeProfit: 140, stopLoss: 120, strategyParams: { onWin: "Hold current stake", onLoss: "Hold current stake" } },
+    script: "const { api, risk } = DerivX;\napi.onTick(\"frxGBPUSD\", (t) => {\n  const z = api.zscore(\"frxGBPUSD\", 60);\n  risk.assert(api.dailyPnl() > -120, \"daily stop\");\n  if (z > 1.5)  api.buy({ symbol: \"frxGBPUSD\", contract_type: \"PUT\",  amount: 8, duration: 1, duration_unit: \"h\" });\n  if (z < -1.5) api.buy({ symbol: \"frxGBPUSD\", contract_type: \"CALL\", amount: 8, duration: 1, duration_unit: \"h\" });\n});",
+    changes: ["symbol → frxGBPUSD", "strategy → Fixed Stake", "stake → $8.00", "duration → 1 hour", "risk.maxDailyLoss → $120.00"],
+    assumptions: ["One position at a time — the engine rejects overlapping entries on the same symbol.", "Mean and σ rebuilt from the last 60 ticks with no session weighting."],
+    confidence: 0.87,
+  },
+  {
+    id: "ai_04",
+    prompt: "Trade digit differ on Volatility 25 excluding the coldest digit, three ticks, flat one dollar stake",
+    title: "R_25 Digit Differ, cold-digit filter",
+    strategyId: "st_custom",
+    patch: { symbol: "R_25", contractType: "digits", stake: 1, maxStake: 5, duration: 3, durationUnit: "ticks", takeProfit: 45, stopLoss: 60, strategyParams: { scriptId: "scr_03", strictLint: "Yes" } },
+    script: "const { api } = DerivX;\napi.onTick(\"R_25\", (t) => {\n  const cold = api.coldDigits(\"R_25\", 1000, 2);   // two least frequent digits\n  const d = api.lastDigit(t.quote);\n  if (!cold.includes(d)) {\n    api.buy({ symbol: \"R_25\", contract_type: \"DIGITDIFF\", barrier: cold[0], amount: 1, duration: 3, duration_unit: \"t\" });\n  }\n});",
+    changes: ["symbol → R_25", "contractType → Digits", "stake → $1.00", "duration → 3 ticks", "script → cold-digits differ"],
+    assumptions: ["Frequency table warm-up needs 1,000 ticks before the first entry.", "Barrier follows the coldest digit, recomputed every 1,000 ticks."],
+    confidence: 0.92,
+  },
+  {
+    id: "ai_05",
+    prompt: "Swing BTC with a 30 minute grid, twelve dollars a leg, halve the size on weekends",
+    title: "BTC 30-minute grid with weekend damping",
+    strategyId: "st_dca",
+    patch: { symbol: "cryBTCUSD", contractType: "rise_fall", stake: 12, maxStake: 36, duration: 30, durationUnit: "minutes", takeProfit: 320, stopLoss: 260, strategyParams: { addStep: 1.25, maxLegs: 3, addTrigger: "-1 ATR" } },
+    script: "const { api, schedule } = DerivX;\nschedule.weekend(() => api.set(\"sizeFactor\", 0.5));\napi.onBar(\"cryBTCUSD\", \"30m\", (bar) => {\n  const size = 12 * api.get(\"sizeFactor\", 1);\n  const dir = bar.close > bar.open ? \"CALL\" : \"PUT\";\n  api.buy({ symbol: \"cryBTCUSD\", contract_type: dir, amount: size, duration: 30, duration_unit: \"m\" });\n});",
+    changes: ["symbol → cryBTCUSD", "duration → 30 minutes", "stake → $12.00", "maxLegs → 3", "addTrigger → -1 ATR"],
+    assumptions: ["ATR window is 14 bars of the 30-minute series.", "Weekend damping starts Friday 21:00 UTC and lifts Sunday 22:00 UTC."],
+    confidence: 0.85,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Script lint issues (edge case: a strategy script fails validation)
+// -----------------------------------------------------------------------------
+export interface ScriptLintIssue {
+  id: string;
+  scriptId: string;
+  scriptName: string;
+  line: number;
+  column: number;
+  severity: "error" | "warning";
+  message: string;
+  suggestion: string;
+  offending: string;
+  fixed: string;
+}
+
+export const SCRIPT_LINT_ISSUES: ScriptLintIssue[] = [
+  { id: "lint_01", scriptId: "scr_07", scriptName: "Pip Hunter Martingale v3", line: 14, column: 3, severity: "error", message: "Unexpected token '}' — block opened at line 9 is never closed.", suggestion: "Close the onTick callback before the risk.assert() call, or wrap both statements in one block.", offending: "api.onTick(\"R_50\", (t) => {\n  const stake = ladder(t);\n\n});", fixed: "api.onTick(\"R_50\", (t) => {\n  const stake = ladder(t);\n  risk.assert(stake <= 25, \"stake cap\");\n});" },
+  { id: "lint_02", scriptId: "scr_09", scriptName: "Vol100 Night Shift", line: 22, column: 11, severity: "error", message: "api.buy() called with duration_unit \"m\" on a 1-tick contract.", suggestion: "Digits contracts only accept the ticks unit — use duration_unit: \"t\" with duration 1–10.", offending: "api.buy({ symbol: \"R_100\", contract_type: \"DIGITOVER\", barrier: 4, amount: 2, duration: 5, duration_unit: \"m\" });", fixed: "api.buy({ symbol: \"R_100\", contract_type: \"DIGITOVER\", barrier: 4, amount: 2, duration: 5, duration_unit: \"t\" });" },
+  { id: "lint_03", scriptId: "scr_11", scriptName: "Gold Session Fade", line: 31, column: 5, severity: "warning", message: "risk.assert() missing — the script can exceed the configured daily loss cap.", suggestion: "Add a pre-trade guard: risk.assert(api.dailyPnl() > -config.maxDailyLoss, \"daily stop\").", offending: "if (z > 2) api.buy({ symbol: \"frxXAUUSD\", contract_type: \"PUT\", amount: 20, duration: 4, duration_unit: \"h\" });", fixed: "risk.assert(api.dailyPnl() > -config.maxDailyLoss, \"daily stop\");\nif (z > 2) api.buy({ symbol: \"frxXAUUSD\", contract_type: \"PUT\", amount: 20, duration: 4, duration_unit: \"h\" });" },
+  { id: "lint_04", scriptId: "scr_05", scriptName: "Multiplier Momentum", line: 18, column: 8, severity: "warning", message: "Multiplier contract without stop_loss — an unhedged gap can exceed the stake.", suggestion: "Pass stop_loss: 0.5 (50% of stake) so the engine flattens before the loss grows.", offending: "api.buy({ symbol: \"cryETHUSD\", contract_type: \"MULTUP\", amount: 60, multiplier: 50 });", fixed: "api.buy({ symbol: \"cryETHUSD\", contract_type: \"MULTUP\", amount: 60, multiplier: 50, stop_loss: 0.5, take_profit: 1.5 });" },
+  { id: "lint_05", scriptId: "scr_12", scriptName: "Touch Ladder Pro", line: 27, column: 1, severity: "warning", message: "Barrier computed from a stale quote — cache is 3 bars old.", suggestion: "Re-read api.spot() inside the buy call so the barrier uses the live tick.", offending: "const spot = api.spot(\"R_75\");   // cached at script load\napi.buy({ symbol: \"R_75\", contract_type: \"ONETOUCH\", amount: 2, barrier: (spot * 1.0004).toFixed(2) });", fixed: "api.buy({ symbol: \"R_75\", contract_type: \"ONETOUCH\", amount: 2, barrier: (api.spot(\"R_75\") * 1.0004).toFixed(2) });" },
+];
+
+// -----------------------------------------------------------------------------
+// Engine slots (concurrent bot capacity per account)
+// -----------------------------------------------------------------------------
+export interface EngineSlot {
+  id: string;
+  index: number;
+  state: "free" | "reserved" | "running";
+  botName: string;
+  loginId: string;
+  cpuPct: number;
+  memoryMb: number;
+  region: string;
+  sinceMin: number;
+}
+
+export const ENGINE_SLOTS: EngineSlot[] = [
+  { id: "slot_1", index: 1, state: "running", botName: "Vol10 Martingale Core", loginId: "VRTC9031442", cpuPct: 12, memoryMb: 184, region: "eu-west-1", sinceMin: 1284 },
+  { id: "slot_2", index: 2, state: "running", botName: "DCA Trend Rider", loginId: "CR8842197", cpuPct: 9, memoryMb: 168, region: "eu-west-1", sinceMin: 4320 },
+  { id: "slot_3", index: 3, state: "running", botName: "1s Accumulator Sniper", loginId: "VRTC9031442", cpuPct: 18, memoryMb: 212, region: "eu-west-1", sinceMin: 640 },
+  { id: "slot_4", index: 4, state: "reserved", botName: "Draft · Vol75 Touch Sniper", loginId: "VRTC9031442", cpuPct: 0, memoryMb: 24, region: "eu-west-1", sinceMin: 42 },
+  { id: "slot_5", index: 5, state: "running", botName: "Digit Differ Guard", loginId: "VRTC9031442", cpuPct: 6, memoryMb: 156, region: "eu-west-1", sinceMin: 880 },
+  { id: "slot_6", index: 6, state: "free", botName: "—", loginId: "—", cpuPct: 0, memoryMb: 0, region: "eu-west-1", sinceMin: 0 },
+  { id: "slot_7", index: 7, state: "free", botName: "—", loginId: "—", cpuPct: 0, memoryMb: 0, region: "eu-west-1", sinceMin: 0 },
+  { id: "slot_8", index: 8, state: "free", botName: "—", loginId: "—", cpuPct: 0, memoryMb: 0, region: "ap-south-1", sinceMin: 0 },
+];
+
+// -----------------------------------------------------------------------------
+// Wizard state + deterministic engine maths
+// -----------------------------------------------------------------------------
+export interface BotConfigDraft {
+  name: string;
+  description: string;
+  market: string;
+  symbol: string;
+  loginId: string;
+  strategyId: string;
+  scriptId: string | null;
+  contractType: ContractTypeId;
+  stake: number;
+  maxStake: number;
+  duration: number;
+  durationUnit: DurationUnit;
+  takeProfit: number;
+  stopLoss: number;
+  maxConcurrent: number;
+  paper: boolean;
+  strategyParams: Record<string, number | string>;
+  risk: {
+    maxDailyLoss: number;
+    maxDailyTrades: number;
+    cooldownCount: number;
+    cooldownMinutes: number;
+    maxConsecutiveLosses: number;
+  };
+  schedule: { days: string[]; from: string; to: string; blackoutNews: boolean };
+  tags: string[];
+}
+
+export function defaultBotConfig(loginId?: string): BotConfigDraft {
+  const account = loginId ?? DERIV_ACCOUNTS[0]?.loginId ?? "VRTC9031442";
+  return {
+    name: "",
+    description: "",
+    market: "synthetics",
+    symbol: "R_10",
+    loginId: account,
+    strategyId: "st_martingale",
+    scriptId: null,
+    contractType: "rise_fall",
+    stake: 0.35,
+    maxStake: 50,
+    duration: 5,
+    durationUnit: "ticks",
+    takeProfit: 50,
+    stopLoss: 25,
+    maxConcurrent: 1,
+    paper: true,
+    strategyParams: { ...BOT_STRATEGY_TEMPLATES[0].defaultParams },
+    risk: { maxDailyLoss: 100, maxDailyTrades: 500, cooldownCount: 3, cooldownMinutes: 5, maxConsecutiveLosses: 4 },
+    schedule: { days: ["Mon", "Tue", "Wed", "Thu", "Fri"], from: "00:00", to: "23:59", blackoutNews: true },
+    tags: [],
+  };
+}
+
+/** Seed the wizard from an existing bot (D-5 config route). */
+export function configFromBot(bot: Bot): BotConfigDraft {
+  const template = BOT_STRATEGY_TEMPLATES.find((t) =>
+    (bot.strategy === "martingale" && t.id === "st_martingale") ||
+    (bot.strategy === "dca" && t.id === "st_dca") ||
+    (bot.strategy === "fixed" && t.id === "st_fixed") ||
+    (bot.strategy === "digit" && t.id === "st_custom") ||
+    (bot.strategy === "accumulator" && t.id === "st_dca") ||
+    (bot.strategy === "scalping" && t.id === "st_fixed") ||
+    (bot.strategy === "swing" && t.id === "st_dca"),
+  ) ?? BOT_STRATEGY_TEMPLATES[0];
+  const symbol = MARKET_SYMBOLS.find((s) => s.code === bot.symbol);
+  return {
+    ...defaultBotConfig(bot.loginId),
+    name: bot.name,
+    description: `${bot.strategy.toUpperCase()} strategy on ${bot.symbol} · owned by ${bot.owner}.`,
+    market: symbol?.market ?? "synthetics",
+    symbol: bot.symbol,
+    strategyId: template.id,
+    contractType: bot.contractType,
+    stake: bot.stake,
+    maxStake: bot.maxStake,
+    duration: bot.duration,
+    durationUnit: bot.durationUnit,
+    takeProfit: bot.takeProfit,
+    stopLoss: bot.stopLoss,
+    strategyParams: { ...template.defaultParams, multiplier: bot.martingale },
+  };
+}
+
+export interface CompletenessItem {
+  id: string;
+  label: string;
+  step: number;
+  done: boolean;
+  hint: string;
+}
+
+export function assessCompleteness(config: BotConfigDraft): { pct: number; items: CompletenessItem[] } {
+  const template = BOT_STRATEGY_TEMPLATES.find((t) => t.id === config.strategyId);
+  const needsScript = config.strategyId === "st_custom";
+  const hasRiskTuned = config.risk.maxDailyLoss !== 100 || config.risk.maxDailyTrades !== 500;
+  const items: CompletenessItem[] = [
+    { id: "c1", label: "Bot name", step: 0, done: config.name.trim().length >= 4, hint: "At least 4 characters so the fleet list stays readable." },
+    { id: "c2", label: "Symbol + market", step: 0, done: Boolean(config.symbol) && Boolean(config.market), hint: "Pick a tradable symbol from the Deriv catalog." },
+    { id: "c3", label: "Funding account", step: 0, done: Boolean(config.loginId), hint: "Real (CR/MX) or virtual (VRTC) Deriv account." },
+    { id: "c4", label: "Strategy selected", step: 1, done: Boolean(template), hint: "Martingale, DCA, Fixed, Fibonacci, custom script or AI adaptive." },
+    { id: "c5", label: "Script chosen", step: 1, done: !needsScript || Boolean(config.scriptId), hint: "Custom strategies must point at a linted script." },
+    { id: "c6", label: "Stake + duration", step: 2, done: config.stake > 0 && config.duration > 0, hint: "Duration must sit inside the contract type's allowed range." },
+    { id: "c7", label: "Take-profit / stop-loss", step: 2, done: config.takeProfit > 0 && config.stopLoss > 0, hint: "Both caps are required before arming." },
+    { id: "c8", label: "Daily risk limits", step: 2, done: hasRiskTuned || true, hint: "Max daily loss, trade count and cooldown reviewed." },
+    { id: "c9", label: "Backtest or optimizer evidence", step: 3, done: false, hint: "Run at least one 30-day simulation before arming." },
+  ];
+  const weight = 100 / items.length;
+  const pct = Math.round(items.filter((i) => i.done).length * weight);
+  return { pct, items };
+}
+
+export interface RiskPart {
+  label: string;
+  points: number;
+  max: number;
+  note: string;
+}
+
+export interface RiskAssessment {
+  score: number;
+  band: "low" | "medium" | "high";
+  parts: RiskPart[];
+  worstCasePerCycle: number;
+  dailyExposure: number;
+  mcRuin: number;
+}
+
+export function assessRisk(config: BotConfigDraft): RiskAssessment {
+  const template = BOT_STRATEGY_TEMPLATES.find((t) => t.id === config.strategyId);
+  const symbol = MARKET_SYMBOLS.find((s) => s.code === config.symbol);
+  const multiplier = Number(config.strategyParams.multiplier ?? template?.recoveryPerLoss ?? 1);
+  const maxSteps = Number(config.strategyParams.maxSteps ?? 5);
+  const ladderCap = config.stake * Math.pow(Math.max(1, multiplier), Math.max(0, maxSteps - 1));
+  const worstCasePerCycle = Math.min(config.maxStake * 2, Math.round(ladderCap * 100) / 100);
+  const stakeRatio = config.stake / Math.max(0.35, config.maxStake);
+  const ladderPart = Math.min(28, (worstCasePerCycle / Math.max(10, config.stopLoss * 2.4)) * 28);
+  const stopPart = Math.min(24, (config.stopLoss / Math.max(1, config.risk.maxDailyLoss)) * 24);
+  const dailyPart = Math.min(22, (config.risk.maxDailyLoss / Math.max(50, config.maxStake * 6)) * 22);
+  const concurrentPart = Math.min(14, config.maxConcurrent * 4.6);
+  const typePart = config.contractType === "accumulator" || config.contractType === "multiplier" ? 6 : config.contractType === "rise_fall" ? 12 : 10;
+  const raw = ladderPart + stopPart + dailyPart + concurrentPart + typePart;
+  const score = Math.max(8, Math.min(100, Math.round(raw)));
+  const band = score >= 68 ? "high" : score >= 38 ? "medium" : "low";
+  return {
+    score,
+    band,
+    worstCasePerCycle,
+    dailyExposure: Math.round(config.risk.maxDailyLoss * 1.2 * 100) / 100,
+    mcRuin: Math.round(Math.min(72, Math.max(1.2, (score / 100) * 46 + (1 - stakeRatio) * 12)) * 10) / 10,
+    parts: [
+      { label: "Recovery ladder depth", points: Math.round(ladderPart), max: 28, note: `${maxSteps} steps at ${multiplier}× reaches $${worstCasePerCycle.toFixed(2)} a cycle` },
+      { label: "Stop-loss vs daily cap", points: Math.round(stopPart), max: 24, note: `${usd(config.stopLoss)} stop against a ${usd(config.risk.maxDailyLoss)} daily loss cap` },
+      { label: "Daily loss vs max stake", points: Math.round(dailyPart), max: 22, note: `${usd(config.risk.maxDailyLoss)} cap on a ${usd(config.maxStake)} maximum leg` },
+      { label: "Concurrent positions", points: Math.round(concurrentPart), max: 14, note: `${config.maxConcurrent} live contract${config.maxConcurrent === 1 ? "" : "s"} at a time` },
+      { label: "Contract type volatility", points: typePart, max: 12, note: `${CONTRACT_TYPE_MAP_LABELS[config.contractType] ?? config.contractType} on ${symbol?.short ?? config.symbol}` },
+    ],
+  };
+}
+
+const CONTRACT_TYPE_MAP_LABELS: Record<string, string> = {
+  rise_fall: "Rise/Fall",
+  higher_lower: "Higher/Lower",
+  touch: "Touch/No Touch",
+  digits: "Digits",
+  accumulator: "Accumulator",
+  multiplier: "Multiplier",
+  lookback: "Lookback",
+  ends_between: "Ends Between",
+  stays_between: "Stays Between",
+  even_odd: "Even/Odd",
+  over_under: "Over/Under",
+};
+
+export interface ProjectionScenario {
+  id: "conservative" | "expected" | "optimistic";
+  label: string;
+  monthlyPnl: number;
+  tradesPerMonth: number;
+  winRate: number;
+  drawdown: number;
+  note: string;
+}
+
+export function projectMonthly(config: BotConfigDraft): {
+  scenarios: ProjectionScenario[];
+  contractsPerDay: number;
+  monthlyTurnover: number;
+  capBreachDays: number;
+  assumptions: string[];
+} {
+  const risk = assessRisk(config);
+  const secondsPerContract = config.durationUnit === "ticks" ? config.duration * 2 : config.durationUnit === "seconds" ? config.duration : config.durationUnit === "minutes" ? config.duration * 60 : config.durationUnit === "hours" ? config.duration * 3600 : config.duration * 86_400;
+  const sessionSeconds = 6 * 3600 * config.maxConcurrent;
+  const contractsPerDay = Math.max(1, Math.min(config.risk.maxDailyTrades, Math.round(sessionSeconds / Math.max(4, secondsPerContract))));
+  const tradesPerMonth = contractsPerDay * 21;
+  const edge = config.paper ? 0.9 : 1;
+  const base = Math.round((((config.stake * (70 / 100)) * tradesPerMonth) / 100) * edge * 100) / 100;
+  const drawdownScale = Math.max(1, risk.score / 45);
+  const scenarios: ProjectionScenario[] = [
+    { id: "conservative", label: "Conservative (p20)", monthlyPnl: Math.round(base * 0.42 * 100) / 100, tradesPerMonth: Math.round(tradesPerMonth * 0.8), winRate: 54.2, drawdown: Math.round(-config.stopLoss * drawdownScale * 3.2 * 100) / 100, note: "Slow tape, wider spreads, two losing runs inside the month." },
+    { id: "expected", label: "Expected (p50)", monthlyPnl: base, tradesPerMonth: tradesPerMonth, winRate: 62.6, drawdown: Math.round(-config.stopLoss * drawdownScale * 1.8 * 100) / 100, note: "Baseline from the last 30-day demo tape for this strategy family." },
+    { id: "optimistic", label: "Optimistic (p80)", monthlyPnl: Math.round(base * 1.74 * 100) / 100, tradesPerMonth: Math.round(tradesPerMonth * 1.15), winRate: 71.4, drawdown: Math.round(-config.stopLoss * drawdownScale * 0.9 * 100) / 100, note: "Favourable volatility regime with the ladder rarely past step 3." },
+  ];
+  return {
+    scenarios,
+    contractsPerDay,
+    monthlyTurnover: Math.round(contractsPerDay * 21 * config.stake * 100) / 100,
+    capBreachDays: risk.score >= 68 ? 4 : risk.score >= 38 ? 2 : 1,
+    assumptions: [
+      `Session modelled at 6 h/day on ${config.maxConcurrent} concurrent slot${config.maxConcurrent === 1 ? "" : "s"}.`,
+      `Contract length ${fmtDur(config.duration, config.durationUnit)} → about ${contractsPerDay} settlements per day.`,
+      config.paper ? "Sizing uses virtual funds — the projection assumes the strategy is unchanged when it goes live." : "Sizing uses real CR funds; commission-free Deriv pricing assumed.",
+      "Projections ignore news blackouts unless the schedule rule is enabled in step 3.",
+    ],
+  };
+}
+
+export interface SimTrade {
+  id: string;
+  seq: number;
+  atMin: number;
+  side: string;
+  stake: number;
+  payout: number;
+  pnl: number;
+  result: "win" | "loss";
+  step: number;
+  exitSpot: number;
+  balance: number;
+}
+
+export interface SimBacktest {
+  id: string;
+  trades: SimTrade[];
+  equity: number[];
+  metrics: {
+    total: number;
+    wins: number;
+    losses: number;
+    winRate: number;
+    pnl: number;
+    maxDrawdown: number;
+    sharpe: number;
+    avgStake: number;
+    maxStep: number;
+    bestTrade: number;
+    worstTrade: number;
+    period: string;
+  };
+}
+
+/** Deterministic 30-day demo backtest for the wizard's live preview. */
+export function runBacktestSim(config: BotConfigDraft, opts?: { seed?: number; trades?: number; horizonLabel?: string }): SimBacktest {
+  const seed = opts?.seed ?? seedFrom(`${config.symbol}${config.strategyId}${config.stake}${config.duration}${config.strategyParams.multiplier ?? ""}`);
+  const rand = mulberry32(seed);
+  const symbol = MARKET_SYMBOLS.find((s) => s.code === config.symbol) ?? MARKET_SYMBOLS[0];
+  const template = BOT_STRATEGY_TEMPLATES.find((t) => t.id === config.strategyId);
+  const multiplier = Number(config.strategyParams.multiplier ?? template?.recoveryPerLoss ?? 1);
+  const maxSteps = Math.max(1, Number(config.strategyParams.maxSteps ?? 5));
+  const total = opts?.trades ?? 48;
+  const payoutPct = symbol.payoutPct;
+  const peakWin = 0.52 + (template?.historicalWinRate ?? 60) / 260;
+  const trades: SimTrade[] = [];
+  let balance = 1000;
+  let step = 0;
+  let stake = config.stake;
+  const equity: number[] = [balance];
+  for (let i = 0; i < total; i++) {
+    const win = rand() < (config.contractType === "accumulator" ? peakWin + 0.16 : peakWin);
+    const capped = Math.min(config.maxStake, Math.max(symbol.minStake, stake));
+    const payout = Math.round(capped * (1 + payoutPct / 100) * 100) / 100;
+    const pnl = win ? Math.round((payout - capped) * 100) / 100 : -capped;
+    balance = Math.round((balance + pnl) * 100) / 100;
+    trades.push({
+      id: `sim_${String(i + 1).padStart(3, "0")}`,
+      seq: i + 1,
+      atMin: 30 * 24 * 60 - (total - i) * 615,
+      side: config.contractType === "digits" ? (i % 2 ? "Differ 5" : "Match 5") : config.contractType === "higher_lower" ? (win ? "Higher" : "Lower") : win ? "Rise" : "Fall",
+      stake: capped,
+      payout,
+      pnl,
+      result: win ? "win" : "loss",
+      step: win ? 0 : step,
+      exitSpot: Math.round((symbol.basePrice * (1 + (rand() - 0.5) * 0.012)) * 1000) / 1000,
+      balance,
+    });
+    equity.push(balance);
+    if (win) {
+      step = 0;
+      stake = config.stake;
+    } else {
+      step = Math.min(maxSteps, step + 1);
+      stake = capped * multiplier;
+    }
+    if (balance <= 1000 - config.risk.maxDailyLoss * 8) break;
+  }
+  const wins = trades.filter((t) => t.result === "win").length;
+  const pnlTotal = Math.round((trades.reduce((a, t) => a + t.pnl, 0)) * 100) / 100;
+  let peak = equity[0];
+  let maxDrawdown = 0;
+  equity.forEach((v) => {
+    peak = Math.max(peak, v);
+    maxDrawdown = Math.min(maxDrawdown, v - peak);
+  });
+  const returns = trades.map((t) => t.pnl / 1000);
+  const mean = returns.reduce((a, v) => a + v, 0) / Math.max(1, returns.length);
+  const variance = returns.reduce((a, v) => a + (v - mean) ** 2, 0) / Math.max(1, returns.length);
+  const sharpe = Math.round((mean / Math.max(0.0001, Math.sqrt(variance))) * Math.sqrt(252) * 0.42 * 100) / 100;
+  return {
+    id: `bt_${seed.toString(16).slice(0, 6)}`,
+    trades,
+    equity,
+    metrics: {
+      total: trades.length,
+      wins,
+      losses: trades.length - wins,
+      winRate: Math.round((wins / Math.max(1, trades.length)) * 1000) / 10,
+      pnl: pnlTotal,
+      maxDrawdown: Math.round(maxDrawdown * 100) / 100,
+      sharpe,
+      avgStake: Math.round((trades.reduce((a, t) => a + t.stake, 0) / Math.max(1, trades.length)) * 100) / 100,
+      maxStep: trades.reduce((a, t) => Math.max(a, t.step), 0),
+      bestTrade: trades.reduce((a, t) => Math.max(a, t.pnl), 0),
+      worstTrade: trades.reduce((a, t) => Math.min(a, t.pnl), 0),
+      period: opts?.horizonLabel ?? "30-day demo tape · 2026-09-13 → 2026-10-13",
+    },
+  };
+}
+
+export interface OptimizerCandidate {
+  id: string;
+  multiplier: number;
+  maxSteps: number;
+  duration: number;
+  durationUnit: DurationUnit;
+  stake: number;
+  winRate: number;
+  pnl: number;
+  maxDrawdown: number;
+  sharpe: number;
+  score: number;
+  note: string;
+}
+
+/** Grid search over multiplier × maxSteps × duration (advanced feature #4). */
+export function runParameterOptimizer(config: BotConfigDraft, limit = 5): OptimizerCandidate[] {
+  const multipliers = [1.4, 1.6, 1.8, 2, 2.1, 2.4, 2.8];
+  const steps = [2, 3, 4, 5, 6];
+  const durations = config.durationUnit === "ticks" ? [1, 3, 5, 8, 10] : [1, 5, 15, 30, 60];
+  const grid: OptimizerCandidate[] = [];
+  const baseWin = BOT_STRATEGY_TEMPLATES.find((t) => t.id === config.strategyId)?.historicalWinRate ?? 60;
+  multipliers.forEach((m) => {
+    steps.forEach((s) => {
+      durations.forEach((d) => {
+        const seed = seedFrom(`${config.symbol}${m}${s}${d}${config.stake}`);
+        const rand = mulberry32(seed);
+        const drawdownPenalty = 1 - (m - 1) * 0.06 - (s - 2) * 0.012;
+        const winRate = Math.max(34, Math.min(92, Math.round((baseWin * drawdownPenalty + (rand() - 0.5) * 3.2) * 10) / 10));
+        const pnl = Math.round((config.stake * 210 * ((winRate - 52) / 100) * (2.4 - m * 0.32) + (rand() - 0.5) * 40) * 100) / 100;
+        const maxDrawdown = Math.round(-Math.max(18, config.stake * (m * 22 + s * 14) * (1 + (rand() - 0.5) * 0.3)) * 100) / 100;
+        const sharpe = Math.round((pnl / Math.max(1, Math.abs(maxDrawdown))) * 1.6 * 100) / 100;
+        const score = Math.round((pnl / Math.max(1, Math.abs(maxDrawdown) / 2) + sharpe * 12 + winRate * 0.24) * 100) / 100;
+        grid.push({
+          id: `opt_${m}_${s}_${d}`,
+          multiplier: m,
+          maxSteps: s,
+          duration: d,
+          durationUnit: config.durationUnit,
+          stake: config.stake,
+          winRate,
+          pnl,
+          maxDrawdown,
+          sharpe,
+          score,
+          note: m >= 2.4 ? "Steep ladder — needs a wide stop-loss to survive a 6-loss run." : s >= 5 ? "Deep ladder — capital sits longer between recoveries." : "Balanced ladder for this symbol's payout profile.",
+        });
+      });
+    });
+  });
+  return grid.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
+export interface MonteCarloResult {
+  runs: number;
+  p05: number;
+  p50: number;
+  p95: number;
+  ruinProbability: number;
+  avgDrawdown: number;
+  worstCase: number;
+  histogram: { label: string; count: number; from: number; to: number }[];
+}
+
+/** 1,000-sequence Monte-Carlo over the configured stake ladder (advanced feature #5). */
+export function runMonteCarlo(config: BotConfigDraft, runs = 1000): MonteCarloResult {
+  const rand = mulberry32(seedFrom(`mc${config.symbol}${config.stake}${config.strategyParams.multiplier ?? 2}${config.stopLoss}`));
+  const template = BOT_STRATEGY_TEMPLATES.find((t) => t.id === config.strategyId);
+  const multiplier = Number(config.strategyParams.multiplier ?? template?.recoveryPerLoss ?? 1);
+  const maxSteps = Math.max(1, Number(config.strategyParams.maxSteps ?? 5));
+  const tradesPerRun = 60;
+  const outcomes: number[] = [];
+  let ruin = 0;
+  let drawdownSum = 0;
+  for (let r = 0; r < runs; r++) {
+    let balance = 0;
+    let stake = config.stake;
+    let step = 0;
+    let worst = 0;
+    const winChance = (template?.historicalWinRate ?? 62) / 100;
+    for (let t = 0; t < tradesPerRun; t++) {
+      const win = rand() < winChance;
+      const capped = Math.min(config.maxStake, Math.max(0.35, stake));
+      balance += win ? capped * 0.95 : -capped;
+      if (win) {
+        step = 0;
+        stake = config.stake;
+      } else {
+        step += 1;
+        stake = capped * multiplier;
+      }
+      worst = Math.min(worst, balance);
+      if (step > maxSteps || balance <= -config.risk.maxDailyLoss * 2 || balance <= -config.stopLoss * 5) {
+        if (balance <= -config.stopLoss * 5) ruin += 1;
+        break;
+      }
+    }
+    outcomes.push(Math.round(balance * 100) / 100);
+    drawdownSum += Math.abs(worst);
+  }
+  outcomes.sort((a, b) => a - b);
+  const at = (p: number) => outcomes[Math.min(outcomes.length - 1, Math.max(0, Math.floor(p * outcomes.length)))];
+  const spread = Math.max(40, (at(0.95) - at(0.05)) / 6);
+  const startBucket = Math.floor(at(0.02) / spread) * spread;
+  const histogram = Array.from({ length: 7 }, (_, i) => {
+    const from = Math.round((startBucket + i * spread) * 100) / 100;
+    const to = Math.round((startBucket + (i + 1) * spread) * 100) / 100;
+    return {
+      label: from >= 0 ? `+$${from.toFixed(0)}` : `-$${Math.abs(from).toFixed(0)}`,
+      from,
+      to,
+      count: outcomes.filter((v) => v >= from && v < to).length,
+    };
+  });
+  return {
+    runs,
+    p05: at(0.05),
+    p50: at(0.5),
+    p95: at(0.95),
+    ruinProbability: Math.round((ruin / runs) * 1000) / 10,
+    avgDrawdown: Math.round((drawdownSum / runs) * 100) / 100,
+    worstCase: outcomes[0],
+    histogram,
+  };
+}
+
+/**
+ * Similar-symbol fallbacks for a halted feed — same market first, then the
+ * closest volatility profile by payout and pip size.
+ */
+export function similarSymbolsOf(code: string, limit = 4): string[] {
+  const source = MARKET_SYMBOLS.find((s) => s.code === code);
+  if (!source) return MARKET_SYMBOLS.slice(0, limit).map((s) => s.code);
+  const halted = new Set(HALTED_SYMBOLS.map((h) => h.code));
+  return MARKET_SYMBOLS.filter((s) => s.code !== code && !halted.has(s.code) && s.open)
+    .map((s) => ({
+      code: s.code,
+      score:
+        (s.market === source.market ? 100 : 0) +
+        (100 - Math.abs(s.payoutPct - source.payoutPct) * 12) +
+        (s.pipSize === source.pipSize ? 18 : 0) +
+        s.popularity / 8,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((s) => s.code);
+}
+
+export function haltedSymbolOf(code: string): HaltedSymbol | undefined {
+  return HALTED_SYMBOLS.find((h) => h.code === code);
+}
+
+// -----------------------------------------------------------------------------
+// Config diff (review step + version compare/rollback)
+// -----------------------------------------------------------------------------
+export interface ConfigDiffRow {
+  field: string;
+  from: string;
+  to: string;
+  tone: "up" | "down" | "flat";
+}
+
+function cfgValue(v: string | number | boolean | undefined): string {
+  if (typeof v === "number") return `$${v.toFixed(2)}`;
+  if (typeof v === "boolean") return v ? "enabled" : "disabled";
+  return v === undefined || v === "" ? "—" : String(v);
+}
+
+export function diffConfigs(before: BotConfigDraft, after: BotConfigDraft): ConfigDiffRow[] {
+  const rows: ConfigDiffRow[] = [];
+  const push = (field: string, a: string, b: string) => {
+    if (a !== b) rows.push({ field, from: a, to: b, tone: "flat" });
+  };
+  push("Name", cfgValue(before.name), cfgValue(after.name));
+  push("Symbol", before.symbol, after.symbol);
+  push("Strategy", BOT_STRATEGY_TEMPLATES.find((t) => t.id === before.strategyId)?.name ?? before.strategyId, BOT_STRATEGY_TEMPLATES.find((t) => t.id === after.strategyId)?.name ?? after.strategyId);
+  push("Contract type", CONTRACT_TYPE_MAP_LABELS[before.contractType] ?? before.contractType, CONTRACT_TYPE_MAP_LABELS[after.contractType] ?? after.contractType);
+  push("Initial stake", usd(before.stake), usd(after.stake));
+  push("Max stake", usd(before.maxStake), usd(after.maxStake));
+  push("Duration", fmtDur(before.duration, before.durationUnit), fmtDur(after.duration, after.durationUnit));
+  push("Take profit", usd(before.takeProfit), usd(after.takeProfit));
+  push("Stop loss", usd(before.stopLoss), usd(after.stopLoss));
+  push("Max concurrent", String(before.maxConcurrent), String(after.maxConcurrent));
+  push("Max daily loss", usd(before.risk.maxDailyLoss), usd(after.risk.maxDailyLoss));
+  push("Max daily trades", String(before.risk.maxDailyTrades), String(after.risk.maxDailyTrades));
+  push("Cooldown", `${before.risk.cooldownCount} losses → ${before.risk.cooldownMinutes} min`, `${after.risk.cooldownCount} losses → ${after.risk.cooldownMinutes} min`);
+  push("Max consecutive losses", String(before.risk.maxConsecutiveLosses), String(after.risk.maxConsecutiveLosses));
+  push("Paper trading", cfgValue(before.paper), cfgValue(after.paper));
+  const keys = new Set([...Object.keys(before.strategyParams), ...Object.keys(after.strategyParams)]);
+  keys.forEach((k) => push(`Strategy · ${k}`, String(before.strategyParams[k] ?? "—"), String(after.strategyParams[k] ?? "—")));
+  push("Schedule", `${before.schedule.days.join(", ")} ${before.schedule.from}–${before.schedule.to}`, `${after.schedule.days.join(", ")} ${after.schedule.from}–${after.schedule.to}`);
+  push("News blackout", cfgValue(before.schedule.blackoutNews), cfgValue(after.schedule.blackoutNews));
+  return rows.map((r) => ({ ...r, tone: r.field.includes("Stop") || r.field.includes("stake") || r.field.includes("Multiplier") || r.field.includes("multiplier") ? "up" : "flat" }));
+}
+
+/** JSON-safe export payload (config-only, never runtime data). */
+export function exportableConfig(config: BotConfigDraft): Record<string, unknown> {
+  return {
+    schema: "derivx.bot_config.v12",
+    exportedAt: new Date(NOW_REF).toISOString(),
+    name: config.name || "untitled-bot",
+    account: config.loginId,
+    symbol: config.symbol,
+    market: config.market,
+    strategy: config.strategyId,
+    scriptId: config.scriptId,
+    contractType: config.contractType,
+    tradeParams: {
+      stake: config.stake,
+      maxStake: config.maxStake,
+      duration: config.duration,
+      durationUnit: config.durationUnit,
+      takeProfit: config.takeProfit,
+      stopLoss: config.stopLoss,
+      maxConcurrent: config.maxConcurrent,
+    },
+    strategyParams: config.strategyParams,
+    riskLimits: config.risk,
+    schedule: config.schedule,
+    paper: config.paper,
+    tags: config.tags,
+  };
+}

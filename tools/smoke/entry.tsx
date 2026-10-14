@@ -18,6 +18,7 @@ import DashboardPage from "../../src/components/dashboard/DashboardPage";
 import MarketsPage from "../../src/components/dashboard/MarketsPage";
 import TradePage from "../../src/components/dashboard/TradePage";
 import BotsPage from "../../src/components/dashboard/BotsPage";
+import BotCreatorPage from "../../src/components/dashboard/BotCreatorPage";
 import { BOTS } from "../../src/data/trading";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
@@ -33,6 +34,7 @@ interface SmokeResult {
   featuresLog?: string[];
   signupLog?: string[];
   authLog?: string[];
+  dashLog?: string[];
 }
 
 declare global {
@@ -76,8 +78,14 @@ const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: "/da
 const marketsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/markets", component: () => <MarketsPage /> });
 const tradeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/trade", component: TradePage });
 const botsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/bots", component: BotsPage });
+const botCreatorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/bots/new", component: () => <BotCreatorPage /> });
+const botConfigRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/dashboard/bots/$id/config",
+  component: () => <BotCreatorPage botId="bot_mart_10" />,
+});
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute, tradeRoute, botsRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute, tradeRoute, botsRoute, botCreatorRoute, botConfigRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -380,7 +388,7 @@ async function drive() {
 
   // ---- D-1/D-2 dashboard phase ----------------------------------------------
   const dashLog: string[] = [];
-  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets", "/dashboard/trade", "/dashboard/bots"]);
+  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets", "/dashboard/trade", "/dashboard/bots", "/dashboard/bots/new"]);
   const auditLinks = (label: string) => {
     const bad = Array.from(window.document.querySelectorAll<HTMLAnchorElement>("a[href]"))
       .map((a) => a.getAttribute("href") ?? "")
@@ -515,6 +523,86 @@ async function drive() {
   if (!errorAlert) errors.push("DASH: D-4 error bot trace not visible after Error filter");
   click("All (");
   await wait(200);
+
+  // ---- D-5 bot creator -----------------------------------------------------
+  await visitDash("/dashboard/bots/new", ".page-bot-new", "D-5 bot creator");
+  auditLinks("D-5");
+  clickExact("Next");
+  await wait(250);
+  const guardShown = (window.document.body.textContent ?? "").includes("Cannot continue yet");
+  dashLog.push(`D-5 step guard: blocked incomplete step 1=${guardShown}`);
+  if (!guardShown) errors.push("DASH: D-5 next-step guard did not block an incomplete step 1");
+
+  const setValue = (el: HTMLElement, v: string) => {
+    const proto =
+      el instanceof window.HTMLSelectElement
+        ? window.HTMLSelectElement.prototype
+        : el instanceof window.HTMLTextAreaElement
+          ? window.HTMLTextAreaElement.prototype
+          : window.HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    setter?.call(el, v);
+    el.dispatchEvent(new window.Event("input", { bubbles: true }));
+    el.dispatchEvent(new window.Event("change", { bubbles: true }));
+  };
+  const nameField = window.document.querySelector<HTMLInputElement>('input[placeholder="My Martingale Bot"]');
+  if (nameField) setValue(nameField, "Volatility Scalper Lite");
+  await wait(250);
+  clickExact("Next");
+  await wait(300);
+  const strategyStep = (window.document.body.textContent ?? "").includes("Oscar");
+  dashLog.push(`D-5 strategy step reached: templates visible=${strategyStep}`);
+  if (!strategyStep) errors.push("DASH: D-5 did not reach the strategy step after a valid step 1");
+
+  clickExact("AI assistant");
+  await expectDashPanel("D-5 AI assistant wizard");
+  clickExact("Keyboard");
+  await expectDashPanel("D-5 shortcuts dialog");
+  click("Marketplace");
+  await wait(300);
+  const marketRows = window.document.querySelectorAll("#dx-bot-lower table tbody tr").length;
+  dashLog.push(`D-5 marketplace rows: ${marketRows}`);
+  if (marketRows < 3) errors.push("DASH: D-5 marketplace table did not render rows");
+  click("Recent drafts");
+  await wait(250);
+  const draftRows = window.document.querySelectorAll("#dx-bot-lower table tbody tr").length;
+  dashLog.push(`D-5 draft rows: ${draftRows}`);
+  if (draftRows < 2) errors.push("DASH: D-5 recent-drafts table did not render rows");
+  click("Save draft");
+  await wait(250);
+  const draftToast = Boolean(window.document.querySelector(".dx-toast"));
+  dashLog.push(`D-5 draft toast: ${draftToast}`);
+  if (!draftToast) errors.push("DASH: D-5 save-draft toast did not fire");
+
+  // walk the wizard: step 3 (parameters + risk overlays), step 4 (evidence), deploy
+  clickExact("Next");
+  await wait(300);
+  const paramStep = (window.document.body.textContent ?? "").includes("Recovery ladder");
+  dashLog.push(`D-5 parameters step reached: ladder visible=${paramStep}`);
+  if (!paramStep) errors.push("DASH: D-5 did not reach the parameters step");
+  click("Full risk breakdown");
+  await expectDashPanel("D-5 risk drawer");
+  click("Simulate 1,000 sequences");
+  await expectDashPanel("D-5 Monte-Carlo dialog");
+  click("Project the month");
+  await expectDashPanel("D-5 projection dialog");
+  clickExact("Next");
+  await wait(300);
+  const reviewStep = (window.document.body.textContent ?? "").includes("Evidence before arming");
+  dashLog.push(`D-5 review step reached: evidence card=${reviewStep}`);
+  if (!reviewStep) errors.push("DASH: D-5 did not reach the review step");
+  click("Run 30-day backtest");
+  await expectDashPanel("D-5 backtest run dialog");
+  click("Optimize");
+  await expectDashPanel("D-5 optimizer dialog");
+  click("Checklist");
+  await expectDashPanel("D-5 completeness checklist");
+  click("Save & start bot");
+  await expectDashPanel("D-5 deploy confirm wizard");
+  click("Keyboard");
+  await expectDashPanel("D-5 shortcuts dialog again");
+  click("Share");
+  await expectDashPanel("D-5 share dialog");
 
   // ---- theme toggle round-trip ---------------------------------------------
   // Light is the default, so the toggle must move <html> light → dark → light
