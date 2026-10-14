@@ -17,6 +17,7 @@ import { TwoFactorPage } from "../../src/components/auth/TwoFactorPage";
 import DashboardPage from "../../src/components/dashboard/DashboardPage";
 import MarketsPage from "../../src/components/dashboard/MarketsPage";
 import TradePage from "../../src/components/dashboard/TradePage";
+import BotsPage from "../../src/components/dashboard/BotsPage";
 import { BOTS } from "../../src/data/trading";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
@@ -74,8 +75,9 @@ const twoFactorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/au
 const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard", component: DashboardPage });
 const marketsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/markets", component: () => <MarketsPage /> });
 const tradeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/trade", component: TradePage });
+const botsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/bots", component: BotsPage });
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute, tradeRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute, tradeRoute, botsRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -378,7 +380,7 @@ async function drive() {
 
   // ---- D-1/D-2 dashboard phase ----------------------------------------------
   const dashLog: string[] = [];
-  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets", "/dashboard/trade"]);
+  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets", "/dashboard/trade", "/dashboard/bots"]);
   const auditLinks = (label: string) => {
     const bad = Array.from(window.document.querySelectorAll<HTMLAnchorElement>("a[href]"))
       .map((a) => a.getAttribute("href") ?? "")
@@ -489,6 +491,29 @@ async function drive() {
   dashLog.push(`D-3 feed pause: overlay=${pausedOverlay}`);
   if (!pausedOverlay) errors.push("DASH: D-3 pause feed did not show the paused overlay");
   click("Resume feed");
+  await wait(200);
+
+  // ---- D-4 bot management ----------------------------------------------------
+  await visitDash("/dashboard/bots", ".page-bots", "D-4 bots");
+  auditLinks("D-4");
+  click("Vol10");
+  await expectDashPanel("D-4 bot detail drawer");
+  clickExact("Create new bot");
+  await expectDashPanel("D-4 create (presets)");
+  // select two bots for comparison from the cards
+  const compareBtns = () => Array.from(window.document.querySelectorAll<HTMLElement>(".page-bots button")).filter((n) => (n.textContent ?? "").trim() === "Compare");
+  compareBtns()[0]?.click();
+  await wait(150);
+  compareBtns()[0]?.click();
+  await wait(150);
+  click("Compare selected");
+  await expectDashPanel("D-4 comparison dialog");
+  clickExact("Error (1)");
+  await wait(250);
+  const errorAlert = window.document.body.textContent?.includes("Auto-paused") ?? false;
+  dashLog.push(`D-4 error bot: auto-pause trace visible=${errorAlert}`);
+  if (!errorAlert) errors.push("DASH: D-4 error bot trace not visible after Error filter");
+  click("All (");
   await wait(200);
 
   // ---- theme toggle round-trip ---------------------------------------------

@@ -22,6 +22,7 @@ import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardMarketsRouteImport } from './routes/dashboard/markets'
 import { Route as DashboardTradeRouteImport } from './routes/dashboard/trade'
 import { Route as AuthDerivCallbackRouteImport } from './routes/auth/deriv/callback'
+import { Route as DashboardBotsIndexRouteImport } from './routes/dashboard/bots/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -88,6 +89,11 @@ const AuthDerivCallbackRoute = AuthDerivCallbackRouteImport.update({
   path: '/auth/deriv/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardBotsIndexRoute = DashboardBotsIndexRouteImport.update({
+  id: '/dashboard/bots/',
+  path: '/dashboard/bots/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/trade': typeof DashboardTradeRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
+  '/dashboard/bots/': typeof DashboardBotsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/dashboard/trade': typeof DashboardTradeRoute
   '/dashboard': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
+  '/dashboard/bots': typeof DashboardBotsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/dashboard/trade': typeof DashboardTradeRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
+  '/dashboard/bots/': typeof DashboardBotsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/dashboard/trade'
     | '/dashboard/'
     | '/auth/deriv/callback'
+    | '/dashboard/bots/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/dashboard/trade'
     | '/dashboard'
     | '/auth/deriv/callback'
+    | '/dashboard/bots'
   id:
     | '__root__'
     | '/'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/dashboard/trade'
     | '/dashboard/'
     | '/auth/deriv/callback'
+    | '/dashboard/bots/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +209,7 @@ export interface RootRouteChildren {
   DashboardTradeRoute: typeof DashboardTradeRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   AuthDerivCallbackRoute: typeof AuthDerivCallbackRoute
+  DashboardBotsIndexRoute: typeof DashboardBotsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDerivCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/bots/': {
+      id: '/dashboard/bots/'
+      path: '/dashboard/bots'
+      fullPath: '/dashboard/bots/'
+      preLoaderRoute: typeof DashboardBotsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -309,6 +329,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardTradeRoute: DashboardTradeRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   AuthDerivCallbackRoute: AuthDerivCallbackRoute,
+  DashboardBotsIndexRoute: DashboardBotsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
