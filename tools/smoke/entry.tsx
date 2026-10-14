@@ -16,6 +16,7 @@ import { VerifyEmailPage } from "../../src/components/auth/VerifyEmailPage";
 import { TwoFactorPage } from "../../src/components/auth/TwoFactorPage";
 import DashboardPage from "../../src/components/dashboard/DashboardPage";
 import MarketsPage from "../../src/components/dashboard/MarketsPage";
+import TradePage from "../../src/components/dashboard/TradePage";
 import { BOTS } from "../../src/data/trading";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
@@ -72,8 +73,9 @@ const verifyRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/
 const twoFactorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/2fa", component: () => <TwoFactorPage /> });
 const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard", component: DashboardPage });
 const marketsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/markets", component: () => <MarketsPage /> });
+const tradeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/trade", component: TradePage });
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute, tradeRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -376,7 +378,7 @@ async function drive() {
 
   // ---- D-1/D-2 dashboard phase ----------------------------------------------
   const dashLog: string[] = [];
-  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets"]);
+  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets", "/dashboard/trade"]);
   const auditLinks = (label: string) => {
     const bad = Array.from(window.document.querySelectorAll<HTMLAnchorElement>("a[href]"))
       .map((a) => a.getAttribute("href") ?? "")
@@ -452,12 +454,42 @@ async function drive() {
   await wait(250);
   clickExact("Grid");
   await wait(250);
-  clickExact("Trade");
+  // scoped: the sidebar now also has a "Trade" link (D-3) — hit the card's button
+  const cardTradeBtn = Array.from(window.document.querySelectorAll<HTMLElement>(".page-markets button")).find((n) => (n.textContent ?? "").trim() === "Trade" && !n.hasAttribute("disabled"));
+  if (!cardTradeBtn) errors.push("CONTROL NOT FOUND: D-2 grid Trade button");
+  cardTradeBtn?.click();
   await expectDashPanel("D-2 card trade ticket");
   click(`Watchlists (`);
   await expectDashPanel("D-2 watchlists drawer");
   await visitDash("/dashboard/markets", ".page-markets", "D-2 markets (direct)");
   auditLinks("D-2 (direct)");
+
+  // ---- D-3 trade page --------------------------------------------------------
+  await visitDash("/dashboard/trade", ".page-trade", "D-3 trade");
+  auditLinks("D-3");
+  click("Indicators (");
+  await expectDashPanel("D-3 indicators dialog");
+  // full buy flow: order panel -> proposal -> confirm -> receipt -> track
+  click("Buy Rise");
+  await wait(300);
+  click("Confirm buy");
+  await wait(1400);
+  const receiptPanel = window.document.querySelector(".dx-dialog");
+  dashLog.push(`D-3 buy flow: panel after confirm=${receiptPanel ? `"${receiptPanel.querySelector(".dx-dialog-title")?.textContent?.trim().slice(0, 30) ?? ""}"` : "MISSING"}`);
+  if (!receiptPanel) errors.push("DASH: D-3 buy flow did not reach the receipt dialog");
+  clickExact("Track in open contracts");
+  await wait(350);
+  clickExact("Multi-leg builder");
+  await expectDashPanel("D-3 multi-leg builder");
+  click("Symbol list");
+  await expectDashPanel("D-3 symbol drawer");
+  click("Pause feed");
+  await wait(250);
+  const pausedOverlay = Boolean(window.document.querySelector(".dx-chart-paused"));
+  dashLog.push(`D-3 feed pause: overlay=${pausedOverlay}`);
+  if (!pausedOverlay) errors.push("DASH: D-3 pause feed did not show the paused overlay");
+  click("Resume feed");
+  await wait(200);
 
   // ---- theme toggle round-trip ---------------------------------------------
   // Light is the default, so the toggle must move <html> light → dark → light

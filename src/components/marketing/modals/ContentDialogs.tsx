@@ -1058,7 +1058,7 @@ export function ChangelogDialog({ open, onClose, onOpenCommunity }: { open: bool
 type ReadyRoute =
   | "/" | "/features"
   | "/auth/signup" | "/auth/signin" | "/auth/deriv/callback"
-  | "/dashboard" | "/dashboard/markets"
+  | "/dashboard" | "/dashboard/markets" | "/dashboard/trade"
   | "/auth/forgot-password" | "/auth/reset-password" | "/auth/verify-email" | "/auth/2fa";
 
 const ROUTE_INDEX: { group: string; id: string; route: string; title: string; ready: boolean; to?: ReadyRoute }[] = [
@@ -1074,7 +1074,7 @@ const ROUTE_INDEX: { group: string; id: string; route: string; title: string; re
   { group: "Auth", id: "A-7", route: "/auth/2fa", title: "Two-factor authentication", ready: true, to: "/auth/2fa" },
   { group: "Dashboard", id: "D-1", route: "/dashboard", title: "Overview hub", ready: true, to: "/dashboard" },
   { group: "Dashboard", id: "D-2", route: "/dashboard/markets", title: "Markets browser", ready: true, to: "/dashboard/markets" },
-  { group: "Dashboard", id: "D-3", route: "/dashboard/trade", title: "Trade execution", ready: false },
+  { group: "Dashboard", id: "D-3", route: "/dashboard/trade", title: "Trade execution", ready: true, to: "/dashboard/trade" },
   { group: "Dashboard", id: "D-4", route: "/dashboard/bots", title: "Bot management", ready: false },
   { group: "Dashboard", id: "D-5", route: "/dashboard/bots/new", title: "Bot creator", ready: false },
   { group: "Dashboard", id: "D-6", route: "/dashboard/scripts", title: "Script editor", ready: false },

@@ -49,7 +49,7 @@ export interface ShellNavItem {
 export const DASHBOARD_NAV: ShellNavItem[] = [
   { id: "d1", label: "Overview", to: "/dashboard", icon: <LayoutDashboard size={15} />, ready: true },
   { id: "d2", label: "Markets", to: "/dashboard/markets", icon: <Layers size={15} />, ready: true },
-  { id: "d3", label: "Trade", to: "/dashboard/trade", icon: <Gauge size={15} />, ready: false },
+  { id: "d3", label: "Trade", to: "/dashboard/trade", icon: <Gauge size={15} />, ready: true },
   { id: "d4", label: "Bots", to: "/dashboard/bots", icon: <Bot size={15} />, ready: false },
   { id: "d5", label: "Bot creator", to: "/dashboard/bots/new", icon: <Cpu size={15} />, ready: false },
   { id: "d6", label: "Scripts", to: "/dashboard/scripts", icon: <Code2 size={15} />, ready: false },

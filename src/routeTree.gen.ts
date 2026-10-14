@@ -20,6 +20,7 @@ import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthVerifyEmailRouteImport } from './routes/auth/verify-email'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardMarketsRouteImport } from './routes/dashboard/markets'
+import { Route as DashboardTradeRouteImport } from './routes/dashboard/trade'
 import { Route as AuthDerivCallbackRouteImport } from './routes/auth/deriv/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +78,11 @@ const DashboardMarketsRoute = DashboardMarketsRouteImport.update({
   path: '/dashboard/markets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardTradeRoute = DashboardTradeRouteImport.update({
+  id: '/dashboard/trade',
+  path: '/dashboard/trade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthDerivCallbackRoute = AuthDerivCallbackRouteImport.update({
   id: '/auth/deriv/callback',
   path: '/auth/deriv/callback',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/auth/signup': typeof AuthSignupRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
   '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/trade': typeof DashboardTradeRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/auth/signup': typeof AuthSignupRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
   '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/trade': typeof DashboardTradeRoute
   '/dashboard': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/auth/signup': typeof AuthSignupRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
   '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/trade': typeof DashboardTradeRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/auth/verify-email'
     | '/dashboard/markets'
+    | '/dashboard/trade'
     | '/dashboard/'
     | '/auth/deriv/callback'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/auth/verify-email'
     | '/dashboard/markets'
+    | '/dashboard/trade'
     | '/dashboard'
     | '/auth/deriv/callback'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/auth/verify-email'
     | '/dashboard/markets'
+    | '/dashboard/trade'
     | '/dashboard/'
     | '/auth/deriv/callback'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   AuthSignupRoute: typeof AuthSignupRoute
   AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
   DashboardMarketsRoute: typeof DashboardMarketsRoute
+  DashboardTradeRoute: typeof DashboardTradeRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   AuthDerivCallbackRoute: typeof AuthDerivCallbackRoute
 }
@@ -265,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardMarketsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/trade': {
+      id: '/dashboard/trade'
+      path: '/dashboard/trade'
+      fullPath: '/dashboard/trade'
+      preLoaderRoute: typeof DashboardTradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/deriv/callback': {
       id: '/auth/deriv/callback'
       path: '/auth/deriv/callback'
@@ -286,18 +306,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignupRoute: AuthSignupRoute,
   AuthVerifyEmailRoute: AuthVerifyEmailRoute,
   DashboardMarketsRoute: DashboardMarketsRoute,
+  DashboardTradeRoute: DashboardTradeRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   AuthDerivCallbackRoute: AuthDerivCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
