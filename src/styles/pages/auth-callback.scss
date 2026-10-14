@@ -1,0 +1,57 @@
+// =============================================================================
+// src/styles/pages/auth-callback.scss — A-3 ONLY (.page-auth-callback)
+// Imported exclusively by src/routes/auth/deriv/callback.tsx.
+// Tokens only; documented in docs/MASTER_THEME.md §13.
+// =============================================================================
+
+.page-auth-callback {
+  // ---- simulated WebSocket / token-exchange log tape -------------------------
+  .dx-terminal-line {
+    font-size: 0.74rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    animation: dx-callback-tape-in 260ms var(--dx-ease);
+
+    & + & {
+      margin-top: 2px;
+    }
+  }
+
+  @keyframes dx-callback-tape-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+  }
+
+  // ---- blueprint progress steps: active step pulses, done steps settle -------
+  .dx-callback-step {
+    transition: border-color var(--dx-t-fast) var(--dx-ease), background var(--dx-t-fast) var(--dx-ease);
+
+    &.is-active {
+      border-color: var(--dx-accent);
+      background: var(--dx-surface-2);
+    }
+
+    &.is-done {
+      opacity: 0.75;
+    }
+  }
+
+  .dx-callback-spin {
+    animation: dx-callback-rotate 900ms linear infinite;
+  }
+
+  @keyframes dx-callback-rotate {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dx-callback-spin {
+      animation: none;
+    }
+  }
+}
