@@ -169,6 +169,10 @@ if (result.authLog) {
   console.log(`\nauth walk (A-2…A-7):`);
   for (const f of result.authLog) console.log("   ", f);
 }
+if (result.dashLog) {
+  console.log(`\ndashboard walk (D-1…D-6):`);
+  for (const d of result.dashLog) console.log("   ", d);
+}
 if (result.labels) {
   console.log(`\ncontrol labels (${result.labels.length}):`);
   console.log("   " + result.labels.join(" | ").slice(0, 3000));

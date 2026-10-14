@@ -4,7 +4,7 @@
 // are reported back through window.__smokeResult.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter, useRouterState } from "@tanstack/react-router";
 import { LandingPage } from "../../src/components/marketing/LandingPage";
 import { FeaturesPage } from "../../src/components/marketing/FeaturesPage";
 import { SignupPage } from "../../src/components/auth/SignupPage";
@@ -18,6 +18,8 @@ import DashboardPage from "../../src/components/dashboard/DashboardPage";
 import MarketsPage from "../../src/components/dashboard/MarketsPage";
 import TradePage from "../../src/components/dashboard/TradePage";
 import BotsPage from "../../src/components/dashboard/BotsPage";
+import BotCreatorPage from "../../src/components/dashboard/BotCreatorPage";
+import { ScriptDetailPage, ScriptsListPage } from "../../src/components/dashboard/ScriptEditorPage";
 import { BOTS } from "../../src/data/trading";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
@@ -33,6 +35,7 @@ interface SmokeResult {
   featuresLog?: string[];
   signupLog?: string[];
   authLog?: string[];
+  dashLog?: string[];
 }
 
 declare global {
@@ -76,8 +79,25 @@ const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: "/da
 const marketsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/markets", component: () => <MarketsPage /> });
 const tradeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/trade", component: TradePage });
 const botsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/bots", component: BotsPage });
+const botCreatorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/bots/new", component: () => <BotCreatorPage /> });
+const botConfigRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/dashboard/bots/$id/config",
+  component: () => <BotCreatorPage botId="bot_mart_10" />,
+});
+const scriptsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/scripts", component: ScriptsListPage });
+function ScriptEditorRoute() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const id = pathname.split("/").filter(Boolean).pop() ?? "scr_01";
+  return <ScriptDetailPage scriptId={id} />;
+}
+const scriptEditorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/dashboard/scripts/$id",
+  component: ScriptEditorRoute,
+});
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute, tradeRoute, botsRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute, tradeRoute, botsRoute, botCreatorRoute, botConfigRoute, scriptsRoute, scriptEditorRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -380,7 +400,7 @@ async function drive() {
 
   // ---- D-1/D-2 dashboard phase ----------------------------------------------
   const dashLog: string[] = [];
-  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets", "/dashboard/trade", "/dashboard/bots"]);
+  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets", "/dashboard/trade", "/dashboard/bots", "/dashboard/bots/new", "/dashboard/scripts", "/dashboard/scripts/scr_07"]);
   const auditLinks = (label: string) => {
     const bad = Array.from(window.document.querySelectorAll<HTMLAnchorElement>("a[href]"))
       .map((a) => a.getAttribute("href") ?? "")
@@ -515,6 +535,174 @@ async function drive() {
   if (!errorAlert) errors.push("DASH: D-4 error bot trace not visible after Error filter");
   click("All (");
   await wait(200);
+
+  // ---- D-5 bot creator -----------------------------------------------------
+  await visitDash("/dashboard/bots/new", ".page-bot-new", "D-5 bot creator");
+  auditLinks("D-5");
+  clickExact("Next");
+  await wait(250);
+  const guardShown = (window.document.body.textContent ?? "").includes("Cannot continue yet");
+  dashLog.push(`D-5 step guard: blocked incomplete step 1=${guardShown}`);
+  if (!guardShown) errors.push("DASH: D-5 next-step guard did not block an incomplete step 1");
+
+  const setValue = (el: HTMLElement, v: string) => {
+    const proto =
+      el instanceof window.HTMLSelectElement
+        ? window.HTMLSelectElement.prototype
+        : el instanceof window.HTMLTextAreaElement
+          ? window.HTMLTextAreaElement.prototype
+          : window.HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    setter?.call(el, v);
+    el.dispatchEvent(new window.Event("input", { bubbles: true }));
+    el.dispatchEvent(new window.Event("change", { bubbles: true }));
+  };
+  const nameField = window.document.querySelector<HTMLInputElement>('input[placeholder="My Martingale Bot"]');
+  if (nameField) setValue(nameField, "Volatility Scalper Lite");
+  await wait(250);
+  clickExact("Next");
+  await wait(300);
+  const strategyStep = (window.document.body.textContent ?? "").includes("Oscar");
+  dashLog.push(`D-5 strategy step reached: templates visible=${strategyStep}`);
+  if (!strategyStep) errors.push("DASH: D-5 did not reach the strategy step after a valid step 1");
+
+  clickExact("AI assistant");
+  await expectDashPanel("D-5 AI assistant wizard");
+  clickExact("Keyboard");
+  await expectDashPanel("D-5 shortcuts dialog");
+  click("Marketplace");
+  await wait(300);
+  const marketRows = window.document.querySelectorAll("#dx-bot-lower table tbody tr").length;
+  dashLog.push(`D-5 marketplace rows: ${marketRows}`);
+  if (marketRows < 3) errors.push("DASH: D-5 marketplace table did not render rows");
+  click("Recent drafts");
+  await wait(250);
+  const draftRows = window.document.querySelectorAll("#dx-bot-lower table tbody tr").length;
+  dashLog.push(`D-5 draft rows: ${draftRows}`);
+  if (draftRows < 2) errors.push("DASH: D-5 recent-drafts table did not render rows");
+  click("Save draft");
+  await wait(250);
+  const draftToast = Boolean(window.document.querySelector(".dx-toast"));
+  dashLog.push(`D-5 draft toast: ${draftToast}`);
+  if (!draftToast) errors.push("DASH: D-5 save-draft toast did not fire");
+
+  // walk the wizard: step 3 (parameters + risk overlays), step 4 (evidence), deploy
+  clickExact("Next");
+  await wait(300);
+  const paramStep = (window.document.body.textContent ?? "").includes("Recovery ladder");
+  dashLog.push(`D-5 parameters step reached: ladder visible=${paramStep}`);
+  if (!paramStep) errors.push("DASH: D-5 did not reach the parameters step");
+  click("Full risk breakdown");
+  await expectDashPanel("D-5 risk drawer");
+  click("Simulate 1,000 sequences");
+  await expectDashPanel("D-5 Monte-Carlo dialog");
+  click("Project the month");
+  await expectDashPanel("D-5 projection dialog");
+  clickExact("Next");
+  await wait(300);
+  const reviewStep = (window.document.body.textContent ?? "").includes("Evidence before arming");
+  dashLog.push(`D-5 review step reached: evidence card=${reviewStep}`);
+  if (!reviewStep) errors.push("DASH: D-5 did not reach the review step");
+  click("Run 30-day backtest");
+  await expectDashPanel("D-5 backtest run dialog");
+  click("Optimize");
+  await expectDashPanel("D-5 optimizer dialog");
+  click("Checklist");
+  await expectDashPanel("D-5 completeness checklist");
+  click("Save & start bot");
+  await expectDashPanel("D-5 deploy confirm wizard");
+  click("Keyboard");
+  await expectDashPanel("D-5 shortcuts dialog again");
+  click("Share");
+  await expectDashPanel("D-5 share dialog");
+
+  // ---- D-6 script studio ---------------------------------------------------
+  await visitDash("/dashboard/scripts", ".page-scripts", "D-6 script library");
+  auditLinks("D-6");
+  const libRows = window.document.querySelectorAll(".page-scripts table tbody tr").length;
+  dashLog.push(`D-6 library rows: ${libRows}`);
+  if (libRows < 4) errors.push("DASH: D-6 script library rendered too few rows");
+  click("Template library");
+  await wait(320);
+  const tplCards = window.document.querySelectorAll(".page-scripts .dx-tpl-card").length;
+  dashLog.push(`D-6 template cards: ${tplCards}`);
+  if (tplCards < 3) errors.push("DASH: D-6 template library rendered no cards");
+  click("Use template");
+  await expectDashPanel("D-6 new-script wizard");
+  click("Preview");
+  await expectDashPanel("D-6 template detail drawer");
+  click("My scripts");
+  await wait(280);
+  const scriptRow = window.document.querySelector<HTMLElement>(".page-scripts table tbody tr");
+  scriptRow?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await expectDashPanel("D-6 script detail drawer");
+  const libCheck = window.document.querySelector<HTMLInputElement>(".page-scripts table tbody input[type=\"checkbox\"]");
+  libCheck?.click();
+  await wait(220);
+  click("Bulk actions");
+  await expectDashPanel("D-6 bulk actions dialog");
+
+  await visitDash("/dashboard/scripts/scr_07", ".page-scripts", "D-6 editor (scr_07)");
+  await wait(300);
+  auditLinks("D-6 editor");
+  const gutter = window.document.querySelectorAll(".page-scripts .dx-code-lineno").length;
+  dashLog.push(`D-6 gutter lines: ${gutter}`);
+  if (gutter < 8) errors.push("DASH: D-6 editor gutter did not render line numbers");
+  const logRegions = window.document.querySelectorAll('.page-scripts [role="log"]').length;
+  dashLog.push(`D-6 role=log console regions: ${logRegions}`);
+  if (!logRegions) errors.push("DASH: D-6 test console lost its role=log region");
+  const blockedGuard = (window.document.body.textContent ?? "").includes("Save is blocked by the sandbox validator");
+  dashLog.push(`D-6 blocked-save guard visible: ${blockedGuard}`);
+  if (!blockedGuard) errors.push("DASH: D-6 syntax-error script did not surface the blocked-save guard");
+  click("Diff view");
+  await wait(280);
+  const codeRows = window.document.querySelectorAll(".page-scripts .dx-code-row").length;
+  dashLog.push(`D-6 tokenised gutter rows: ${codeRows}`);
+  if (codeRows < 8) errors.push("DASH: D-6 code surface did not render tokenised rows");
+  click("Review the block");
+  await expectDashPanel("D-6 save-blocked dialog");
+  // a clean script actually runs (the blocked one routes to the save-blocked dialog)
+  click("Run 600 ticks");
+  await wait(900);
+  const blockedRunPanel = Boolean(window.document.querySelector(".dx-dialog, .dx-drawer"));
+  dashLog.push(`D-6 blocked script refuses to run: ${blockedRunPanel}`);
+  if (!blockedRunPanel) errors.push("DASH: D-6 blocked script started a sandbox run");
+  window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(180);
+  await visitDash("/dashboard/scripts/scr_01", ".page-scripts", "D-6 editor (scr_01, healthy)");
+  await wait(300);
+  click("Run 600 ticks");
+  await wait(2900);
+  const ranResults = (window.document.body.textContent ?? "").includes("Peak heap");
+  dashLog.push(`D-6 sandbox run results rendered: ${ranResults}`);
+  if (!ranResults) errors.push("DASH: D-6 inline sandbox run never produced results");
+  const tapeLines = window.document.querySelectorAll(".page-scripts .dx-console-line").length;
+  dashLog.push(`D-6 console tape lines after run: ${tapeLines}`);
+  if (tapeLines < 2) errors.push("DASH: D-6 test console did not stream the run tape");
+  clickExact("Run all tests");
+  await expectDashPanel("D-6 test suite dialog");
+  click("All versions");
+  await expectDashPanel("D-6 versions drawer");
+  click("Branches");
+  await expectDashPanel("D-6 branches drawer");
+  click("Dependencies");
+  await expectDashPanel("D-6 dependencies drawer");
+  click("Debugger");
+  await expectDashPanel("D-6 debugger drawer");
+  click("Snippets");
+  await expectDashPanel("D-6 snippets dialog");
+  click("Editor prefs");
+  await expectDashPanel("D-6 editor prefs dialog");
+  const helpBtn = window.document.querySelector<HTMLButtonElement>('.page-scripts button[aria-label="Keyboard shortcuts"]');
+  helpBtn?.click();
+  await expectDashPanel("D-6 keyboard help dialog");
+  click("Ask AI");
+  await expectDashPanel("D-6 AI assistant drawer");
+  const apiRow = window.document.querySelector<HTMLElement>(".page-scripts .dx-api-row");
+  apiRow?.click();
+  await expectDashPanel("D-6 API reference dialog");
+  click("Library");
+  await visitDash("/dashboard/scripts", ".page-scripts", "D-6 back to library");
 
   // ---- theme toggle round-trip ---------------------------------------------
   // Light is the default, so the toggle must move <html> light → dark → light
