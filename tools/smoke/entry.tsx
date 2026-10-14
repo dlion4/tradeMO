@@ -14,6 +14,9 @@ import { ForgotPasswordPage } from "../../src/components/auth/ForgotPasswordPage
 import { ResetPasswordPage } from "../../src/components/auth/ResetPasswordPage";
 import { VerifyEmailPage } from "../../src/components/auth/VerifyEmailPage";
 import { TwoFactorPage } from "../../src/components/auth/TwoFactorPage";
+import DashboardPage from "../../src/components/dashboard/DashboardPage";
+import MarketsPage from "../../src/components/dashboard/MarketsPage";
+import { BOTS } from "../../src/data/trading";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
 interface SmokeResult {
@@ -67,8 +70,10 @@ const forgotRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/
 const resetRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/reset-password", component: () => <ResetPasswordPage /> });
 const verifyRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/verify-email", component: () => <VerifyEmailPage /> });
 const twoFactorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/2fa", component: () => <TwoFactorPage /> });
+const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard", component: DashboardPage });
+const marketsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard/markets", component: () => <MarketsPage /> });
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute, dashboardRoute, marketsRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -344,6 +349,91 @@ async function drive() {
   await wait(200);
   authLog.push(`A-7 backup mode: verify button=${Array.from(window.document.querySelectorAll("button")).some((b) => (b.textContent ?? "").includes("Verify Backup Code"))}`);
 
+  // ---- D-1/D-2 dashboard phase ----------------------------------------------
+  const dashLog: string[] = [];
+  const BUILT_HREFS = new Set(["/", "/features", "/auth/signup", "/auth/signin", "/auth/deriv/callback", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/auth/2fa", "/dashboard", "/dashboard/markets"]);
+  const auditLinks = (label: string) => {
+    const bad = Array.from(window.document.querySelectorAll<HTMLAnchorElement>("a[href]"))
+      .map((a) => a.getAttribute("href") ?? "")
+      .filter((h) => h.startsWith("/") && !BUILT_HREFS.has(h.split("?")[0]));
+    dashLog.push(`${label}: illegal hrefs=${bad.length}${bad.length ? ` (${[...new Set(bad)].join(", ")})` : ""}`);
+    if (bad.length) errors.push(`DASH LINKS (${label}): ${[...new Set(bad)].join(", ")}`);
+  };
+  const expectDashPanel = async (label: string) => {
+    await wait(250);
+    const panel = window.document.querySelector(".dx-dialog, .dx-drawer");
+    const title = panel?.querySelector(".dx-dialog-title")?.textContent?.trim().slice(0, 44) ?? "drawer";
+    dashLog.push(`${label}: ${panel ? `panel "${title}"` : "NO PANEL"}`);
+    if (!panel) errors.push(`DASH CONTROL DEAD: ${label}`);
+    window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wait(150);
+  };
+  const visitDash = async (to: string, rootClass: string, label: string) => {
+    await router.navigate({ to: to as never });
+    await wait(400);
+    const root = window.document.querySelector(rootClass);
+    dashLog.push(`${label}: ${root ? `${rootClass} rendered` : "MISSING"}`);
+    if (!root) errors.push(`DASH: ${rootClass} did not render at ${to}`);
+  };
+
+  await visitDash("/dashboard", ".page-dashboard", "D-1 dashboard");
+  auditLinks("D-1");
+  // shell topbar: notifications drawer, account switcher, user menu
+  const bell = window.document.querySelector<HTMLButtonElement>('button[aria-label^="Notifications"]');
+  bell?.click();
+  await expectDashPanel("shell notifications drawer");
+  const switcherBtn = window.document.querySelector<HTMLButtonElement>('button[aria-label="Switch Deriv account"]');
+  switcherBtn?.click();
+  await expectDashPanel("shell account switcher");
+  clickExact("AO Amara");
+  await wait(200);
+  const menu = window.document.querySelector(".dx-dd-menu");
+  dashLog.push(`shell user menu: ${menu ? "opened" : "MISSING"}`);
+  if (!menu) errors.push("DASH: user dropdown menu did not open");
+  window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(120);
+  clickExact("Read my dashboard");
+  await expectDashPanel("D-1 voice overview");
+  clickExact("Shortcuts");
+  await expectDashPanel("D-1 shortcuts");
+  click(`All bots (${BOTS.length})`);
+  await expectDashPanel("D-1 fleet dialog");
+  clickExact("Open feed");
+  await expectDashPanel("D-1 community");
+  click("Buy Rise");
+  await expectDashPanel("D-1 quick-trade ticket");
+  // a trades-table row opens the contract detail drawer
+  const tradeRow = Array.from(window.document.querySelectorAll<HTMLElement>("tbody tr")).find((n) => (n.textContent ?? "").includes("R_"));
+  tradeRow?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await expectDashPanel("D-1 trade row detail");
+  // keyboard shortcut g→m lands on Markets
+  window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "g", bubbles: true }));
+  await wait(120);
+  window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "m", bubbles: true }));
+  await wait(450);
+  const onMarkets = Boolean(window.document.querySelector(".page-markets"));
+  dashLog.push(`D-1 shortcut g+m: on /dashboard/markets = ${onMarkets}`);
+  if (!onMarkets) errors.push("DASH: g+m shortcut did not reach /dashboard/markets");
+
+  auditLinks("D-2 (via shortcut)");
+  clickExact("Economic calendar");
+  await expectDashPanel("D-2 econ calendar");
+  clickExact("Heatmap");
+  await wait(250);
+  const tiles = window.document.querySelectorAll(".dx-mk-tile").length;
+  dashLog.push(`D-2 heatmap: ${tiles} tiles`);
+  if (tiles === 0) errors.push("DASH: heatmap rendered no tiles");
+  clickExact("Movers");
+  await wait(250);
+  clickExact("Grid");
+  await wait(250);
+  clickExact("Trade");
+  await expectDashPanel("D-2 card trade ticket");
+  click(`Watchlists (`);
+  await expectDashPanel("D-2 watchlists drawer");
+  await visitDash("/dashboard/markets", ".page-markets", "D-2 markets (direct)");
+  auditLinks("D-2 (direct)");
+
   // ---- theme toggle round-trip ---------------------------------------------
   // Light is the default, so the toggle must move <html> light → dark → light
   // and persist the choice under localStorage("dx-theme").
@@ -389,6 +479,7 @@ async function drive() {
     featuresLog,
     signupLog,
     authLog,
+    dashLog,
   };
 }
 

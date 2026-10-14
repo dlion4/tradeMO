@@ -1058,6 +1058,7 @@ export function ChangelogDialog({ open, onClose, onOpenCommunity }: { open: bool
 type ReadyRoute =
   | "/" | "/features"
   | "/auth/signup" | "/auth/signin" | "/auth/deriv/callback"
+  | "/dashboard" | "/dashboard/markets"
   | "/auth/forgot-password" | "/auth/reset-password" | "/auth/verify-email" | "/auth/2fa";
 
 const ROUTE_INDEX: { group: string; id: string; route: string; title: string; ready: boolean; to?: ReadyRoute }[] = [
@@ -1071,8 +1072,8 @@ const ROUTE_INDEX: { group: string; id: string; route: string; title: string; re
   { group: "Auth", id: "A-5", route: "/auth/reset-password", title: "Reset password", ready: true, to: "/auth/reset-password" },
   { group: "Auth", id: "A-6", route: "/auth/verify-email", title: "Email verification", ready: true, to: "/auth/verify-email" },
   { group: "Auth", id: "A-7", route: "/auth/2fa", title: "Two-factor authentication", ready: true, to: "/auth/2fa" },
-  { group: "Dashboard", id: "D-1", route: "/dashboard", title: "Overview hub", ready: false },
-  { group: "Dashboard", id: "D-2", route: "/dashboard/markets", title: "Markets browser", ready: false },
+  { group: "Dashboard", id: "D-1", route: "/dashboard", title: "Overview hub", ready: true, to: "/dashboard" },
+  { group: "Dashboard", id: "D-2", route: "/dashboard/markets", title: "Markets browser", ready: true, to: "/dashboard/markets" },
   { group: "Dashboard", id: "D-3", route: "/dashboard/trade", title: "Trade execution", ready: false },
   { group: "Dashboard", id: "D-4", route: "/dashboard/bots", title: "Bot management", ready: false },
   { group: "Dashboard", id: "D-5", route: "/dashboard/bots/new", title: "Bot creator", ready: false },
@@ -1110,7 +1111,7 @@ export function SitemapDialog({ open, onClose }: { open: boolean; onClose: () =>
       onClose={onClose}
       size="lg"
       title="Route index"
-      subtitle={`${ROUTE_INDEX.length} planned pages · ${built} built (H-group + full auth family). Built routes open their real page; unbuilt routes are gated — they render no links anywhere.`}
+      subtitle={`${ROUTE_INDEX.length} planned pages · ${built} built (H-group, full auth family, D-1/D-2). Built routes open their real page; unbuilt routes are gated — they render no links anywhere.`}
       footer={
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 w-100">
           <span className="dx-help">Gating lives in the shell nav config (ready flags), so no 404 is ever reachable.</span>

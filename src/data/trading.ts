@@ -2695,3 +2695,88 @@ export const DEMO_RESET_TOKEN = "dxr_live_9f27c1";
 export const DEMO_VERIFY_TOKEN = "dxv_live_77b2e0";
 export const DEMO_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
 export const DEMO_TOTP_CODE = "472915";
+
+// -----------------------------------------------------------------------------
+// D-1 / D-2 · dashboard datasets (notifications, market schedules, economic
+// calendar, watchlists)
+// -----------------------------------------------------------------------------
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  epochMin: number;
+  tone: "up" | "info" | "warn" | "danger" | "accent";
+  read: boolean;
+  /** real route the notification opens (built pages only) */
+  to?: string;
+}
+
+export const NOTIFICATIONS: AppNotification[] = [
+  { id: "ntf_01", title: "Bot paused by stop-loss", body: "Martingale Core v7 hit its $150 daily stop on R_10 and paused itself.", epochMin: 6, tone: "warn", read: false, to: "/dashboard" },
+  { id: "ntf_02", title: "Contract settled +$18.40", body: "Rise/Fall on frxEURUSD closed in profit (entry 1.08421 → exit 1.08496).", epochMin: 22, tone: "up", read: false, to: "/dashboard" },
+  { id: "ntf_03", title: "New sign-in detected", body: "Chrome · Nairobi, KE signed in to trader@derivx.app. Not you? Revoke the session.", epochMin: 64, tone: "info", read: false, to: "/auth/2fa" },
+  { id: "ntf_04", title: "R_100 volatility spike", body: "1-minute realized volatility is 2.3× its 24h average — scalpers beware.", epochMin: 130, tone: "accent", read: true, to: "/dashboard/markets" },
+  { id: "ntf_05", title: "Weekly digest ready", body: "Your fleet won 61% of 214 contracts this week. Best: DCA Basket (+$96.20).", epochMin: 320, tone: "info", read: true, to: "/dashboard" },
+  { id: "ntf_06", title: "Deriv connection healthy", body: "CR8842197 authorize handshake renewed on the eu-west relay (38ms median).", epochMin: 480, tone: "up", read: true, to: "/dashboard/markets" },
+  { id: "ntf_07", title: "Price alert triggered", body: "cryBTCUSD crossed above $67,500 — your alert from Tuesday fired.", epochMin: 900, tone: "accent", read: true, to: "/dashboard/markets" },
+  { id: "ntf_08", title: "Backup code used", body: "A backup code passed the second factor on a new device in Lagos, NG.", epochMin: 1500, tone: "warn", read: true, to: "/auth/2fa" },
+  { id: "ntf_09", title: "Preset backtest finished", body: "Volatility Switcher (R_75) finished 90 days: 58.4% win, +$212.60 simulated.", epochMin: 2880, tone: "info", read: true, to: "/dashboard" },
+  { id: "ntf_10", title: "Forex weekend close", body: "Forex markets close Friday 21:00 UTC and reopen Sunday 22:00 UTC.", epochMin: 4320, tone: "info", read: true, to: "/dashboard/markets" },
+  { id: "ntf_11", title: "Email verification pending", body: "Real-account linking unlocks once trader@derivx.app is verified.", epochMin: 7200, tone: "warn", read: true, to: "/auth/verify-email" },
+  { id: "ntf_12", title: "Welcome to DerivX", body: "Your virtual account VRTC1024887 was credited with $10,000 demo funds.", epochMin: 20160, tone: "up", read: true, to: "/dashboard" },
+];
+
+export interface MarketSchedule {
+  id: string;
+  market: string;
+  open: boolean;
+  /** minutes until close (open) or until next open (closed) */
+  deltaMin: number;
+  note: string;
+}
+
+export const MARKET_SCHEDULES: MarketSchedule[] = [
+  { id: "sch_01", market: "Synthetics (R_10 … 1HZ100V)", open: true, deltaMin: 0, note: "Open 24/7 — volatility indices never close." },
+  { id: "sch_02", market: "Forex majors (frxEURUSD, frxGBPUSD)", open: true, deltaMin: 263, note: "Closes Friday 21:00 UTC, reopens Sunday 22:00 UTC." },
+  { id: "sch_03", market: "Commodities (frxXAUUSD)", open: true, deltaMin: 197, note: "Daily break 21:00–22:00 UTC; weekend close applies." },
+  { id: "sch_04", market: "Crypto (cryBTCUSD, cryETHUSD)", open: true, deltaMin: 0, note: "Open 24/7, liquidity thins on Sunday mornings." },
+  { id: "sch_05", market: "Stock indices (OTC_NDX, OTC_SPC)", open: false, deltaMin: 1130, note: "Closed for the US holiday — reopens 14:30 UTC tomorrow." },
+  { id: "sch_06", market: "Forex exotics (frxUSDJPY crosses)", open: true, deltaMin: 340, note: "Follows the majors session with wider spreads after 20:00 UTC." },
+];
+
+export interface EconEvent {
+  id: string;
+  inMin: number;
+  currency: string;
+  event: string;
+  impact: "high" | "medium" | "low";
+  symbols: string[];
+  forecast: string;
+  previous: string;
+}
+
+export const ECON_EVENTS: EconEvent[] = [
+  { id: "eco_01", inMin: 95, currency: "USD", event: "US CPI (YoY)", impact: "high", symbols: ["frxEURUSD", "frxGBPUSD", "frxXAUUSD"], forecast: "3.1%", previous: "3.2%" },
+  { id: "eco_02", inMin: 240, currency: "EUR", event: "ECB rate decision", impact: "high", symbols: ["frxEURUSD"], forecast: "4.00%", previous: "4.00%" },
+  { id: "eco_03", currency: "GBP", event: "UK unemployment rate", impact: "medium", symbols: ["frxGBPUSD"], forecast: "4.3%", previous: "4.2%", inMin: 1305 },
+  { id: "eco_04", currency: "JPY", event: "BoJ policy statement", impact: "high", symbols: ["frxUSDJPY"], forecast: "Hold", previous: "Hold", inMin: 1560 },
+  { id: "eco_05", currency: "USD", event: "US retail sales (MoM)", impact: "medium", symbols: ["frxEURUSD", "cryBTCUSD"], forecast: "+0.4%", previous: "+0.1%", inMin: 1895 },
+  { id: "eco_06", currency: "AUD", event: "RBA meeting minutes", impact: "low", symbols: ["frxAUDUSD"], forecast: "—", previous: "—", inMin: 2760 },
+  { id: "eco_07", currency: "USD", event: "FOMC minutes", impact: "high", symbols: ["frxXAUUSD", "cryBTCUSD", "cryETHUSD"], forecast: "—", previous: "—", inMin: 3180 },
+  { id: "eco_08", currency: "EUR", event: "German ZEW sentiment", impact: "low", symbols: ["frxEURUSD"], forecast: "12.4", previous: "10.9", inMin: 4320 },
+  { id: "eco_09", currency: "CAD", event: "Canada CPI (MoM)", impact: "medium", symbols: ["frxUSDCAD"], forecast: "+0.3%", previous: "+0.4%", inMin: 4500 },
+  { id: "eco_10", currency: "USD", event: "US NFP payrolls", impact: "high", symbols: ["frxEURUSD", "frxGBPUSD", "frxXAUUSD", "cryBTCUSD"], forecast: "188k", previous: "175k", inMin: 5940 },
+];
+
+export interface Watchlist {
+  id: string;
+  name: string;
+  symbols: string[];
+  note: string;
+}
+
+export const WATCHLISTS: Watchlist[] = [
+  { id: "wl_01", name: "My Forex", symbols: ["frxEURUSD", "frxGBPUSD", "frxUSDJPY", "frxXAUUSD"], note: "Majors + gold for the London session." },
+  { id: "wl_02", name: "High Vol Synthetics", symbols: ["R_75", "R_100", "1HZ100V", "R_50"], note: "Scalper fleet hunting ground — tight caps." },
+  { id: "wl_03", name: "Crypto watch", symbols: ["cryBTCUSD", "cryETHUSD"], note: "Weekend liquidity checks before sizing up." },
+];

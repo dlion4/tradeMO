@@ -18,6 +18,8 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-passw
 import { Route as AuthSigninRouteImport } from './routes/auth/signin'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthVerifyEmailRouteImport } from './routes/auth/verify-email'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardMarketsRouteImport } from './routes/dashboard/markets'
 import { Route as AuthDerivCallbackRouteImport } from './routes/auth/deriv/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -65,6 +67,16 @@ const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
   path: '/auth/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardMarketsRoute = DashboardMarketsRouteImport.update({
+  id: '/dashboard/markets',
+  path: '/dashboard/markets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthDerivCallbackRoute = AuthDerivCallbackRouteImport.update({
   id: '/auth/deriv/callback',
   path: '/auth/deriv/callback',
@@ -81,6 +93,8 @@ export interface FileRoutesByFullPath {
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +107,8 @@ export interface FileRoutesByTo {
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
 }
 export interface FileRoutesById {
@@ -106,6 +122,8 @@ export interface FileRoutesById {
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/auth/deriv/callback': typeof AuthDerivCallbackRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +138,8 @@ export interface FileRouteTypes {
     | '/auth/signin'
     | '/auth/signup'
     | '/auth/verify-email'
+    | '/dashboard/markets'
+    | '/dashboard/'
     | '/auth/deriv/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +152,8 @@ export interface FileRouteTypes {
     | '/auth/signin'
     | '/auth/signup'
     | '/auth/verify-email'
+    | '/dashboard/markets'
+    | '/dashboard'
     | '/auth/deriv/callback'
   id:
     | '__root__'
@@ -144,6 +166,8 @@ export interface FileRouteTypes {
     | '/auth/signin'
     | '/auth/signup'
     | '/auth/verify-email'
+    | '/dashboard/markets'
+    | '/dashboard/'
     | '/auth/deriv/callback'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +181,8 @@ export interface RootRouteChildren {
   AuthSigninRoute: typeof AuthSigninRoute
   AuthSignupRoute: typeof AuthSignupRoute
   AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
+  DashboardMarketsRoute: typeof DashboardMarketsRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
   AuthDerivCallbackRoute: typeof AuthDerivCallbackRoute
 }
 
@@ -225,6 +251,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthVerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/markets': {
+      id: '/dashboard/markets'
+      path: '/dashboard/markets'
+      fullPath: '/dashboard/markets'
+      preLoaderRoute: typeof DashboardMarketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/deriv/callback': {
       id: '/auth/deriv/callback'
       path: '/auth/deriv/callback'
@@ -245,17 +285,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSigninRoute: AuthSigninRoute,
   AuthSignupRoute: AuthSignupRoute,
   AuthVerifyEmailRoute: AuthVerifyEmailRoute,
+  DashboardMarketsRoute: DashboardMarketsRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
   AuthDerivCallbackRoute: AuthDerivCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
