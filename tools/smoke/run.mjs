@@ -21,6 +21,11 @@ const MODULES = [
   "/src/routes/features.tsx",
   "/src/components/marketing/FeaturesPage.tsx",
   "/src/styles/pages/features.scss",
+  "/src/routes/auth/signup.tsx",
+  "/src/components/auth/SignupPage.tsx",
+  "/src/components/auth/SignupDialogs.tsx",
+  "/src/components/auth/AuthShell.tsx",
+  "/src/styles/pages/auth-signup.scss",
 ];
 const moduleFailures = [];
 for (const id of MODULES) {
@@ -141,6 +146,10 @@ if (result.fuzzLog) {
 if (result.featuresLog) {
   console.log(`\nfeatures walk (H-2 /features):`);
   for (const f of result.featuresLog) console.log("   ", f);
+}
+if (result.signupLog) {
+  console.log(`\nsignup walk (A-1 /auth/signup):`);
+  for (const f of result.signupLog) console.log("   ", f);
 }
 if (result.labels) {
   console.log(`\ncontrol labels (${result.labels.length}):`);

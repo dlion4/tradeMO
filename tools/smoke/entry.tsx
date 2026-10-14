@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { LandingPage } from "../../src/components/marketing/LandingPage";
 import { FeaturesPage } from "../../src/components/marketing/FeaturesPage";
+import { SignupPage } from "../../src/components/auth/SignupPage";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
 interface SmokeResult {
@@ -19,6 +20,7 @@ interface SmokeResult {
   fuzzLog?: string[];
   themeLog?: string[];
   featuresLog?: string[];
+  signupLog?: string[];
 }
 
 declare global {
@@ -51,8 +53,9 @@ const rootRoute = createRootRoute({
 });
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: LandingPage });
 const featuresRoute = createRoute({ getParentRoute: () => rootRoute, path: "/features", component: FeaturesPage });
+const signupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/signup", component: SignupPage });
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, featuresRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -226,6 +229,24 @@ async function drive() {
   click("Home");
   await wait(350);
 
+  // ---- A-1 signup phase: navigate to /auth/signup and open its overlays -----
+  const signupLog: string[] = [];
+  await router.navigate({ to: "/auth/signup" });
+  await wait(400);
+  const signupRoot = window.document.querySelector(".page-auth-signup");
+  signupLog.push(`route render: ${signupRoot ? ".page-auth-signup mounted" : "MISSING"}`);
+  if (!signupRoot) errors.push("SIGNUP: .page-auth-signup did not render at /auth/signup");
+  for (const label of ["Google", "Change", "Sign In"]) {
+    click(label);
+    await wait(250);
+    const panel = window.document.querySelector(".dx-dialog, .dx-drawer");
+    const title = panel?.querySelector(".dx-dialog-title, .dx-drawer-title")?.textContent?.trim().slice(0, 44) ?? "—";
+    signupLog.push(`${label}: ${panel ? `panel "${title}"` : "NO PANEL"}`);
+    if (!panel) errors.push(`SIGNUP CONTROL DEAD: ${label}`);
+    window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wait(150);
+  }
+
   // ---- theme toggle round-trip ---------------------------------------------
   // Light is the default, so the toggle must move <html> light → dark → light
   // and persist the choice under localStorage("dx-theme").
@@ -269,6 +290,7 @@ async function drive() {
     fuzzLog,
     themeLog,
     featuresLog,
+    signupLog,
   };
 }
 

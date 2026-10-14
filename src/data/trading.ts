@@ -2485,3 +2485,101 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { id: "cmp_14", category: "Pricing", feature: "Free tier without a card", derivx: "yes", deriv: "yes", bmx: "no", other: "partial", note: "1 live bot + full market access", detail: "The free tier includes one live bot, one Deriv connection and full market access. No card is collected until you choose a paid tier." },
 ];
 
+// =============================================================================
+// A-1 (/auth/signup) — onboarding datasets. FRONT-END ONLY, mock data.
+// The register / verify calls in the blueprint are simulated in-page; these
+// shapes mirror what POST /api/auth/register would return and validate.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Residency countries (onboarding eligibility — country picker drawer)
+// -----------------------------------------------------------------------------
+export interface SignupCountry {
+  code: string;
+  name: string;
+  flag: string;
+  regulator: string;
+  accountTypes: ("virtual" | "real")[];
+  derivAvailable: boolean;
+  traders: number;
+  taxForm: string;
+}
+
+export const SIGNUP_COUNTRIES: SignupCountry[] = [
+  { code: "NG", name: "Nigeria", flag: "🇳🇬", regulator: "SEC Nigeria (advisory)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 4210, taxForm: "W-8BEN equivalent" },
+  { code: "KE", name: "Kenya", flag: "🇰🇪", regulator: "CMA Kenya (advisory)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 3180, taxForm: "KRA PIN declaration" },
+  { code: "GH", name: "Ghana", flag: "🇬🇭", regulator: "SEC Ghana (advisory)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 1640, taxForm: "GRA TIN declaration" },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦", regulator: "FSCA (ODP licence via Deriv)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 1420, taxForm: "SARS IT3 declaration" },
+  { code: "ID", name: "Indonesia", flag: "🇮🇩", regulator: "Bappebti (offshore access)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 2210, taxForm: "NPWP declaration" },
+  { code: "IN", name: "India", flag: "🇮🇳", regulator: "RBI FEMA (offshore access)", accountTypes: ["virtual"], derivAvailable: true, traders: 1180, taxForm: "PAN declaration" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", regulator: "FCA (Deriv UK not retail-authorised)", accountTypes: ["virtual"], derivAvailable: false, traders: 640, taxForm: "HMRC self-assessment" },
+  { code: "DE", name: "Germany", flag: "🇩🇪", regulator: "BaFin (EU passport via Deriv EU)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 580, taxForm: "EU MiFID appropriateness" },
+  { code: "RO", name: "Romania", flag: "🇷🇴", regulator: "ASF (EU passport via Deriv EU)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 410, taxForm: "EU MiFID appropriateness" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷", regulator: "CVM (offshore access)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 890, taxForm: "CPF declaration" },
+  { code: "CO", name: "Colombia", flag: "🇨🇴", regulator: "SFC (offshore access)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 520, taxForm: "RUT declaration" },
+  { code: "EG", name: "Egypt", flag: "🇪🇬", regulator: "FRA (offshore access)", accountTypes: ["virtual"], derivAvailable: true, traders: 460, taxForm: "National ID declaration" },
+];
+
+// -----------------------------------------------------------------------------
+// Mock Google identities (social sign-in chooser — simulated OAuth)
+// -----------------------------------------------------------------------------
+export interface GoogleAccount {
+  id: string;
+  name: string;
+  email: string;
+  lastUsed: string;
+}
+
+export const GOOGLE_ACCOUNTS: GoogleAccount[] = [
+  { id: "g_ade", name: "Ade Fashola", email: "ade.fashola@example.com", lastUsed: "2 days ago" },
+  { id: "g_mina", name: "Mina Larasati", email: "mina.larasati@example.com", lastUsed: "last week" },
+  { id: "g_work", name: "A. Fashola (work)", email: "ade@tradingdesk.example.com", lastUsed: "3 weeks ago" },
+];
+
+// -----------------------------------------------------------------------------
+// Mock inbox (demo verification mailbox — the "email" the code was sent to)
+// -----------------------------------------------------------------------------
+export interface InboxMessage {
+  id: string;
+  from: string;
+  subject: string;
+  preview: string;
+  epoch: number;
+  code?: string;
+  read: boolean;
+}
+
+export const INBOX_MESSAGES: InboxMessage[] = [
+  { id: "mail_01", from: "DerivX Verify", subject: "Your DerivX verification code", preview: "Your 6-digit code is inside. It expires in 15 minutes and can be used once.", epoch: min(1), code: "482913", read: false },
+  { id: "mail_02", from: "DerivX", subject: "Welcome to DerivX — what happens next", preview: "Three steps: verify this email, link Deriv with OAuth2, set your risk caps.", epoch: min(26), read: true },
+  { id: "mail_03", from: "Deriv", subject: "Your virtual account VRTC9031442 is ready", preview: "$10,000 virtual funds, all contract types, same tick feed as real accounts.", epoch: min(180), read: true },
+  { id: "mail_04", from: "DerivX Digest", subject: "October: accumulator strategies grew 38%", preview: "Fleet stats, two new presets and the payout-efficiency table for Q3.", epoch: min(1440), read: true },
+  { id: "mail_05", from: "DerivX Security", subject: "New sign-in from Chrome · Nairobi, KE", preview: "If this was not you, revoke the session from Settings → Security immediately.", epoch: min(2880), read: true },
+];
+
+// -----------------------------------------------------------------------------
+// Trusted devices / sessions (security dialog — session audit table)
+// -----------------------------------------------------------------------------
+export interface SignupSession {
+  id: string;
+  device: string;
+  location: string;
+  ip: string;
+  lastActive: number;
+  current: boolean;
+  trusted: boolean;
+}
+
+export const SIGNUP_SESSIONS: SignupSession[] = [
+  { id: "ses_01", device: "Chrome 130 · Windows 11", location: "Nairobi, KE", ip: "197.237.14.82", lastActive: min(1), current: true, trusted: true },
+  { id: "ses_02", device: "Safari 18 · iPhone 16", location: "Nairobi, KE", ip: "197.237.14.82", lastActive: min(64), current: false, trusted: true },
+  { id: "ses_03", device: "Firefox 132 · Ubuntu 24.04", location: "Lagos, NG", ip: "105.112.88.14", lastActive: min(320), current: false, trusted: true },
+  { id: "ses_04", device: "Chrome 129 · Android 15", location: "Accra, GH", ip: "154.160.22.9", lastActive: min(900), current: false, trusted: false },
+  { id: "ses_05", device: "Edge 130 · Windows 11", location: "Jakarta, ID", ip: "36.68.221.47", lastActive: min(1500), current: false, trusted: true },
+  { id: "ses_06", device: "Chrome 130 · macOS 15", location: "London, GB", ip: "86.14.190.203", lastActive: min(2880), current: false, trusted: false },
+  { id: "ses_07", device: "Safari 17 · iPadOS 18", location: "Cape Town, ZA", ip: "41.203.66.118", lastActive: min(4320), current: false, trusted: true },
+  { id: "ses_08", device: "Chrome 128 · Windows 10", location: "São Paulo, BR", ip: "189.44.201.77", lastActive: min(7200), current: false, trusted: false },
+  { id: "ses_09", device: "Firefox 131 · Windows 11", location: "Bucharest, RO", ip: "92.83.141.26", lastActive: min(10080), current: false, trusted: true },
+  { id: "ses_10", device: "Chrome 130 · ChromeOS", location: "Bogotá, CO", ip: "181.53.90.154", lastActive: min(20160), current: false, trusted: false },
+];
+

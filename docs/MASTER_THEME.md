@@ -192,6 +192,8 @@ Class inventory is defined in `src/styles/tokens.scss` (grep `^\.dx-` there). Ad
 | 2026-10-13 | *(no new classes)* `ThemeToggle` | light default: token-layer split + nav/footer theme switch (button reuses `.dx-btn .dx-btn-sm .dx-btn-ghost`) | shared (§1) |
 | 2026-10-14 | `.dx-hero`, `.dx-hero-glow`, `.dx-grid-bg`, `.dx-terminal-line` (H-2 copies) | H-2 hero art + sandbox/bot-log tape, mirroring the H-1 treatment so the H-group reads as one site | `.page-features` |
 | 2026-10-14 | `.dx-compare-highlight` | H-2 comparison table: DerivX column highlight (accent soft fill + hairline) | `.page-features` |
+| 2026-10-14 | `.dx-terminal-line` (A-1 copy), `.dx-list-row` hover | A-1 brand-panel live rows + drawer tape, mirroring the H-1/H-2 treatment | `.page-auth-signup` |
+| 2026-10-14 | *(no new classes)* `AuthShell` build-out | A-1 is the first A-group page: shell gains `AUTH_JOURNEY`, `extras` slot, `journeyStep` + Landing/Features/ThemeToggle chrome | shared (§12) |
 
 ---
 
