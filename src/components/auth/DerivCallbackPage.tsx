@@ -242,8 +242,8 @@ export function DerivCallbackPage({ code, error }: { code?: string; error?: stri
               <Chip tone="muted">WebSocket live · 20 symbols</Chip>
               {lastOrder ? <Chip tone="info">lastOrder: {lastOrder}</Chip> : null}
             </div>
-            <button type="button" className="dx-btn dx-btn-lg dx-btn-primary w-100" onClick={() => openDemo("trade")}>
-              Open live console <ArrowRight size={15} />
+            <button type="button" className="dx-btn dx-btn-lg dx-btn-primary w-100" onClick={() => void navigate({ to: "/dashboard" })}>
+              Open dashboard <ArrowRight size={15} />
             </button>
             <div className="row g-2">
               <div className="col-6"><button type="button" className="dx-btn w-100" onClick={() => setAccountsOpen(true)}>Manage connections</button></div>

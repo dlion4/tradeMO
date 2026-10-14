@@ -146,7 +146,7 @@ export function VerifyEmailPage({ token }: { token?: string }) {
               Connect Deriv Account →
             </button>
             <div className="row g-2">
-              <div className="col-6"><button type="button" className="dx-btn w-100" onClick={() => setDemoOpen(true)}>Open live console</button></div>
+              <div className="col-6"><button type="button" className="dx-btn w-100" onClick={() => void navigate({ to: "/dashboard" })}>Open dashboard</button></div>
               <div className="col-6">
                 {derivId
                   ? <button type="button" className="dx-btn w-100" onClick={() => setAccountsOpen(true)}>Manage connections</button>

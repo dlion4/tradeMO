@@ -337,11 +337,27 @@ async function drive() {
   click("trader@derivx.app");
   await wait(200);
   authLog.push(`A-2 demo autofill: email input=${(window.document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? "?"}`);
+  // full sign-in with the no-2FA demo account; the success panel's primary
+  // CTA ("Open dashboard") must land on the real D-1 page
+  click("brian@derivx.app");
+  await wait(200);
+  clickExact("Sign In");
+  await wait(1400);
+  clickExact("Open dashboard");
+  await wait(450);
+  const onDashA2 = Boolean(window.document.querySelector(".page-dashboard"));
+  authLog.push(`A-2 sign-in → Open dashboard: /dashboard rendered=${onDashA2}`);
+  if (!onDashA2) errors.push("AUTH: A-2 Open dashboard did not reach D-1 /dashboard");
   await visitAuth("/auth/deriv/callback", ".page-auth-callback", "A-3 callback");
   await wait(5200);
   authLog.push(`A-3 exchange: success card=${window.document.body.textContent?.includes("Deriv account connected") ?? false}`);
   click("Manage connections");
   await expectPanel("A-3 connections");
+  clickExact("Open dashboard");
+  await wait(450);
+  const onDashA3 = Boolean(window.document.querySelector(".page-dashboard"));
+  authLog.push(`A-3 → Open dashboard: /dashboard rendered=${onDashA3}`);
+  if (!onDashA3) errors.push("AUTH: A-3 Open dashboard did not reach D-1 /dashboard");
   await visitAuth("/auth/forgot-password", ".page-auth-forgot", "A-4 forgot");
   click("Help & FAQ");
   await expectPanel("A-4 FAQ");

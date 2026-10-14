@@ -205,10 +205,10 @@ export function SigninPage() {
               <p className="font-display mb-1" style={{ fontSize: "0.78rem", wordBreak: "break-all" }}>
                 dx_live_{user.id}·access 15m·refresh {rememberMe ? "30d" : "7d"}
               </p>
-              <span className="dx-help">lastOrder: {lastOrder ?? "No contracts bought this session — open the console to place one."}</span>
+              <span className="dx-help">lastOrder: {lastOrder ?? "No contracts bought this session — open the dashboard to place one."}</span>
             </div>
-            <button type="button" className="dx-btn dx-btn-lg dx-btn-primary w-100" onClick={() => openDemo("trade")}>
-              Open live console <ArrowRight size={15} />
+            <button type="button" className="dx-btn dx-btn-lg dx-btn-primary w-100" onClick={() => void navigate({ to: "/dashboard" })}>
+              Open dashboard <ArrowRight size={15} />
             </button>
             <div className="row g-2">
               <div className="col-6">

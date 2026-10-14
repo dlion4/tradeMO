@@ -187,8 +187,8 @@ export function TwoFactorPage({ email }: { email?: string }) {
                 A used code never works again. Review the set and regenerate if fewer than 3 remain.
               </Alert>
             ) : null}
-            <button type="button" className="dx-btn dx-btn-lg dx-btn-primary w-100" onClick={() => setDemoOpen(true)}>
-              Open live console →
+            <button type="button" className="dx-btn dx-btn-lg dx-btn-primary w-100" onClick={() => void navigate({ to: "/dashboard" })}>
+              Open dashboard →
             </button>
             <div className="row g-2">
               <div className="col-6"><button type="button" className="dx-btn w-100" onClick={() => setSessionsOpen(true)}>Trusted sessions</button></div>
