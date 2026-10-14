@@ -2304,3 +2304,479 @@ export const STATS = {
   assets: MARKET_SYMBOLS.length,
   contractTypes: 11,
 };
+
+// =============================================================================
+// H-2 (/features) — deep-dive datasets. FRONT-END ONLY, mock data.
+// Shapes mirror the Deriv WS payloads already used above; the fetch layer can
+// be swapped for the live socket without touching the features page.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Automation rules (schedules, conditional triggers, risk guards, alerts)
+// -----------------------------------------------------------------------------
+export type AutomationKind = "schedule" | "trigger" | "risk" | "notification";
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  kind: AutomationKind;
+  botName: string;
+  symbol: string;
+  trigger: string;
+  condition: string;
+  action: string;
+  status: "enabled" | "paused";
+  fires30d: number;
+  lastFiredAt: number;
+  loginId: string;
+}
+
+export const AUTOMATION_RULES: AutomationRule[] = [
+  { id: "auto_01", name: "London open arm — FX Breakout", kind: "schedule", botName: "FX London Breakout", symbol: "frxEURUSD", trigger: "Weekdays 07:00 UTC", condition: "4h Asian range intact", action: "Arm bot, stake $25, 15m Rise/Fall", status: "enabled", fires30d: 22, lastFiredAt: min(38), loginId: "VRTC9031442" },
+  { id: "auto_02", name: "Vol10 loss-streak brake", kind: "risk", botName: "Vol10 Martingale Core", symbol: "R_10", trigger: "3 consecutive losses", condition: "Open stake would exceed $50 cap", action: "Pause bot, notify owner, log breach", status: "enabled", fires30d: 9, lastFiredAt: min(64), loginId: "VRTC9031442" },
+  { id: "auto_03", name: "BTC grid weekly recalibration", kind: "schedule", botName: "BTC Grid Runner", symbol: "cryBTCUSD", trigger: "Sundays 00:05 UTC", condition: "14-day ATR moved > 8%", action: "Recalculate grid spacing, restart worker", status: "enabled", fires30d: 4, lastFiredAt: min(2880), loginId: "VRTC9031442" },
+  { id: "auto_04", name: "Gold CPI blackout", kind: "trigger", botName: "Gold Swing Basket", symbol: "frxXAUUSD", trigger: "US CPI / NFP release window", condition: "Release within ±30 minutes", action: "Block new Touch contracts, keep exits open", status: "enabled", fires30d: 2, lastFiredAt: min(8640), loginId: "CR8842197" },
+  { id: "auto_05", name: "Accumulator range-break exit", kind: "trigger", botName: "Accu Sniper 1HZ", symbol: "1HZ10V", trigger: "Tick exits ±0.1% range", condition: "1 open accumulator leg", action: "Settle leg, halt re-entry for 60 ticks", status: "enabled", fires30d: 148, lastFiredAt: min(7), loginId: "MX5510883" },
+  { id: "auto_06", name: "Daily drawdown circuit-breaker", kind: "risk", botName: "All bots · CR8842197", symbol: "R_100", trigger: "Realised P&L below -$250 today", condition: "Across every bot on the account", action: "Stop all workers, require manual restart", status: "enabled", fires30d: 1, lastFiredAt: min(43200), loginId: "CR8842197" },
+  { id: "auto_07", name: "Digit frequency recalibration", kind: "schedule", botName: "Digit Hunter 7", symbol: "R_25", trigger: "Every 1,000 ticks", condition: "Digit distribution drift > 2 pts", action: "Refresh blocked digits, notify in-app", status: "enabled", fires30d: 96, lastFiredAt: min(13), loginId: "VRTC9031442" },
+  { id: "auto_08", name: "ETH multiplier margin watch", kind: "notification", botName: "ETH Momentum 50x", symbol: "cryETHUSD", trigger: "Margin usage above 70%", condition: "Stop-out distance < 0.5x stake", action: "Push + email alert, suggest take-profit", status: "enabled", fires30d: 6, lastFiredAt: min(410), loginId: "CR8842197" },
+  { id: "auto_09", name: "Night-shift volatility gate", kind: "trigger", botName: "Vol100 Night Shift", symbol: "R_100", trigger: "Realised vol above 2x 30-day mean", condition: "Between 22:00–05:00 UTC", action: "Halve stake step, cap ladder at 3 legs", status: "paused", fires30d: 11, lastFiredAt: min(58), loginId: "MX5510883" },
+  { id: "auto_10", name: "Weekly statement digest", kind: "notification", botName: "All bots · VRTC9031442", symbol: "frxGBPUSD", trigger: "Mondays 08:00 UTC", condition: "At least 1 settled contract", action: "Email statement CSV + win-rate summary", status: "enabled", fires30d: 4, lastFiredAt: min(5760), loginId: "VRTC9031442" },
+  { id: "auto_11", name: "Index DCA scale-out", kind: "trigger", botName: "DCA Trend Rider", symbol: "OTC_NDX", trigger: "Basket P&L reaches +12%", condition: "4 legs open", action: "Close 2 legs, trail stop on remainder", status: "enabled", fires30d: 3, lastFiredAt: min(148), loginId: "CR8842197" },
+  { id: "auto_12", name: "Socket-drop reconnect guard", kind: "risk", botName: "All bots · platform", symbol: "R_75", trigger: "WebSocket disconnect > 5s", condition: "Bot has open exposure", action: "Reconnect with same idempotency key, no duplicate buy", status: "enabled", fires30d: 17, lastFiredAt: min(96), loginId: "VRTC9031442" },
+];
+
+// -----------------------------------------------------------------------------
+// Script template library (starter code for the sandboxed JS engine)
+// -----------------------------------------------------------------------------
+export interface ScriptTemplate {
+  id: string;
+  name: string;
+  category: "martingale" | "breakout" | "digits" | "accumulator" | "grid" | "mean-reversion" | "multiplier" | "touch";
+  symbol: string;
+  contractType: ContractTypeId;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  lines: number;
+  rating: number;
+  uses: number;
+  description: string;
+  tags: string[];
+  code: string;
+}
+
+export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
+  {
+    id: "tpl_martingale_starter", name: "Martingale Starter", category: "martingale", symbol: "R_10", contractType: "rise_fall",
+    difficulty: "beginner", lines: 42, rating: 4.8, uses: 3120,
+    description: "The classic 2.1x recovery ladder with a hard $50 stake cap and engine-enforced stop-loss.",
+    tags: ["ticks", "recovery", "cap"],
+    code: "const { api, risk, state } = DerivX;\napi.onTick(\"R_10\", (t) => {\n  const streak = state.get(\"lossStreak\", 0);\n  const stake = Math.min(0.35 * Math.pow(2.1, streak), 50);\n  risk.assert(stake <= 50, \"stake cap\");\n  if (t.quote > api.sma(\"R_10\", 20)) {\n    api.buy({ symbol: \"R_10\", contract_type: \"CALL\", amount: stake, duration: 5, duration_unit: \"t\" });\n  }\n});",
+  },
+  {
+    id: "tpl_london_breakout", name: "London Session Breakout", category: "breakout", symbol: "frxEURUSD", contractType: "rise_fall",
+    difficulty: "intermediate", lines: 68, rating: 4.7, uses: 1840,
+    description: "Arms 07:00–10:30 UTC and trades the first break of the 4-hour Asian range on EUR/USD.",
+    tags: ["session", "forex", "range"],
+    code: "const { api, risk, schedule } = DerivX;\nschedule.onlyDuring({ from: \"07:00\", to: \"10:30\", tz: \"UTC\" });\nconst range = api.range(\"frxEURUSD\", { lookback: \"4h\" });\napi.onBreakout(range, (dir, level) => {\n  risk.assert(api.openStakes() <= 150, \"exposure cap\");\n  api.buy({ symbol: \"frxEURUSD\", contract_type: dir === \"up\" ? \"CALL\" : \"PUT\", amount: 25, duration: 15, duration_unit: \"m\", barrier: level.toFixed(5) });\n});",
+  },
+  {
+    id: "tpl_digit_differ", name: "Digit Differ Guard", category: "digits", symbol: "R_25", contractType: "digits",
+    difficulty: "advanced", lines: 31, rating: 4.6, uses: 2210,
+    description: "DIGITDIFF excluding the two least frequent digits over the last 1,000 ticks, flat $1 stake.",
+    tags: ["digits", "frequency", "ticks"],
+    code: "const { api } = DerivX;\napi.onTick(\"R_25\", (t) => {\n  const cold = api.coldDigits(\"R_25\", 1000, 2);\n  const d = api.lastDigit(t.quote);\n  if (!cold.includes(d)) {\n    api.buy({ symbol: \"R_25\", contract_type: \"DIGITDIFF\", barrier: cold[0], amount: 1, duration: 3, duration_unit: \"t\" });\n  }\n});",
+  },
+  {
+    id: "tpl_accu_range", name: "Accumulator Range Keeper", category: "accumulator", symbol: "1HZ10V", contractType: "accumulator",
+    difficulty: "beginner", lines: 54, rating: 4.9, uses: 2680,
+    description: "Rides the ±0.1% range on the 1-second index and exits on the first range break.",
+    tags: ["accumulator", "1s-index", "range"],
+    code: "const { api, risk } = DerivX;\napi.onTick(\"1HZ10V\", (t) => {\n  if (!api.within(t.quote, 0.001)) { risk.halt(\"range break\"); return; }\n  api.buy({ symbol: \"1HZ10V\", contract_type: \"ACCU\", amount: 3, growth_rate: 0.03, duration: 5, duration_unit: \"t\" });\n});",
+  },
+  {
+    id: "tpl_btc_grid", name: "BTC ATR Grid", category: "grid", symbol: "cryBTCUSD", contractType: "rise_fall",
+    difficulty: "intermediate", lines: 39, rating: 4.5, uses: 1420,
+    description: "Fixed-stake 30-minute grid on BTC/USD, spacing recalculated weekly from 14-day ATR.",
+    tags: ["crypto", "grid", "atr"],
+    code: "const { api, schedule } = DerivX;\nschedule.weekly(() => api.recalcGrid(\"cryBTCUSD\", { atrDays: 14 }));\napi.onBar(\"cryBTCUSD\", \"30m\", (bar) => {\n  const dir = bar.close > bar.open ? \"CALL\" : \"PUT\";\n  api.buy({ symbol: \"cryBTCUSD\", contract_type: dir, amount: 12, duration: 30, duration_unit: \"m\" });\n});",
+  },
+  {
+    id: "tpl_gbp_meanrev", name: "GBP Mean Reversion", category: "mean-reversion", symbol: "frxGBPUSD", contractType: "rise_fall",
+    difficulty: "intermediate", lines: 44, rating: 4.6, uses: 1180,
+    description: "Fades 1.5-sigma deviations from the 60-tick mean on GBP/USD with a hard daily stop.",
+    tags: ["forex", "z-score", "fade"],
+    code: "const { api, risk } = DerivX;\napi.onTick(\"frxGBPUSD\", (t) => {\n  const z = api.zscore(\"frxGBPUSD\", 60);\n  risk.assert(api.dailyPnl() > -120, \"daily stop\");\n  if (z > 1.5) api.buy({ symbol: \"frxGBPUSD\", contract_type: \"PUT\", amount: 8, duration: 1, duration_unit: \"h\" });\n  if (z < -1.5) api.buy({ symbol: \"frxGBPUSD\", contract_type: \"CALL\", amount: 8, duration: 1, duration_unit: \"h\" });\n});",
+  },
+  {
+    id: "tpl_eth_multiplier", name: "ETH Multiplier Trend", category: "multiplier", symbol: "cryETHUSD", contractType: "multiplier",
+    difficulty: "advanced", lines: 52, rating: 4.4, uses: 860,
+    description: "50x multiplier trend leg with stop-out at half the stake and take-profit at 1.5x.",
+    tags: ["crypto", "multiplier", "trend"],
+    code: "const { api, risk } = DerivX;\napi.onDayStart(\"cryETHUSD\", () => {\n  risk.assert(api.openLegs(\"cryETHUSD\") < 2, \"max 2 legs\");\n  api.buy({ symbol: \"cryETHUSD\", contract_type: \"MULTUP\", amount: 60, multiplier: 50, stop_loss: 0.5, take_profit: 1.5 });\n});",
+  },
+  {
+    id: "tpl_gold_touch", name: "Gold Touch Ladder", category: "touch", symbol: "frxXAUUSD", contractType: "touch",
+    difficulty: "advanced", lines: 47, rating: 4.3, uses: 640,
+    description: "Eight-hour one-touch ladder at $5.40 above spot, disabled automatically around CPI prints.",
+    tags: ["touch", "metals", "ladder"],
+    code: "const { api, schedule } = DerivX;\nschedule.blackout(\"US-CPI\", { beforeMin: 30, afterMin: 30 });\napi.onTick(\"frxXAUUSD\", () => {\n  const spot = api.spot(\"frxXAUUSD\");\n  api.buy({ symbol: \"frxXAUUSD\", contract_type: \"ONETOUCH\", amount: 20, barrier: (spot + 5.4).toFixed(2), duration: 8, duration_unit: \"h\" });\n});",
+  },
+  {
+    id: "tpl_vol75_sniper", name: "Vol75 Touch Sniper", category: "touch", symbol: "R_75", contractType: "touch",
+    difficulty: "intermediate", lines: 57, rating: 4.5, uses: 990,
+    description: "One-touch contracts 0.04% above spot on Volatility 75 with a 2-hour expiry window.",
+    tags: ["touch", "synthetics"],
+    code: "const { api } = DerivX;\napi.onTick(\"R_75\", (t) => {\n  api.buy({ symbol: \"R_75\", contract_type: \"ONETOUCH\", amount: 2, barrier: (t.quote * 1.0004).toFixed(2), duration: 2, duration_unit: \"h\" });\n});",
+  },
+  {
+    id: "tpl_even_odd", name: "Even/Odd Parity Filter", category: "digits", symbol: "R_100", contractType: "even_odd",
+    difficulty: "beginner", lines: 28, rating: 4.2, uses: 1730,
+    description: "Trades last-digit parity only when the last 100 ticks skew at least 58/42 one way.",
+    tags: ["digits", "parity", "ticks"],
+    code: "const { api } = DerivX;\napi.onTick(\"R_100\", (t) => {\n  const skew = api.paritySkew(\"R_100\", 100);\n  if (skew.even >= 58) api.buy({ symbol: \"R_100\", contract_type: \"DIGITEVEN\", amount: 0.5, duration: 5, duration_unit: \"t\" });\n  if (skew.odd >= 58) api.buy({ symbol: \"R_100\", contract_type: \"DIGITODD\", amount: 0.5, duration: 5, duration_unit: \"t\" });\n});",
+  },
+  {
+    id: "tpl_index_dca", name: "Index DCA Basket", category: "breakout", symbol: "OTC_NDX", contractType: "higher_lower",
+    difficulty: "intermediate", lines: 63, rating: 4.7, uses: 1540,
+    description: "Adds one daily Higher/Lower leg above the 20-day mean and scales out at +12% basket P&L.",
+    tags: ["indices", "dca", "basket"],
+    code: "const { api, risk, schedule } = DerivX;\nschedule.daily(\"09:30\", () => {\n  const above = api.spot(\"OTC_NDX\") > api.sma(\"OTC_NDX\", 20, \"1d\");\n  risk.assert(api.openLegs(\"OTC_NDX\") < 4, \"max 4 legs\");\n  if (above) api.buy({ symbol: \"OTC_NDX\", contract_type: \"CALL\", amount: 20, duration: 1, duration_unit: \"d\", barrier: \"+0.15%\" });\n});",
+  },
+  {
+    id: "tpl_over_under", name: "Over/Under Digit Model", category: "digits", symbol: "R_50", contractType: "over_under",
+    difficulty: "advanced", lines: 36, rating: 4.4, uses: 720,
+    description: "Over/Under on the last digit of Volatility 50, restricted to 9-tick windows after a cold streak.",
+    tags: ["digits", "over-under", "model"],
+    code: "const { api } = DerivX;\napi.onTick(\"R_50\", (t) => {\n  const d = api.lastDigit(t.quote);\n  const cold = api.coldStreak(\"R_50\", 9);\n  if (cold && d <= 7) api.buy({ symbol: \"R_50\", contract_type: \"DIGITOVER\", barrier: 2, amount: 4, duration: 10, duration_unit: \"t\" });\n});",
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Platform comparison matrix (H-2 comparison table)
+// -----------------------------------------------------------------------------
+export type ComparisonCell = "yes" | "partial" | "no" | string;
+
+export interface ComparisonRow {
+  id: string;
+  category: "Automation" | "Scripting" | "Markets" | "Risk" | "Social" | "Pricing";
+  feature: string;
+  derivx: ComparisonCell;
+  deriv: ComparisonCell;
+  bmx: ComparisonCell;
+  other: ComparisonCell;
+  note: string;
+  detail: string;
+}
+
+export const COMPARISON_ROWS: ComparisonRow[] = [
+  { id: "cmp_01", category: "Automation", feature: "Pre-built bot presets", derivx: "10 presets", deriv: "no", bmx: "partial", other: "partial", note: "Preset library with backtest attached", detail: "Every DerivX preset ships with a 2-year backtest, a stake cap and a stop-loss already set. Deriv native offers manual trading only; generic bot builders usually sell presets separately." },
+  { id: "cmp_02", category: "Automation", feature: "Custom bot parameters", derivx: "yes", deriv: "no", bmx: "yes", other: "partial", note: "Stake, duration, multiplier, caps per bot", detail: "Stake, duration, martingale step, take-profit and stop-loss are editable per bot and versioned, so a bad edit can be rolled back from the audit log." },
+  { id: "cmp_03", category: "Scripting", feature: "JavaScript strategy engine", derivx: "yes", deriv: "no", bmx: "no", other: "partial", note: "Sandboxed VM2 runtime, no network access", detail: "Scripts run in a sandboxed VM2 runtime with tick/bar subscriptions, indicator helpers and risk assertions. No filesystem or network access is ever granted." },
+  { id: "cmp_04", category: "Scripting", feature: "Backtesting on tick history", derivx: "2 years", deriv: "no", bmx: "partial", other: "partial", note: "Walk-forward splits + drawdown bands", detail: "The backtest runner replays up to two years of tick history with spread and slippage models, walk-forward splits, Sharpe and max-drawdown reporting." },
+  { id: "cmp_05", category: "Markets", feature: "Synthetics 24/7 (R_10–R_100, 1HZ)", derivx: "yes", deriv: "yes", bmx: "yes", other: "yes", note: "Full 1s and 2s index families", detail: "All Deriv synthetic indices including the 1-second 1HZ family trade around the clock. Pricing and settlement always happen on Deriv; DerivX only relays the stream." },
+  { id: "cmp_06", category: "Markets", feature: "Contract types covered", derivx: "11 types", deriv: "11 types", bmx: "partial", other: "partial", note: "Rise/Fall through Accumulator + Multiplier", detail: "Rise/Fall, Higher/Lower, Touch/No Touch, Digits, Ends/Stays Between, Even/Odd, Over/Under, Lookback, Accumulator and Multiplier — with barrier previews before every buy." },
+  { id: "cmp_07", category: "Risk", feature: "Engine-enforced stake caps", derivx: "yes", deriv: "partial", bmx: "partial", other: "no", note: "Rejected before the proposal, not after", detail: "The risk engine checks exposure before the proposal request. A breaching order is rejected and the bot pauses — nothing is force-closed without your confirmation." },
+  { id: "cmp_08", category: "Risk", feature: "Idempotent order retries", derivx: "yes", deriv: "yes", bmx: "no", other: "no", note: "Same key on reconnect — never bought twice", detail: "Every buy carries an idempotency key. If the socket drops mid-order, the worker reconnects with the same key so a contract can never be duplicated." },
+  { id: "cmp_09", category: "Social", feature: "Verified leaderboard", derivx: "yes", deriv: "no", bmx: "partial", other: "partial", note: "Statements reconciled, not screenshots", detail: "Leaderboard P&L is reconciled against Deriv statements. Screenshots, edited balances and demo-account results are excluded from the verified board." },
+  { id: "cmp_10", category: "Social", feature: "Copy trading with kill switch", derivx: "yes", deriv: "no", bmx: "partial", other: "partial", note: "Independent stake ratio + instant close-all", detail: "Copy at your own stake ratio with a hard loss cap. The kill switch closes every mirrored leg within one tick and never touches your own bots." },
+  { id: "cmp_11", category: "Automation", feature: "Schedules & conditional triggers", derivx: "yes", deriv: "no", bmx: "partial", other: "no", note: "Sessions, blackouts, streak brakes", detail: "Cron-style schedules, release blackouts, loss-streak brakes and volatility gates run inside the engine — your browser tab does not need to stay open." },
+  { id: "cmp_12", category: "Risk", feature: "Multi-account exposure view", derivx: "15 accounts", deriv: "partial", bmx: "no", other: "no", note: "Real + virtual in one risk tape", detail: "Exposure, floating P&L and caps aggregate across every linked Deriv account (CR, VRTC and MX formats) in a single portfolio tape." },
+  { id: "cmp_13", category: "Pricing", feature: "Profit share / per-trade fees", derivx: "None", deriv: "None", bmx: "partial", other: "partial", note: "Flat subscription on every platform tier", detail: "DerivX never takes a cut of winnings. Contracts settle in your Deriv account; the platform is a flat subscription from free to institutional." },
+  { id: "cmp_14", category: "Pricing", feature: "Free tier without a card", derivx: "yes", deriv: "yes", bmx: "no", other: "partial", note: "1 live bot + full market access", detail: "The free tier includes one live bot, one Deriv connection and full market access. No card is collected until you choose a paid tier." },
+];
+
+// =============================================================================
+// A-1 (/auth/signup) — onboarding datasets. FRONT-END ONLY, mock data.
+// The register / verify calls in the blueprint are simulated in-page; these
+// shapes mirror what POST /api/auth/register would return and validate.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Residency countries (onboarding eligibility — country picker drawer)
+// -----------------------------------------------------------------------------
+export interface SignupCountry {
+  code: string;
+  name: string;
+  flag: string;
+  regulator: string;
+  accountTypes: ("virtual" | "real")[];
+  derivAvailable: boolean;
+  traders: number;
+  taxForm: string;
+}
+
+export const SIGNUP_COUNTRIES: SignupCountry[] = [
+  { code: "NG", name: "Nigeria", flag: "🇳🇬", regulator: "SEC Nigeria (advisory)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 4210, taxForm: "W-8BEN equivalent" },
+  { code: "KE", name: "Kenya", flag: "🇰🇪", regulator: "CMA Kenya (advisory)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 3180, taxForm: "KRA PIN declaration" },
+  { code: "GH", name: "Ghana", flag: "🇬🇭", regulator: "SEC Ghana (advisory)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 1640, taxForm: "GRA TIN declaration" },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦", regulator: "FSCA (ODP licence via Deriv)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 1420, taxForm: "SARS IT3 declaration" },
+  { code: "ID", name: "Indonesia", flag: "🇮🇩", regulator: "Bappebti (offshore access)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 2210, taxForm: "NPWP declaration" },
+  { code: "IN", name: "India", flag: "🇮🇳", regulator: "RBI FEMA (offshore access)", accountTypes: ["virtual"], derivAvailable: true, traders: 1180, taxForm: "PAN declaration" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", regulator: "FCA (Deriv UK not retail-authorised)", accountTypes: ["virtual"], derivAvailable: false, traders: 640, taxForm: "HMRC self-assessment" },
+  { code: "DE", name: "Germany", flag: "🇩🇪", regulator: "BaFin (EU passport via Deriv EU)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 580, taxForm: "EU MiFID appropriateness" },
+  { code: "RO", name: "Romania", flag: "🇷🇴", regulator: "ASF (EU passport via Deriv EU)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 410, taxForm: "EU MiFID appropriateness" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷", regulator: "CVM (offshore access)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 890, taxForm: "CPF declaration" },
+  { code: "CO", name: "Colombia", flag: "🇨🇴", regulator: "SFC (offshore access)", accountTypes: ["virtual", "real"], derivAvailable: true, traders: 520, taxForm: "RUT declaration" },
+  { code: "EG", name: "Egypt", flag: "🇪🇬", regulator: "FRA (offshore access)", accountTypes: ["virtual"], derivAvailable: true, traders: 460, taxForm: "National ID declaration" },
+];
+
+// -----------------------------------------------------------------------------
+// Mock Google identities (social sign-in chooser — simulated OAuth)
+// -----------------------------------------------------------------------------
+export interface GoogleAccount {
+  id: string;
+  name: string;
+  email: string;
+  lastUsed: string;
+}
+
+export const GOOGLE_ACCOUNTS: GoogleAccount[] = [
+  { id: "g_ade", name: "Ade Fashola", email: "ade.fashola@example.com", lastUsed: "2 days ago" },
+  { id: "g_mina", name: "Mina Larasati", email: "mina.larasati@example.com", lastUsed: "last week" },
+  { id: "g_work", name: "A. Fashola (work)", email: "ade@tradingdesk.example.com", lastUsed: "3 weeks ago" },
+];
+
+// -----------------------------------------------------------------------------
+// Mock inbox (demo verification mailbox — the "email" the code was sent to)
+// -----------------------------------------------------------------------------
+export interface InboxMessage {
+  id: string;
+  from: string;
+  subject: string;
+  preview: string;
+  epoch: number;
+  code?: string;
+  read: boolean;
+}
+
+export const INBOX_MESSAGES: InboxMessage[] = [
+  { id: "mail_01", from: "DerivX Verify", subject: "Your DerivX verification code", preview: "Your 6-digit code is inside. It expires in 15 minutes and can be used once.", epoch: min(1), code: "482913", read: false },
+  { id: "mail_02", from: "DerivX", subject: "Welcome to DerivX — what happens next", preview: "Three steps: verify this email, link Deriv with OAuth2, set your risk caps.", epoch: min(26), read: true },
+  { id: "mail_03", from: "Deriv", subject: "Your virtual account VRTC9031442 is ready", preview: "$10,000 virtual funds, all contract types, same tick feed as real accounts.", epoch: min(180), read: true },
+  { id: "mail_04", from: "DerivX Digest", subject: "October: accumulator strategies grew 38%", preview: "Fleet stats, two new presets and the payout-efficiency table for Q3.", epoch: min(1440), read: true },
+  { id: "mail_05", from: "DerivX Security", subject: "New sign-in from Chrome · Nairobi, KE", preview: "If this was not you, revoke the session from Settings → Security immediately.", epoch: min(2880), read: true },
+];
+
+// -----------------------------------------------------------------------------
+// Trusted devices / sessions (security dialog — session audit table)
+// -----------------------------------------------------------------------------
+export interface SignupSession {
+  id: string;
+  device: string;
+  location: string;
+  ip: string;
+  lastActive: number;
+  current: boolean;
+  trusted: boolean;
+}
+
+export const SIGNUP_SESSIONS: SignupSession[] = [
+  { id: "ses_01", device: "Chrome 130 · Windows 11", location: "Nairobi, KE", ip: "197.237.14.82", lastActive: min(1), current: true, trusted: true },
+  { id: "ses_02", device: "Safari 18 · iPhone 16", location: "Nairobi, KE", ip: "197.237.14.82", lastActive: min(64), current: false, trusted: true },
+  { id: "ses_03", device: "Firefox 132 · Ubuntu 24.04", location: "Lagos, NG", ip: "105.112.88.14", lastActive: min(320), current: false, trusted: true },
+  { id: "ses_04", device: "Chrome 129 · Android 15", location: "Accra, GH", ip: "154.160.22.9", lastActive: min(900), current: false, trusted: false },
+  { id: "ses_05", device: "Edge 130 · Windows 11", location: "Jakarta, ID", ip: "36.68.221.47", lastActive: min(1500), current: false, trusted: true },
+  { id: "ses_06", device: "Chrome 130 · macOS 15", location: "London, GB", ip: "86.14.190.203", lastActive: min(2880), current: false, trusted: false },
+  { id: "ses_07", device: "Safari 17 · iPadOS 18", location: "Cape Town, ZA", ip: "41.203.66.118", lastActive: min(4320), current: false, trusted: true },
+  { id: "ses_08", device: "Chrome 128 · Windows 10", location: "São Paulo, BR", ip: "189.44.201.77", lastActive: min(7200), current: false, trusted: false },
+  { id: "ses_09", device: "Firefox 131 · Windows 11", location: "Bucharest, RO", ip: "92.83.141.26", lastActive: min(10080), current: false, trusted: true },
+  { id: "ses_10", device: "Chrome 130 · ChromeOS", location: "Bogotá, CO", ip: "181.53.90.154", lastActive: min(20160), current: false, trusted: false },
+];
+
+
+// -----------------------------------------------------------------------------
+// A-2 … A-7 · auth family datasets (sign-in accounts, login audit, OAuth
+// scopes, 2FA backup codes, authenticator apps, demo deep-link tokens)
+// -----------------------------------------------------------------------------
+export interface SigninAccount {
+  id: string;
+  email: string;
+  name: string;
+  password: string;
+  twoFactor: boolean;
+  hasDeriv: boolean;
+  derivLoginId: string | null;
+  plan: string;
+  lastLoginMin: number;
+}
+
+export const SIGNIN_ACCOUNTS: SigninAccount[] = [
+  { id: "usr_01", email: "trader@derivx.app", name: "Amara Okafor", password: "Rise$2024", twoFactor: true, hasDeriv: true, derivLoginId: "CR8842197", plan: "Pro", lastLoginMin: 122 },
+  { id: "usr_02", email: "brian@derivx.app", name: "Brian Mwangi", password: "Fall#7788", twoFactor: false, hasDeriv: true, derivLoginId: "VRTC9031442", plan: "Free", lastLoginMin: 1440 },
+  { id: "usr_03", email: "sana@derivx.app", name: "Sana Iqbal", password: "Tick$9911", twoFactor: true, hasDeriv: false, derivLoginId: null, plan: "Growth", lastLoginMin: 4320 },
+  { id: "usr_04", email: "diego@derivx.app", name: "Diego Alvarez", password: "Bolt#3310", twoFactor: false, hasDeriv: true, derivLoginId: "CR5520108", plan: "Pro", lastLoginMin: 10080 },
+  { id: "usr_05", email: "Linh@derivx.app", name: "Linh Nguyen", password: "Wave$6642", twoFactor: true, hasDeriv: true, derivLoginId: "VRTC7712093", plan: "Free", lastLoginMin: 20160 },
+  { id: "usr_06", email: "kenji@derivx.app", name: "Kenji Sato", password: "Drift#2050", twoFactor: false, hasDeriv: false, derivLoginId: null, plan: "Growth", lastLoginMin: 43200 },
+];
+
+export interface LoginAttempt {
+  id: string;
+  epochMin: number;
+  ip: string;
+  location: string;
+  device: string;
+  method: "Password" | "Google" | "Deriv OAuth" | "Backup code";
+  result: "success" | "failed" | "blocked" | "2fa-challenge";
+}
+
+export const LOGIN_ATTEMPTS: LoginAttempt[] = [
+  { id: "att_01", epochMin: 4, ip: "197.237.14.82", location: "Nairobi, KE", device: "Chrome 130 · Windows 11", method: "Password", result: "success" },
+  { id: "att_02", epochMin: 26, ip: "197.237.14.82", location: "Nairobi, KE", device: "Chrome 130 · Windows 11", method: "Password", result: "2fa-challenge" },
+  { id: "att_03", epochMin: 190, ip: "105.112.88.14", location: "Lagos, NG", device: "Firefox 132 · Ubuntu 24.04", method: "Google", result: "success" },
+  { id: "att_04", epochMin: 480, ip: "154.160.22.9", location: "Accra, GH", device: "Chrome 129 · Android 15", method: "Password", result: "failed" },
+  { id: "att_05", epochMin: 482, ip: "154.160.22.9", location: "Accra, GH", device: "Chrome 129 · Android 15", method: "Password", result: "failed" },
+  { id: "att_06", epochMin: 486, ip: "154.160.22.9", location: "Accra, GH", device: "Chrome 129 · Android 15", method: "Password", result: "blocked" },
+  { id: "att_07", epochMin: 1500, ip: "36.68.221.47", location: "Jakarta, ID", device: "Edge 130 · Windows 11", method: "Deriv OAuth", result: "success" },
+  { id: "att_08", epochMin: 2880, ip: "86.14.190.203", location: "London, GB", device: "Chrome 130 · macOS 15", method: "Password", result: "success" },
+  { id: "att_09", epochMin: 4320, ip: "41.203.66.118", location: "Cape Town, ZA", device: "Safari 17 · iPadOS 18", method: "Backup code", result: "success" },
+  { id: "att_10", epochMin: 7200, ip: "189.44.201.77", location: "São Paulo, BR", device: "Chrome 128 · Windows 10", method: "Password", result: "failed" },
+  { id: "att_11", epochMin: 10080, ip: "92.83.141.26", location: "Bucharest, RO", device: "Firefox 131 · Windows 11", method: "Google", result: "success" },
+  { id: "att_12", epochMin: 20160, ip: "181.53.90.154", location: "Bogotá, CO", device: "Chrome 130 · ChromeOS", method: "Deriv OAuth", result: "success" },
+];
+
+export interface OAuthScope {
+  id: string;
+  label: string;
+  description: string;
+  level: "read" | "trade" | "payments" | "admin";
+  granted: boolean;
+}
+
+export const OAUTH_SCOPES: OAuthScope[] = [
+  { id: "scp_01", label: "read: account details", description: "Login ID, currency, account status and landing company.", level: "read", granted: true },
+  { id: "scp_02", label: "read: balance & equity", description: "Live balance, equity and margin snapshots for linked accounts.", level: "read", granted: true },
+  { id: "scp_03", label: "read: open positions", description: "Running contracts, entry spots and unrealised P&L.", level: "read", granted: true },
+  { id: "scp_04", label: "read: statement history", description: "Settled trades, deposits and withdrawals for reporting.", level: "read", granted: true },
+  { id: "scp_05", label: "trade: proposals", description: "Request price proposals for every supported contract type.", level: "trade", granted: true },
+  { id: "scp_06", label: "trade: buy & sell", description: "Buy contracts and sell open positions before expiry.", level: "trade", granted: true },
+  { id: "scp_07", label: "trade: bot execution", description: "Let deployed bots place contracts inside your risk caps.", level: "trade", granted: true },
+  { id: "scp_08", label: "payments: transfers", description: "Move funds between your own Deriv accounts.", level: "payments", granted: false },
+  { id: "scp_09", label: "payments: cashier", description: "Open the Deriv cashier for deposits and withdrawals.", level: "payments", granted: false },
+  { id: "scp_10", label: "admin: account settings", description: "Change account limits and self-exclusion settings.", level: "admin", granted: false },
+];
+
+export interface BackupCode {
+  code: string;
+  used: boolean;
+}
+
+export const BACKUP_CODES: BackupCode[] = [
+  { code: "KX41-9QPD-77", used: false },
+  { code: "M82T-R4WL-03", used: false },
+  { code: "Q7ZN-51HD-88", used: true },
+  { code: "T3VB-08XK-42", used: false },
+  { code: "W95C-J6MA-19", used: false },
+  { code: "Z14P-D90S-65", used: true },
+  { code: "B67F-H2QN-31", used: false },
+  { code: "N0KD-74XE-56", used: false },
+  { code: "R58G-U1VP-94", used: false },
+  { code: "H29M-A63B-70", used: false },
+];
+
+export interface AuthenticatorApp {
+  id: string;
+  name: string;
+  platforms: string;
+  note: string;
+  recommended: boolean;
+}
+
+export const AUTHENTICATOR_APPS: AuthenticatorApp[] = [
+  { id: "app_01", name: "Google Authenticator", platforms: "iOS · Android", note: "Simple TOTP codes, no cloud sync.", recommended: true },
+  { id: "app_02", name: "Authy", platforms: "iOS · Android · Desktop", note: "Encrypted multi-device sync and backups.", recommended: true },
+  { id: "app_03", name: "Microsoft Authenticator", platforms: "iOS · Android", note: "TOTP plus push approval for Microsoft accounts.", recommended: false },
+  { id: "app_04", name: "1Password", platforms: "iOS · Android · Desktop", note: "Stores TOTP beside the password in one vault.", recommended: false },
+  { id: "app_05", name: "Bitwarden Authenticator", platforms: "iOS · Android", note: "Open-source, works offline.", recommended: false },
+  { id: "app_06", name: "FreeOTP", platforms: "iOS · Android", note: "Minimal open-source TOTP, no account needed.", recommended: false },
+];
+
+/** Demo deep-link tokens used by the simulated email flows (A-4 → A-5/A-6). */
+export const DEMO_RESET_TOKEN = "dxr_live_9f27c1";
+export const DEMO_VERIFY_TOKEN = "dxv_live_77b2e0";
+export const DEMO_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+export const DEMO_TOTP_CODE = "472915";
+
+// -----------------------------------------------------------------------------
+// D-1 / D-2 · dashboard datasets (notifications, market schedules, economic
+// calendar, watchlists)
+// -----------------------------------------------------------------------------
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  epochMin: number;
+  tone: "up" | "info" | "warn" | "danger" | "accent";
+  read: boolean;
+  /** real route the notification opens (built pages only) */
+  to?: string;
+}
+
+export const NOTIFICATIONS: AppNotification[] = [
+  { id: "ntf_01", title: "Bot paused by stop-loss", body: "Martingale Core v7 hit its $150 daily stop on R_10 and paused itself.", epochMin: 6, tone: "warn", read: false, to: "/dashboard" },
+  { id: "ntf_02", title: "Contract settled +$18.40", body: "Rise/Fall on frxEURUSD closed in profit (entry 1.08421 → exit 1.08496).", epochMin: 22, tone: "up", read: false, to: "/dashboard" },
+  { id: "ntf_03", title: "New sign-in detected", body: "Chrome · Nairobi, KE signed in to trader@derivx.app. Not you? Revoke the session.", epochMin: 64, tone: "info", read: false, to: "/auth/2fa" },
+  { id: "ntf_04", title: "R_100 volatility spike", body: "1-minute realized volatility is 2.3× its 24h average — scalpers beware.", epochMin: 130, tone: "accent", read: true, to: "/dashboard/markets" },
+  { id: "ntf_05", title: "Weekly digest ready", body: "Your fleet won 61% of 214 contracts this week. Best: DCA Basket (+$96.20).", epochMin: 320, tone: "info", read: true, to: "/dashboard" },
+  { id: "ntf_06", title: "Deriv connection healthy", body: "CR8842197 authorize handshake renewed on the eu-west relay (38ms median).", epochMin: 480, tone: "up", read: true, to: "/dashboard/markets" },
+  { id: "ntf_07", title: "Price alert triggered", body: "cryBTCUSD crossed above $67,500 — your alert from Tuesday fired.", epochMin: 900, tone: "accent", read: true, to: "/dashboard/markets" },
+  { id: "ntf_08", title: "Backup code used", body: "A backup code passed the second factor on a new device in Lagos, NG.", epochMin: 1500, tone: "warn", read: true, to: "/auth/2fa" },
+  { id: "ntf_09", title: "Preset backtest finished", body: "Volatility Switcher (R_75) finished 90 days: 58.4% win, +$212.60 simulated.", epochMin: 2880, tone: "info", read: true, to: "/dashboard" },
+  { id: "ntf_10", title: "Forex weekend close", body: "Forex markets close Friday 21:00 UTC and reopen Sunday 22:00 UTC.", epochMin: 4320, tone: "info", read: true, to: "/dashboard/markets" },
+  { id: "ntf_11", title: "Email verification pending", body: "Real-account linking unlocks once trader@derivx.app is verified.", epochMin: 7200, tone: "warn", read: true, to: "/auth/verify-email" },
+  { id: "ntf_12", title: "Welcome to DerivX", body: "Your virtual account VRTC1024887 was credited with $10,000 demo funds.", epochMin: 20160, tone: "up", read: true, to: "/dashboard" },
+];
+
+export interface MarketSchedule {
+  id: string;
+  market: string;
+  open: boolean;
+  /** minutes until close (open) or until next open (closed) */
+  deltaMin: number;
+  note: string;
+}
+
+export const MARKET_SCHEDULES: MarketSchedule[] = [
+  { id: "sch_01", market: "Synthetics (R_10 … 1HZ100V)", open: true, deltaMin: 0, note: "Open 24/7 — volatility indices never close." },
+  { id: "sch_02", market: "Forex majors (frxEURUSD, frxGBPUSD)", open: true, deltaMin: 263, note: "Closes Friday 21:00 UTC, reopens Sunday 22:00 UTC." },
+  { id: "sch_03", market: "Commodities (frxXAUUSD)", open: true, deltaMin: 197, note: "Daily break 21:00–22:00 UTC; weekend close applies." },
+  { id: "sch_04", market: "Crypto (cryBTCUSD, cryETHUSD)", open: true, deltaMin: 0, note: "Open 24/7, liquidity thins on Sunday mornings." },
+  { id: "sch_05", market: "Stock indices (OTC_NDX, OTC_SPC)", open: false, deltaMin: 1130, note: "Closed for the US holiday — reopens 14:30 UTC tomorrow." },
+  { id: "sch_06", market: "Forex exotics (frxUSDJPY crosses)", open: true, deltaMin: 340, note: "Follows the majors session with wider spreads after 20:00 UTC." },
+];
+
+export interface EconEvent {
+  id: string;
+  inMin: number;
+  currency: string;
+  event: string;
+  impact: "high" | "medium" | "low";
+  symbols: string[];
+  forecast: string;
+  previous: string;
+}
+
+export const ECON_EVENTS: EconEvent[] = [
+  { id: "eco_01", inMin: 95, currency: "USD", event: "US CPI (YoY)", impact: "high", symbols: ["frxEURUSD", "frxGBPUSD", "frxXAUUSD"], forecast: "3.1%", previous: "3.2%" },
+  { id: "eco_02", inMin: 240, currency: "EUR", event: "ECB rate decision", impact: "high", symbols: ["frxEURUSD"], forecast: "4.00%", previous: "4.00%" },
+  { id: "eco_03", currency: "GBP", event: "UK unemployment rate", impact: "medium", symbols: ["frxGBPUSD"], forecast: "4.3%", previous: "4.2%", inMin: 1305 },
+  { id: "eco_04", currency: "JPY", event: "BoJ policy statement", impact: "high", symbols: ["frxUSDJPY"], forecast: "Hold", previous: "Hold", inMin: 1560 },
+  { id: "eco_05", currency: "USD", event: "US retail sales (MoM)", impact: "medium", symbols: ["frxEURUSD", "cryBTCUSD"], forecast: "+0.4%", previous: "+0.1%", inMin: 1895 },
+  { id: "eco_06", currency: "AUD", event: "RBA meeting minutes", impact: "low", symbols: ["frxAUDUSD"], forecast: "—", previous: "—", inMin: 2760 },
+  { id: "eco_07", currency: "USD", event: "FOMC minutes", impact: "high", symbols: ["frxXAUUSD", "cryBTCUSD", "cryETHUSD"], forecast: "—", previous: "—", inMin: 3180 },
+  { id: "eco_08", currency: "EUR", event: "German ZEW sentiment", impact: "low", symbols: ["frxEURUSD"], forecast: "12.4", previous: "10.9", inMin: 4320 },
+  { id: "eco_09", currency: "CAD", event: "Canada CPI (MoM)", impact: "medium", symbols: ["frxUSDCAD"], forecast: "+0.3%", previous: "+0.4%", inMin: 4500 },
+  { id: "eco_10", currency: "USD", event: "US NFP payrolls", impact: "high", symbols: ["frxEURUSD", "frxGBPUSD", "frxXAUUSD", "cryBTCUSD"], forecast: "188k", previous: "175k", inMin: 5940 },
+];
+
+export interface Watchlist {
+  id: string;
+  name: string;
+  symbols: string[];
+  note: string;
+}
+
+export const WATCHLISTS: Watchlist[] = [
+  { id: "wl_01", name: "My Forex", symbols: ["frxEURUSD", "frxGBPUSD", "frxUSDJPY", "frxXAUUSD"], note: "Majors + gold for the London session." },
+  { id: "wl_02", name: "High Vol Synthetics", symbols: ["R_75", "R_100", "1HZ100V", "R_50"], note: "Scalper fleet hunting ground — tight caps." },
+  { id: "wl_03", name: "Crypto watch", symbols: ["cryBTCUSD", "cryETHUSD"], note: "Weekend liquidity checks before sizing up." },
+];

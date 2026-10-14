@@ -1,0 +1,30 @@
+/* D-4 Bot Management — page-scoped styles only (MASTER_THEME §7). */
+.page-bots {
+  .dx-chip-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .dx-compare-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-bottom: 0.75rem;
+  }
+  .dx-cmp-line { stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+  .dx-cmp-1 { stroke: var(--dx-accent); }
+  .dx-cmp-2 { stroke: var(--dx-up); }
+  .dx-cmp-3 { stroke: var(--dx-info); }
+  .dx-cmp-4 { stroke: var(--dx-warn); }
+  .dx-cmp-swatch {
+    display: inline-block;
+    width: 22px;
+    height: 4px;
+    border-radius: 2px;
+  }
+  .dx-cmp-bg-1 { background: var(--dx-accent); }
+  .dx-cmp-bg-2 { background: var(--dx-up); }
+  .dx-cmp-bg-3 { background: var(--dx-info); }
+  .dx-cmp-bg-4 { background: var(--dx-warn); }
+}

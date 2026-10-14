@@ -1,0 +1,111 @@
+// =============================================================================
+// src/styles/pages/features.scss — H-2 ONLY (.page-features)
+// Imported exclusively by src/routes/features.tsx so it code-splits with the
+// features route chunk. Tokens only, no new colors/fonts.
+// Documented in docs/MASTER_THEME.md §13.
+// =============================================================================
+@use "../tokens";
+
+.page-features {
+  // ---- hero art (mirrors the H-1 treatment so the H-group reads as one site)
+  .dx-hero {
+    position: relative;
+    padding: 56px 0 40px;
+    overflow: hidden;
+
+    @media (min-width: 992px) {
+      padding: 84px 0 56px;
+    }
+  }
+
+  .dx-hero-glow {
+    position: absolute;
+    inset: -30% -10% auto -10%;
+    height: 620px;
+    background:
+      radial-gradient(560px 300px at 18% 30%, color-mix(in srgb, var(--dx-accent) 16%, transparent), transparent 68%),
+      radial-gradient(520px 300px at 84% 12%, var(--dx-accent-soft-2), transparent 66%);
+    pointer-events: none;
+  }
+
+  .dx-grid-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(var(--dx-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--dx-grid-line) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(70% 60% at 50% 30%, black, transparent 78%);
+    pointer-events: none;
+  }
+
+  .dx-h-hero .dx-up {
+    text-shadow: 0 0 34px var(--dx-accent-line);
+  }
+
+  // ---- terminal tape (script studio + bot logs) ----------------------------
+  .dx-terminal-line {
+    font-size: 0.74rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    animation: dx-features-tape-in 260ms var(--dx-ease);
+
+    & + & {
+      margin-top: 2px;
+    }
+  }
+
+  @keyframes dx-features-tape-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+  }
+
+  // ---- comparison table: DerivX column highlight ----------------------------
+  .dx-compare-highlight {
+    display: inline-flex;
+    padding: 3px 6px;
+    border-radius: var(--dx-r-sm);
+    background: var(--dx-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--dx-accent-line);
+  }
+
+  .dx-table tbody tr td:first-child {
+    border-left: 2px solid transparent;
+  }
+
+  .dx-table tbody tr:hover td:first-child {
+    border-left-color: var(--dx-accent);
+  }
+
+  // ---- section rhythm --------------------------------------------------------
+  .dx-section + .dx-section {
+    border-top: 1px solid var(--dx-border);
+  }
+
+  .dx-list-row {
+    transition: border-color var(--dx-t-fast) var(--dx-ease), background var(--dx-t-fast) var(--dx-ease);
+
+    &:hover {
+      background: var(--dx-surface-2);
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    .dx-dialog-head,
+    .dx-dialog-body,
+    .dx-dialog-foot {
+      padding: 14px;
+    }
+
+    .dx-kpi-value {
+      font-size: 1.35rem;
+    }
+
+    .dx-hero {
+      padding-top: 32px;
+    }
+  }
+}

@@ -1,0 +1,26 @@
+/* D-1 Dashboard Overview — page-scoped styles only (MASTER_THEME §7). */
+.page-dashboard {
+  .dx-app-welcome {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .dx-app-welcome-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+  /* bot log lines inside BotDetailDrawer (terminal pattern) */
+  .dx-terminal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .dx-terminal-line {
+    display: block;
+    font-size: 0.82rem;
+  }
+}

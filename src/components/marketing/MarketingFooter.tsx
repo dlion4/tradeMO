@@ -3,6 +3,7 @@
 // opens real in-page content via the callbacks below (no dead links).
 // =============================================================================
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Activity, AtSign, BookOpen, Code2, Mail, MessageCircle, PlayCircle, Send, ShieldCheck } from "lucide-react";
 import { ThemeToggle } from "../ui/primitives";
 import { MARKETING_NAV } from "./MarketingNav";
@@ -80,9 +81,9 @@ export function MarketingFooter(actions: FooterActions) {
           <div className="col-6 col-lg-2">
             <div className="dx-footer-head">Product</div>
             {MARKETING_NAV.filter((i) => i.ready && i.to).map((i) => (
-              <a key={i.id} className="dx-footer-link" href={i.to}>
+              <Link key={i.id} className="dx-footer-link" to={i.to as "/"}>
                 {i.label}
-              </a>
+              </Link>
             ))}
             <button type="button" className="dx-footer-link" onClick={actions.onOpenPricing}>
               Pricing &amp; plans
@@ -113,7 +114,7 @@ export function MarketingFooter(actions: FooterActions) {
               Changelog
             </button>
             <button type="button" className="dx-footer-link" onClick={actions.onOpenSitemap}>
-              Sitemap (39 pages)
+              Sitemap (36 pages)
             </button>
           </div>
 
@@ -151,6 +152,15 @@ export function MarketingFooter(actions: FooterActions) {
               Cookie &amp; Storage
             </button>
           </div>
+        </div>
+
+        <div className="d-flex flex-wrap align-items-center gap-3 mt-4">
+          <span className="dx-footer-head mb-0 me-2">Account</span>
+          <Link className="dx-footer-link" to="/auth/signin">Sign in</Link>
+          <Link className="dx-footer-link" to="/auth/signup">Create free account</Link>
+          <Link className="dx-footer-link" to="/auth/forgot-password">Forgot password</Link>
+          <Link className="dx-footer-link" to="/auth/verify-email">Verify email</Link>
+          <Link className="dx-footer-link" to="/auth/2fa">Two-factor authentication</Link>
         </div>
 
         <hr className="dx-hr" />

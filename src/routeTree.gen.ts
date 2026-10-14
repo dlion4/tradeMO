@@ -10,11 +10,28 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as Auth2faRouteImport } from './routes/auth/2fa'
+import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
+import { Route as AuthSigninRouteImport } from './routes/auth/signin'
+import { Route as AuthSignupRouteImport } from './routes/auth/signup'
+import { Route as AuthVerifyEmailRouteImport } from './routes/auth/verify-email'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardMarketsRouteImport } from './routes/dashboard/markets'
+import { Route as DashboardTradeRouteImport } from './routes/dashboard/trade'
+import { Route as AuthDerivCallbackRouteImport } from './routes/auth/deriv/callback'
+import { Route as DashboardBotsIndexRouteImport } from './routes/dashboard/bots/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -22,31 +39,177 @@ const HomeRoute = HomeRouteImport.update({
   path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Auth2faRoute = Auth2faRouteImport.update({
+  id: '/auth/2fa',
+  path: '/auth/2fa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/auth/forgot-password',
+  path: '/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSigninRoute = AuthSigninRouteImport.update({
+  id: '/auth/signin',
+  path: '/auth/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignupRoute = AuthSignupRouteImport.update({
+  id: '/auth/signup',
+  path: '/auth/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
+  id: '/auth/verify-email',
+  path: '/auth/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardMarketsRoute = DashboardMarketsRouteImport.update({
+  id: '/dashboard/markets',
+  path: '/dashboard/markets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardTradeRoute = DashboardTradeRouteImport.update({
+  id: '/dashboard/trade',
+  path: '/dashboard/trade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthDerivCallbackRoute = AuthDerivCallbackRouteImport.update({
+  id: '/auth/deriv/callback',
+  path: '/auth/deriv/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardBotsIndexRoute = DashboardBotsIndexRouteImport.update({
+  id: '/dashboard/bots/',
+  path: '/dashboard/bots/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/features': typeof FeaturesRoute
   '/home': typeof HomeRoute
+  '/auth/2fa': typeof Auth2faRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/signin': typeof AuthSigninRoute
+  '/auth/signup': typeof AuthSignupRoute
+  '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/trade': typeof DashboardTradeRoute
+  '/dashboard/': typeof DashboardIndexRoute
+  '/auth/deriv/callback': typeof AuthDerivCallbackRoute
+  '/dashboard/bots/': typeof DashboardBotsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/features': typeof FeaturesRoute
   '/home': typeof HomeRoute
+  '/auth/2fa': typeof Auth2faRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/signin': typeof AuthSigninRoute
+  '/auth/signup': typeof AuthSignupRoute
+  '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/trade': typeof DashboardTradeRoute
+  '/dashboard': typeof DashboardIndexRoute
+  '/auth/deriv/callback': typeof AuthDerivCallbackRoute
+  '/dashboard/bots': typeof DashboardBotsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/features': typeof FeaturesRoute
   '/home': typeof HomeRoute
+  '/auth/2fa': typeof Auth2faRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/signin': typeof AuthSigninRoute
+  '/auth/signup': typeof AuthSignupRoute
+  '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/dashboard/markets': typeof DashboardMarketsRoute
+  '/dashboard/trade': typeof DashboardTradeRoute
+  '/dashboard/': typeof DashboardIndexRoute
+  '/auth/deriv/callback': typeof AuthDerivCallbackRoute
+  '/dashboard/bots/': typeof DashboardBotsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/home'
+  fullPaths:
+    | '/'
+    | '/features'
+    | '/home'
+    | '/auth/2fa'
+    | '/auth/forgot-password'
+    | '/auth/reset-password'
+    | '/auth/signin'
+    | '/auth/signup'
+    | '/auth/verify-email'
+    | '/dashboard/markets'
+    | '/dashboard/trade'
+    | '/dashboard/'
+    | '/auth/deriv/callback'
+    | '/dashboard/bots/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/home'
-  id: '__root__' | '/' | '/home'
+  to:
+    | '/'
+    | '/features'
+    | '/home'
+    | '/auth/2fa'
+    | '/auth/forgot-password'
+    | '/auth/reset-password'
+    | '/auth/signin'
+    | '/auth/signup'
+    | '/auth/verify-email'
+    | '/dashboard/markets'
+    | '/dashboard/trade'
+    | '/dashboard'
+    | '/auth/deriv/callback'
+    | '/dashboard/bots'
+  id:
+    | '__root__'
+    | '/'
+    | '/features'
+    | '/home'
+    | '/auth/2fa'
+    | '/auth/forgot-password'
+    | '/auth/reset-password'
+    | '/auth/signin'
+    | '/auth/signup'
+    | '/auth/verify-email'
+    | '/dashboard/markets'
+    | '/dashboard/trade'
+    | '/dashboard/'
+    | '/auth/deriv/callback'
+    | '/dashboard/bots/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FeaturesRoute: typeof FeaturesRoute
   HomeRoute: typeof HomeRoute
+  Auth2faRoute: typeof Auth2faRoute
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
+  AuthSigninRoute: typeof AuthSigninRoute
+  AuthSignupRoute: typeof AuthSignupRoute
+  AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
+  DashboardMarketsRoute: typeof DashboardMarketsRoute
+  DashboardTradeRoute: typeof DashboardTradeRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+  AuthDerivCallbackRoute: typeof AuthDerivCallbackRoute
+  DashboardBotsIndexRoute: typeof DashboardBotsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/home': {
       id: '/home'
       path: '/home'
@@ -65,22 +235,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/2fa': {
+      id: '/auth/2fa'
+      path: '/auth/2fa'
+      fullPath: '/auth/2fa'
+      preLoaderRoute: typeof Auth2faRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/forgot-password': {
+      id: '/auth/forgot-password'
+      path: '/auth/forgot-password'
+      fullPath: '/auth/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/auth/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/signin': {
+      id: '/auth/signin'
+      path: '/auth/signin'
+      fullPath: '/auth/signin'
+      preLoaderRoute: typeof AuthSigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/signup': {
+      id: '/auth/signup'
+      path: '/auth/signup'
+      fullPath: '/auth/signup'
+      preLoaderRoute: typeof AuthSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/verify-email': {
+      id: '/auth/verify-email'
+      path: '/auth/verify-email'
+      fullPath: '/auth/verify-email'
+      preLoaderRoute: typeof AuthVerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/markets': {
+      id: '/dashboard/markets'
+      path: '/dashboard/markets'
+      fullPath: '/dashboard/markets'
+      preLoaderRoute: typeof DashboardMarketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/trade': {
+      id: '/dashboard/trade'
+      path: '/dashboard/trade'
+      fullPath: '/dashboard/trade'
+      preLoaderRoute: typeof DashboardTradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/deriv/callback': {
+      id: '/auth/deriv/callback'
+      path: '/auth/deriv/callback'
+      fullPath: '/auth/deriv/callback'
+      preLoaderRoute: typeof AuthDerivCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/bots/': {
+      id: '/dashboard/bots/'
+      path: '/dashboard/bots'
+      fullPath: '/dashboard/bots/'
+      preLoaderRoute: typeof DashboardBotsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FeaturesRoute: FeaturesRoute,
   HomeRoute: HomeRoute,
+  Auth2faRoute: Auth2faRoute,
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
+  AuthSigninRoute: AuthSigninRoute,
+  AuthSignupRoute: AuthSignupRoute,
+  AuthVerifyEmailRoute: AuthVerifyEmailRoute,
+  DashboardMarketsRoute: DashboardMarketsRoute,
+  DashboardTradeRoute: DashboardTradeRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+  AuthDerivCallbackRoute: AuthDerivCallbackRoute,
+  DashboardBotsIndexRoute: DashboardBotsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

@@ -1055,21 +1055,27 @@ export function ChangelogDialog({ open, onClose, onOpenCommunity }: { open: bool
 }
 
 /** Route registry for the sitemap dialog — mirrors COMPLETE PAGE INDEX. */
-const ROUTE_INDEX: { group: string; id: string; route: string; title: string; ready: boolean }[] = [
-  { group: "Home", id: "H-1", route: "/ · /home", title: "Landing page", ready: true },
-  { group: "Home", id: "H-2", route: "/features", title: "Features deep dive", ready: false },
+type ReadyRoute =
+  | "/" | "/features"
+  | "/auth/signup" | "/auth/signin" | "/auth/deriv/callback"
+  | "/dashboard" | "/dashboard/markets" | "/dashboard/trade" | "/dashboard/bots"
+  | "/auth/forgot-password" | "/auth/reset-password" | "/auth/verify-email" | "/auth/2fa";
+
+const ROUTE_INDEX: { group: string; id: string; route: string; title: string; ready: boolean; to?: ReadyRoute }[] = [
+  { group: "Home", id: "H-1", route: "/ · /home", title: "Landing page", ready: true, to: "/" },
+  { group: "Home", id: "H-2", route: "/features", title: "Features deep dive", ready: true, to: "/features" },
   { group: "Home", id: "H-3", route: "/pricing", title: "Pricing & plans", ready: false },
-  { group: "Auth", id: "A-1", route: "/auth/signup", title: "Sign up", ready: false },
-  { group: "Auth", id: "A-2", route: "/auth/signin", title: "Sign in", ready: false },
-  { group: "Auth", id: "A-3", route: "/auth/deriv/callback", title: "Deriv OAuth callback", ready: false },
-  { group: "Auth", id: "A-4", route: "/auth/forgot-password", title: "Forgot password", ready: false },
-  { group: "Auth", id: "A-5", route: "/auth/reset-password", title: "Reset password", ready: false },
-  { group: "Auth", id: "A-6", route: "/auth/verify-email", title: "Email verification", ready: false },
-  { group: "Auth", id: "A-7", route: "/auth/2fa", title: "Two-factor authentication", ready: false },
-  { group: "Dashboard", id: "D-1", route: "/dashboard", title: "Overview hub", ready: false },
-  { group: "Dashboard", id: "D-2", route: "/dashboard/markets", title: "Markets browser", ready: false },
-  { group: "Dashboard", id: "D-3", route: "/dashboard/trade", title: "Trade execution", ready: false },
-  { group: "Dashboard", id: "D-4", route: "/dashboard/bots", title: "Bot management", ready: false },
+  { group: "Auth", id: "A-1", route: "/auth/signup", title: "Sign up", ready: true, to: "/auth/signup" },
+  { group: "Auth", id: "A-2", route: "/auth/signin", title: "Sign in", ready: true, to: "/auth/signin" },
+  { group: "Auth", id: "A-3", route: "/auth/deriv/callback", title: "Deriv OAuth callback", ready: true, to: "/auth/deriv/callback" },
+  { group: "Auth", id: "A-4", route: "/auth/forgot-password", title: "Forgot password", ready: true, to: "/auth/forgot-password" },
+  { group: "Auth", id: "A-5", route: "/auth/reset-password", title: "Reset password", ready: true, to: "/auth/reset-password" },
+  { group: "Auth", id: "A-6", route: "/auth/verify-email", title: "Email verification", ready: true, to: "/auth/verify-email" },
+  { group: "Auth", id: "A-7", route: "/auth/2fa", title: "Two-factor authentication", ready: true, to: "/auth/2fa" },
+  { group: "Dashboard", id: "D-1", route: "/dashboard", title: "Overview hub", ready: true, to: "/dashboard" },
+  { group: "Dashboard", id: "D-2", route: "/dashboard/markets", title: "Markets browser", ready: true, to: "/dashboard/markets" },
+  { group: "Dashboard", id: "D-3", route: "/dashboard/trade", title: "Trade execution", ready: true, to: "/dashboard/trade" },
+  { group: "Dashboard", id: "D-4", route: "/dashboard/bots", title: "Bot management", ready: true, to: "/dashboard/bots" },
   { group: "Dashboard", id: "D-5", route: "/dashboard/bots/new", title: "Bot creator", ready: false },
   { group: "Dashboard", id: "D-6", route: "/dashboard/scripts", title: "Script editor", ready: false },
   { group: "Dashboard", id: "D-7", route: "/dashboard/automation", title: "Automation hub", ready: false },
@@ -1105,7 +1111,7 @@ export function SitemapDialog({ open, onClose }: { open: boolean; onClose: () =>
       onClose={onClose}
       size="lg"
       title="Route index"
-      subtitle={`${ROUTE_INDEX.length} planned pages · ${built} built in this session (H-1). Unbuilt routes are gated — they render no links anywhere on this page.`}
+      subtitle={`${ROUTE_INDEX.length} planned pages · ${built} built (H-group, full auth family, D-1–D-4). Built routes open their real page; unbuilt routes are gated — they render no links anywhere.`}
       footer={
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 w-100">
           <span className="dx-help">Gating lives in the shell nav config (ready flags), so no 404 is ever reachable.</span>
@@ -1150,8 +1156,8 @@ export function SitemapDialog({ open, onClose }: { open: boolean; onClose: () =>
                 </td>
                 <td data-label="Page">{r.title}</td>
                 <td data-label="Open" className="dx-td-actions">
-                  {r.ready ? (
-                    <Link to="/" className="dx-btn dx-btn-sm dx-btn-primary">
+                  {r.ready && r.to ? (
+                    <Link to={r.to} className="dx-btn dx-btn-sm dx-btn-primary" onClick={onClose}>
                       <ExternalLink size={12} /> open
                     </Link>
                   ) : (
