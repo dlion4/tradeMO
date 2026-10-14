@@ -11,7 +11,7 @@ import { ArrowRight, Eye, EyeOff, KeyRound, Mail, ShieldCheck } from "lucide-rea
 import { AuthShell } from "./AuthShell";
 import { GoogleAccountDialog } from "./SignupDialogs";
 import { LoginActivityDialog, SessionsDrawer, UnlinkDerivDialog, agoMin } from "./AuthDialogs";
-import { Alert, Avatar, Chip, Dropdown, Field, useToast } from "../ui/primitives";
+import { Alert, Avatar, Chip, CopyButton, Field, useToast } from "../ui/primitives";
 import { AccountSwitcherDialog, OAuthWizard } from "../marketing/modals/AccountModals";
 import { DemoConsoleDialog } from "../marketing/modals/DemoModals";
 import { ApiDocsDialog, CommunityDialog, ContactDialog, FaqDialog, LegalDialog } from "../marketing/modals/ContentDialogs";
@@ -78,6 +78,25 @@ export function SigninPage() {
   const openDemo = (tab: DemoTab) => { setDemoTab(tab); setDemoOpen(true); };
   const legalDoc = useMemo(() => LEGAL_DOCS.find((d) => d.id === legalDocId) ?? null, [legalDocId]);
   const blocked = failures >= 3;
+
+  // --- demo accounts: visible credentials + one-tap autofill -----------------
+  const [demoPanelOpen, setDemoPanelOpen] = useState(false);
+  const filledAccount = SIGNIN_ACCOUNTS.find((a) => a.email === email && a.password === password) ?? null;
+  const fillDemoAccount = (a: SigninAccount) => {
+    setEmail(a.email);
+    setPassword(a.password);
+    setShowPw(true);
+    setErrors({});
+    setFormError("");
+  };
+  const toggleDemoPanel = () => {
+    setDemoPanelOpen((open) => {
+      // Opening the panel also fills the primary demo account, so the form is
+      // ready to submit in one click — switch accounts from the list below.
+      if (!open && !filledAccount) fillDemoAccount(SIGNIN_ACCOUNTS[0]);
+      return !open;
+    });
+  };
 
   const signIn = () => {
     const next: Record<string, string> = {};
@@ -218,17 +237,68 @@ export function SigninPage() {
           >
             <div className="d-flex align-items-center justify-content-between gap-2">
               <h2 className="dx-h-card mb-0">Sign in to DerivX</h2>
-              <Dropdown
-                label="Demo accounts"
-                trigger={<span className="dx-btn dx-btn-sm dx-btn-ghost">Use a demo account ▾</span>}
-                items={SIGNIN_ACCOUNTS.map((a) => ({
-                  id: a.id,
-                  label: a.email,
-                  hint: `${a.name} · ${a.twoFactor ? "2FA on → A-7" : "no 2FA"} · pw ${a.password}`,
-                  onSelect: () => { setEmail(a.email); setPassword(a.password); setErrors({}); setFormError(""); },
-                }))}
-              />
+              <button
+                type="button"
+                className="dx-btn dx-btn-sm dx-btn-primary"
+                aria-expanded={demoPanelOpen}
+                aria-controls="dx-demo-accounts"
+                onClick={toggleDemoPanel}
+              >
+                Use a demo account
+              </button>
             </div>
+
+            {demoPanelOpen ? (
+              <div className="dx-card-inset" id="dx-demo-accounts">
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+                  <span className="dx-kpi-label">Demo accounts</span>
+                  <Chip tone="accent">tap an account to fill the form</Chip>
+                </div>
+                <p className="dx-help mb-2">
+                  Demo credentials are shown in full — no real money, nothing leaves this browser.
+                  Accounts marked <strong>2FA on</strong> continue to the authenticator step after sign-in.
+                </p>
+                <div className="d-grid gap-2">
+                  {SIGNIN_ACCOUNTS.map((a) => {
+                    const filled = filledAccount?.id === a.id;
+                    return (
+                      <div key={a.id} className="d-flex flex-wrap align-items-center gap-2">
+                        <button
+                          type="button"
+                          className="dx-list-row flex-grow-1 text-start"
+                          aria-pressed={filled}
+                          onClick={() => fillDemoAccount(a)}
+                        >
+                          <span className="text-start">
+                            <span className="d-flex flex-wrap align-items-center gap-2">
+                              <strong>{a.name}</strong>
+                              <Chip>{a.plan} plan</Chip>
+                              <Chip tone={a.twoFactor ? "warn" : "muted"}>{a.twoFactor ? "2FA on" : "no 2FA"}</Chip>
+                              {filled ? <Chip tone="up">in form ✓</Chip> : null}
+                            </span>
+                            <span className="d-block font-display" style={{ fontSize: "0.82rem" }}>{a.email}</span>
+                            <span className="d-block dx-help">
+                              password <span className="font-display" style={{ fontSize: "0.82rem" }}>{a.password}</span>
+                              {a.derivLoginId ? <> · Deriv <span className="font-display">{a.derivLoginId}</span></> : " · Deriv not linked"}
+                            </span>
+                          </span>
+                        </button>
+                        <span className="d-flex gap-1">
+                          <CopyButton text={a.email} label="Email" />
+                          <CopyButton text={a.password} label="Password" />
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {filledAccount ? (
+                  <p className="dx-help mb-0 mt-2">
+                    <strong>{filledAccount.name}</strong> is filled in below — press <strong>Sign In</strong> to continue
+                    {filledAccount.twoFactor ? " to the 2FA step" : ""}.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {activePlan ? <Alert tone="info" title={`${activePlan} plan selected`}>The plan applies as soon as you sign in — change it any time from Pricing.</Alert> : null}
             {formError ? <Alert tone="danger" title="Sign-in failed">{formError}</Alert> : null}

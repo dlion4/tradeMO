@@ -324,7 +324,16 @@ async function drive() {
   clickExact("Google");
   await expectPanel("A-2 Google chooser");
   click("Use a demo account");
+  await wait(250);
+  const demoPanel = window.document.querySelector("#dx-demo-accounts");
+  const pwField = () => window.document.querySelector<HTMLInputElement>('input[autocomplete="current-password"]');
+  authLog.push(`A-2 demo panel: visible=${Boolean(demoPanel)} password prefilled=${(pwField()?.value ?? "") === "Rise$2024"}`);
+  if (!demoPanel) errors.push("AUTH: demo accounts panel did not open on /auth/signin");
+  if ((pwField()?.value ?? "") !== "Rise$2024") errors.push("AUTH: demo autofill did not prefill the password field");
+  click("brian@derivx.app");
   await wait(200);
+  authLog.push(`A-2 demo switch: email input=${(window.document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? "?"} password=${pwField()?.value ?? "?"}`);
+  if ((pwField()?.value ?? "") !== "Fall#7788") errors.push("AUTH: switching demo account did not refill the password field");
   click("trader@derivx.app");
   await wait(200);
   authLog.push(`A-2 demo autofill: email input=${(window.document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? "?"}`);
