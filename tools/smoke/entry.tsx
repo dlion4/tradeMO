@@ -8,6 +8,12 @@ import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRou
 import { LandingPage } from "../../src/components/marketing/LandingPage";
 import { FeaturesPage } from "../../src/components/marketing/FeaturesPage";
 import { SignupPage } from "../../src/components/auth/SignupPage";
+import { SigninPage } from "../../src/components/auth/SigninPage";
+import { DerivCallbackPage } from "../../src/components/auth/DerivCallbackPage";
+import { ForgotPasswordPage } from "../../src/components/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "../../src/components/auth/ResetPasswordPage";
+import { VerifyEmailPage } from "../../src/components/auth/VerifyEmailPage";
+import { TwoFactorPage } from "../../src/components/auth/TwoFactorPage";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
 interface SmokeResult {
@@ -21,6 +27,7 @@ interface SmokeResult {
   themeLog?: string[];
   featuresLog?: string[];
   signupLog?: string[];
+  authLog?: string[];
 }
 
 declare global {
@@ -54,8 +61,14 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: LandingPage });
 const featuresRoute = createRoute({ getParentRoute: () => rootRoute, path: "/features", component: FeaturesPage });
 const signupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/signup", component: SignupPage });
+const signinRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/signin", component: SigninPage });
+const callbackRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/deriv/callback", component: () => <DerivCallbackPage /> });
+const forgotRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/forgot-password", component: ForgotPasswordPage });
+const resetRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/reset-password", component: () => <ResetPasswordPage /> });
+const verifyRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/verify-email", component: () => <VerifyEmailPage /> });
+const twoFactorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/2fa", component: () => <TwoFactorPage /> });
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute, signupRoute, signinRoute, callbackRoute, forgotRoute, resetRoute, verifyRoute, twoFactorRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -236,7 +249,7 @@ async function drive() {
   const signupRoot = window.document.querySelector(".page-auth-signup");
   signupLog.push(`route render: ${signupRoot ? ".page-auth-signup mounted" : "MISSING"}`);
   if (!signupRoot) errors.push("SIGNUP: .page-auth-signup did not render at /auth/signup");
-  for (const label of ["Google", "Change", "Sign In"]) {
+  for (const label of ["Google", "Change"]) {
     click(label);
     await wait(250);
     const panel = window.document.querySelector(".dx-dialog, .dx-drawer");
@@ -246,6 +259,70 @@ async function drive() {
     window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await wait(150);
   }
+  // "Sign In →" is a real route link since A-2 shipped: assert the navigation.
+  click("Sign In");
+  await wait(400);
+  const landedSignin = Boolean(window.document.querySelector(".page-auth-signin"));
+  signupLog.push(`Sign In →: ${landedSignin ? "navigated to /auth/signin" : "DID NOT NAVIGATE"}`);
+  if (!landedSignin) errors.push("SIGNUP: Sign In link did not reach /auth/signin");
+  await router.navigate({ to: "/auth/signup" });
+  await wait(350);
+
+  // ---- A-2…A-7 auth family phase -------------------------------------------
+  const authLog: string[] = [];
+  const expectPanel = async (label: string) => {
+    await wait(250);
+    const panel = window.document.querySelector(".dx-dialog, .dx-drawer");
+    const title = panel?.querySelector(".dx-dialog-title, .dx-drawer-title")?.textContent?.trim().slice(0, 44) ?? "—";
+    authLog.push(`${label}: ${panel ? `panel "${title}"` : "NO PANEL"}`);
+    if (!panel) errors.push(`AUTH CONTROL DEAD: ${label}`);
+    window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wait(150);
+  };
+  const visitAuth = async (to: string, rootClass: string, label: string) => {
+    await router.navigate({ to: to as never });
+    await wait(400);
+    const root = window.document.querySelector(rootClass);
+    authLog.push(`${label}: ${root ? `${rootClass} rendered` : "MISSING"}`);
+    if (!root) errors.push(`AUTH: ${rootClass} did not render at ${to}`);
+  };
+  const clickExact = (text: string) => {
+    const nodes = Array.from(window.document.querySelectorAll<HTMLElement>("button, a"));
+    const target = nodes.find((n) => (n.textContent ?? "").trim() === text && !n.hasAttribute("disabled"));
+    if (!target) {
+      errors.push(`CONTROL NOT FOUND (exact): ${text}`);
+      return;
+    }
+    target.click();
+  };
+  await visitAuth("/auth/signin", ".page-auth-signin", "A-2 signin");
+  clickExact("Google");
+  await expectPanel("A-2 Google chooser");
+  click("Use a demo account");
+  await wait(200);
+  click("trader@derivx.app");
+  await wait(200);
+  authLog.push(`A-2 demo autofill: email input=${(window.document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? "?"}`);
+  await visitAuth("/auth/deriv/callback", ".page-auth-callback", "A-3 callback");
+  await wait(5200);
+  authLog.push(`A-3 exchange: success card=${window.document.body.textContent?.includes("Deriv account connected") ?? false}`);
+  click("Manage connections");
+  await expectPanel("A-3 connections");
+  await visitAuth("/auth/forgot-password", ".page-auth-forgot", "A-4 forgot");
+  click("Help & FAQ");
+  await expectPanel("A-4 FAQ");
+  await visitAuth("/auth/reset-password", ".page-auth-reset", "A-5 reset");
+  click("Open demo inbox");
+  await expectPanel("A-5 inbox");
+  await visitAuth("/auth/verify-email", ".page-auth-verify", "A-6 verify");
+  click("Open demo inbox");
+  await expectPanel("A-6 inbox");
+  await visitAuth("/auth/2fa", ".page-auth-2fa", "A-7 2fa");
+  click("More help");
+  await expectPanel("A-7 trouble dialog");
+  click("Use backup code");
+  await wait(200);
+  authLog.push(`A-7 backup mode: verify button=${Array.from(window.document.querySelectorAll("button")).some((b) => (b.textContent ?? "").includes("Verify Backup Code"))}`);
 
   // ---- theme toggle round-trip ---------------------------------------------
   // Light is the default, so the toggle must move <html> light → dark → light
@@ -291,6 +368,7 @@ async function drive() {
     themeLog,
     featuresLog,
     signupLog,
+    authLog,
   };
 }
 

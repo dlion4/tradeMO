@@ -26,6 +26,20 @@ const MODULES = [
   "/src/components/auth/SignupDialogs.tsx",
   "/src/components/auth/AuthShell.tsx",
   "/src/styles/pages/auth-signup.scss",
+  "/src/routes/auth/signin.tsx",
+  "/src/components/auth/SigninPage.tsx",
+  "/src/routes/auth/deriv/callback.tsx",
+  "/src/components/auth/DerivCallbackPage.tsx",
+  "/src/styles/pages/auth-callback.scss",
+  "/src/routes/auth/forgot-password.tsx",
+  "/src/components/auth/ForgotPasswordPage.tsx",
+  "/src/routes/auth/reset-password.tsx",
+  "/src/components/auth/ResetPasswordPage.tsx",
+  "/src/routes/auth/verify-email.tsx",
+  "/src/components/auth/VerifyEmailPage.tsx",
+  "/src/routes/auth/2fa.tsx",
+  "/src/components/auth/TwoFactorPage.tsx",
+  "/src/components/auth/AuthDialogs.tsx",
 ];
 const moduleFailures = [];
 for (const id of MODULES) {
@@ -150,6 +164,10 @@ if (result.featuresLog) {
 if (result.signupLog) {
   console.log(`\nsignup walk (A-1 /auth/signup):`);
   for (const f of result.signupLog) console.log("   ", f);
+}
+if (result.authLog) {
+  console.log(`\nauth walk (A-2…A-7):`);
+  for (const f of result.authLog) console.log("   ", f);
 }
 if (result.labels) {
   console.log(`\ncontrol labels (${result.labels.length}):`);
