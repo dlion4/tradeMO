@@ -7,7 +7,7 @@
 // only, mock data) — no request ever leaves the browser.
 // Overlay inventory (18): GoogleAccount, CountryDrawer, PresetDetailDrawer,
 // PasswordPolicy, RiskExplainer, VerifyHelp, VerifyInboxDrawer, Security,
-// DiscardConfirm + reused OAuth, SignIn, Legal, Faq, Pricing, Backtest,
+// DiscardConfirm + reused OAuth, Legal, Faq, Pricing, Backtest,
 // DemoConsole, InstrumentDrawer, StatusDrawer, AccountSwitcher, Community,
 // Contact, TestimonialDrawer, DeployBotWizard, Presets.
 // Toast budget: 3 triggers (OAuth connected, account ready, contract bought).
@@ -42,7 +42,7 @@ import {
   useToast,
 } from "../ui/primitives";
 import { DataTable, useDataTable, type Column } from "../ui/data-table";
-import { AccountSwitcherDialog, OAuthWizard, SignInDialog } from "../marketing/modals/AccountModals";
+import { AccountSwitcherDialog, OAuthWizard } from "../marketing/modals/AccountModals";
 import { DemoConsoleDialog } from "../marketing/modals/DemoModals";
 import {
   ApiDocsDialog,
@@ -123,7 +123,6 @@ export function SignupPage() {
   const [securityOpen, setSecurityOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [oauthOpen, setOauthOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
   const [legalDocId, setLegalDocId] = useState<string | null>(null);
   const [faqOpen, setFaqOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
@@ -147,7 +146,6 @@ export function SignupPage() {
 
   // ---- page-visible state -------------------------------------------------------
   const [linkedDeriv, setLinkedDeriv] = useState<string | null>(null);
-  const [signedInAs, setSignedInAs] = useState<string | null>(null);
   const [lastOrder, setLastOrder] = useState<string | null>(null);
   const [activePlan, setActivePlan] = useState<string | null>(null);
   const [queuedBots, setQueuedBots] = useState<QueuedBot[]>([]);
@@ -335,7 +333,6 @@ export function SignupPage() {
             <button type="button" className="dx-btn-link" onClick={() => setStatusOpen(true)}>API status</button>
             <button type="button" className="dx-btn-link" onClick={() => setCommunityOpen(true)}>Community</button>
             <button type="button" className="dx-btn-link" onClick={() => setContactOpen(true)}>Contact</button>
-            {signedInAs ? <span className="dx-chip dx-chip-info ms-auto">signed in {signedInAs.split("@")[0]}</span> : null}
             {lastOrder ? <span className="dx-chip dx-chip-up font-display ms-auto">last order {lastOrder}</span> : null}
           </div>
         }
@@ -466,7 +463,7 @@ export function SignupPage() {
 
             <p className="dx-help text-center mb-0">
               Already have an account?{" "}
-              <button type="button" className="dx-btn-link" onClick={() => setSignInOpen(true)}>Sign In →</button>
+              <Link to="/auth/signin" className="dx-btn-link">Sign In →</Link>
             </p>
           </form>
         ) : null}
@@ -516,7 +513,7 @@ export function SignupPage() {
               <button type="button" className="dx-btn-link" onClick={() => setStep(0)}>Change email</button>
             </div>
             <p className="dx-help text-center mb-0">
-              Wrong account? <button type="button" className="dx-btn-link" onClick={() => setSignInOpen(true)}>Sign in instead</button>
+              Wrong account? <Link to="/auth/signin" className="dx-btn-link">Sign in instead</Link>
             </p>
           </div>
         ) : null}
@@ -676,10 +673,6 @@ export function SignupPage() {
         onOpenStatus={() => { setOauthOpen(false); setStatusOpen(true); }}
         onOpenSignUp={() => setOauthOpen(false)}
         onOpenDemo={() => { setOauthOpen(false); openDemo("trade"); }} />
-      <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)}
-        onSignedIn={(email, id) => { setSignedInAs(email); setActiveLoginId(id); }}
-        onOpenSignUp={() => setSignInOpen(false)}
-        onOpenDashboardNotice={() => { setSignInOpen(false); openDemo("trade"); }} />
       <LegalDialog doc={legalDoc} onClose={() => setLegalDocId(null)}
         onContact={() => { setLegalDocId(null); setContactOpen(true); }} />
       <FaqDialog open={faqOpen} onClose={() => setFaqOpen(false)}

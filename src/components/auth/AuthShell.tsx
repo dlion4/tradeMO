@@ -26,6 +26,7 @@ export function AuthShell({
   side = "signup",
   extras,
   journeyStep = 0,
+  stepLabel,
 }: {
   title: string;
   subtitle: string;
@@ -36,6 +37,9 @@ export function AuthShell({
   extras?: ReactNode;
   /** index into AUTH_JOURNEY shown as the shell progress hint */
   journeyStep?: number;
+  /** overrides the journey chip for pages outside the signup journey
+   *  (sign-in, password recovery, 2FA challenge) */
+  stepLabel?: string;
 }) {
   const bullets =
     side === "signin"
@@ -47,7 +51,7 @@ export function AuthShell({
       <div className="container">
         <div className="d-flex align-items-center justify-content-between gap-3 mb-4">
           <span className="dx-chip dx-chip-muted">
-            Step {journeyStep + 1} of {AUTH_JOURNEY.length} · {AUTH_JOURNEY[journeyStep]?.label}
+            {stepLabel ?? `Step ${journeyStep + 1} of ${AUTH_JOURNEY.length} · ${AUTH_JOURNEY[journeyStep]?.label}`}
           </span>
           <span className="d-inline-flex align-items-center gap-2">
             <Link to="/" className="dx-btn dx-btn-sm dx-btn-ghost">Landing</Link>

@@ -194,6 +194,8 @@ Class inventory is defined in `src/styles/tokens.scss` (grep `^\.dx-` there). Ad
 | 2026-10-14 | `.dx-compare-highlight` | H-2 comparison table: DerivX column highlight (accent soft fill + hairline) | `.page-features` |
 | 2026-10-14 | `.dx-terminal-line` (A-1 copy), `.dx-list-row` hover | A-1 brand-panel live rows + drawer tape, mirroring the H-1/H-2 treatment | `.page-auth-signup` |
 | 2026-10-14 | *(no new classes)* `AuthShell` build-out | A-1 is the first A-group page: shell gains `AUTH_JOURNEY`, `extras` slot, `journeyStep` + Landing/Features/ThemeToggle chrome | shared (§12) |
+| 2026-10-14 | *(no new classes)* A-2…A-7 auth family | Sign-in, OAuth callback, forgot/reset password, verify-email, 2FA mount inside `AuthShell` unchanged (`stepLabel` override added for non-journey pages); shared overlays live in `src/components/auth/AuthDialogs.tsx` (OtpInputs, SessionsDrawer, LoginActivityDialog, BackupCodesDialog, TwoFactorSetupWizard, AuthInboxDrawer, AuthConsole) | `.page-auth-signin`, `.page-auth-callback`, `.page-auth-forgot`, `.page-auth-reset`, `.page-auth-verify`, `.page-auth-2fa` |
+| 2026-10-14 | `.dx-terminal-line`, `.dx-callback-step`, `.dx-callback-spin` | A-3 OAuth exchange: animated progress steps + WebSocket log tape (reduced-motion safe) | `.page-auth-callback` |
 
 ---
 

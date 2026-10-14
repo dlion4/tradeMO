@@ -2583,3 +2583,115 @@ export const SIGNUP_SESSIONS: SignupSession[] = [
   { id: "ses_10", device: "Chrome 130 · ChromeOS", location: "Bogotá, CO", ip: "181.53.90.154", lastActive: min(20160), current: false, trusted: false },
 ];
 
+
+// -----------------------------------------------------------------------------
+// A-2 … A-7 · auth family datasets (sign-in accounts, login audit, OAuth
+// scopes, 2FA backup codes, authenticator apps, demo deep-link tokens)
+// -----------------------------------------------------------------------------
+export interface SigninAccount {
+  id: string;
+  email: string;
+  name: string;
+  password: string;
+  twoFactor: boolean;
+  hasDeriv: boolean;
+  derivLoginId: string | null;
+  plan: string;
+  lastLoginMin: number;
+}
+
+export const SIGNIN_ACCOUNTS: SigninAccount[] = [
+  { id: "usr_01", email: "trader@derivx.app", name: "Amara Okafor", password: "Rise$2024", twoFactor: true, hasDeriv: true, derivLoginId: "CR8842197", plan: "Pro", lastLoginMin: 122 },
+  { id: "usr_02", email: "brian@derivx.app", name: "Brian Mwangi", password: "Fall#7788", twoFactor: false, hasDeriv: true, derivLoginId: "VRTC9031442", plan: "Free", lastLoginMin: 1440 },
+  { id: "usr_03", email: "sana@derivx.app", name: "Sana Iqbal", password: "Tick$9911", twoFactor: true, hasDeriv: false, derivLoginId: null, plan: "Growth", lastLoginMin: 4320 },
+  { id: "usr_04", email: "diego@derivx.app", name: "Diego Alvarez", password: "Bolt#3310", twoFactor: false, hasDeriv: true, derivLoginId: "CR5520108", plan: "Pro", lastLoginMin: 10080 },
+  { id: "usr_05", email: "Linh@derivx.app", name: "Linh Nguyen", password: "Wave$6642", twoFactor: true, hasDeriv: true, derivLoginId: "VRTC7712093", plan: "Free", lastLoginMin: 20160 },
+  { id: "usr_06", email: "kenji@derivx.app", name: "Kenji Sato", password: "Drift#2050", twoFactor: false, hasDeriv: false, derivLoginId: null, plan: "Growth", lastLoginMin: 43200 },
+];
+
+export interface LoginAttempt {
+  id: string;
+  epochMin: number;
+  ip: string;
+  location: string;
+  device: string;
+  method: "Password" | "Google" | "Deriv OAuth" | "Backup code";
+  result: "success" | "failed" | "blocked" | "2fa-challenge";
+}
+
+export const LOGIN_ATTEMPTS: LoginAttempt[] = [
+  { id: "att_01", epochMin: 4, ip: "197.237.14.82", location: "Nairobi, KE", device: "Chrome 130 · Windows 11", method: "Password", result: "success" },
+  { id: "att_02", epochMin: 26, ip: "197.237.14.82", location: "Nairobi, KE", device: "Chrome 130 · Windows 11", method: "Password", result: "2fa-challenge" },
+  { id: "att_03", epochMin: 190, ip: "105.112.88.14", location: "Lagos, NG", device: "Firefox 132 · Ubuntu 24.04", method: "Google", result: "success" },
+  { id: "att_04", epochMin: 480, ip: "154.160.22.9", location: "Accra, GH", device: "Chrome 129 · Android 15", method: "Password", result: "failed" },
+  { id: "att_05", epochMin: 482, ip: "154.160.22.9", location: "Accra, GH", device: "Chrome 129 · Android 15", method: "Password", result: "failed" },
+  { id: "att_06", epochMin: 486, ip: "154.160.22.9", location: "Accra, GH", device: "Chrome 129 · Android 15", method: "Password", result: "blocked" },
+  { id: "att_07", epochMin: 1500, ip: "36.68.221.47", location: "Jakarta, ID", device: "Edge 130 · Windows 11", method: "Deriv OAuth", result: "success" },
+  { id: "att_08", epochMin: 2880, ip: "86.14.190.203", location: "London, GB", device: "Chrome 130 · macOS 15", method: "Password", result: "success" },
+  { id: "att_09", epochMin: 4320, ip: "41.203.66.118", location: "Cape Town, ZA", device: "Safari 17 · iPadOS 18", method: "Backup code", result: "success" },
+  { id: "att_10", epochMin: 7200, ip: "189.44.201.77", location: "São Paulo, BR", device: "Chrome 128 · Windows 10", method: "Password", result: "failed" },
+  { id: "att_11", epochMin: 10080, ip: "92.83.141.26", location: "Bucharest, RO", device: "Firefox 131 · Windows 11", method: "Google", result: "success" },
+  { id: "att_12", epochMin: 20160, ip: "181.53.90.154", location: "Bogotá, CO", device: "Chrome 130 · ChromeOS", method: "Deriv OAuth", result: "success" },
+];
+
+export interface OAuthScope {
+  id: string;
+  label: string;
+  description: string;
+  level: "read" | "trade" | "payments" | "admin";
+  granted: boolean;
+}
+
+export const OAUTH_SCOPES: OAuthScope[] = [
+  { id: "scp_01", label: "read: account details", description: "Login ID, currency, account status and landing company.", level: "read", granted: true },
+  { id: "scp_02", label: "read: balance & equity", description: "Live balance, equity and margin snapshots for linked accounts.", level: "read", granted: true },
+  { id: "scp_03", label: "read: open positions", description: "Running contracts, entry spots and unrealised P&L.", level: "read", granted: true },
+  { id: "scp_04", label: "read: statement history", description: "Settled trades, deposits and withdrawals for reporting.", level: "read", granted: true },
+  { id: "scp_05", label: "trade: proposals", description: "Request price proposals for every supported contract type.", level: "trade", granted: true },
+  { id: "scp_06", label: "trade: buy & sell", description: "Buy contracts and sell open positions before expiry.", level: "trade", granted: true },
+  { id: "scp_07", label: "trade: bot execution", description: "Let deployed bots place contracts inside your risk caps.", level: "trade", granted: true },
+  { id: "scp_08", label: "payments: transfers", description: "Move funds between your own Deriv accounts.", level: "payments", granted: false },
+  { id: "scp_09", label: "payments: cashier", description: "Open the Deriv cashier for deposits and withdrawals.", level: "payments", granted: false },
+  { id: "scp_10", label: "admin: account settings", description: "Change account limits and self-exclusion settings.", level: "admin", granted: false },
+];
+
+export interface BackupCode {
+  code: string;
+  used: boolean;
+}
+
+export const BACKUP_CODES: BackupCode[] = [
+  { code: "KX41-9QPD-77", used: false },
+  { code: "M82T-R4WL-03", used: false },
+  { code: "Q7ZN-51HD-88", used: true },
+  { code: "T3VB-08XK-42", used: false },
+  { code: "W95C-J6MA-19", used: false },
+  { code: "Z14P-D90S-65", used: true },
+  { code: "B67F-H2QN-31", used: false },
+  { code: "N0KD-74XE-56", used: false },
+  { code: "R58G-U1VP-94", used: false },
+  { code: "H29M-A63B-70", used: false },
+];
+
+export interface AuthenticatorApp {
+  id: string;
+  name: string;
+  platforms: string;
+  note: string;
+  recommended: boolean;
+}
+
+export const AUTHENTICATOR_APPS: AuthenticatorApp[] = [
+  { id: "app_01", name: "Google Authenticator", platforms: "iOS · Android", note: "Simple TOTP codes, no cloud sync.", recommended: true },
+  { id: "app_02", name: "Authy", platforms: "iOS · Android · Desktop", note: "Encrypted multi-device sync and backups.", recommended: true },
+  { id: "app_03", name: "Microsoft Authenticator", platforms: "iOS · Android", note: "TOTP plus push approval for Microsoft accounts.", recommended: false },
+  { id: "app_04", name: "1Password", platforms: "iOS · Android · Desktop", note: "Stores TOTP beside the password in one vault.", recommended: false },
+  { id: "app_05", name: "Bitwarden Authenticator", platforms: "iOS · Android", note: "Open-source, works offline.", recommended: false },
+  { id: "app_06", name: "FreeOTP", platforms: "iOS · Android", note: "Minimal open-source TOTP, no account needed.", recommended: false },
+];
+
+/** Demo deep-link tokens used by the simulated email flows (A-4 → A-5/A-6). */
+export const DEMO_RESET_TOKEN = "dxr_live_9f27c1";
+export const DEMO_VERIFY_TOKEN = "dxv_live_77b2e0";
+export const DEMO_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+export const DEMO_TOTP_CODE = "472915";
