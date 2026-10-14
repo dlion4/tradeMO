@@ -18,6 +18,9 @@ const MODULES = [
   "/src/router.tsx",
   "/src/components/marketing/LandingPage.tsx",
   "/src/styles/pages/home.scss",
+  "/src/routes/features.tsx",
+  "/src/components/marketing/FeaturesPage.tsx",
+  "/src/styles/pages/features.scss",
 ];
 const moduleFailures = [];
 for (const id of MODULES) {
@@ -134,6 +137,10 @@ for (const d of result.dialogs) console.log("   ", d);
 if (result.fuzzLog) {
   console.log(`\nfuzz walk (${result.fuzzLog.length} overlays):`);
   for (const f of result.fuzzLog) console.log("   ", f);
+}
+if (result.featuresLog) {
+  console.log(`\nfeatures walk (H-2 /features):`);
+  for (const f of result.featuresLog) console.log("   ", f);
 }
 if (result.labels) {
   console.log(`\ncontrol labels (${result.labels.length}):`);

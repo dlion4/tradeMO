@@ -6,6 +6,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { LandingPage } from "../../src/components/marketing/LandingPage";
+import { FeaturesPage } from "../../src/components/marketing/FeaturesPage";
 import { ToastProvider } from "../../src/components/ui/primitives";
 
 interface SmokeResult {
@@ -17,6 +18,7 @@ interface SmokeResult {
   labels?: string[];
   fuzzLog?: string[];
   themeLog?: string[];
+  featuresLog?: string[];
 }
 
 declare global {
@@ -48,8 +50,9 @@ const rootRoute = createRootRoute({
   ),
 });
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: LandingPage });
+const featuresRoute = createRoute({ getParentRoute: () => rootRoute, path: "/features", component: FeaturesPage });
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute]),
+  routeTree: rootRoute.addChildren([indexRoute, featuresRoute]),
   history: createMemoryHistory({ initialEntries: ["/"] }),
   defaultPreload: false,
   scrollRestoration: false,
@@ -108,6 +111,12 @@ async function drive() {
     record(label);
     window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await wait(150);
+    // "Features" is a real route since H-2: the click navigates to /features,
+    // so return home before driving the remaining landing controls.
+    if (label === "Features") {
+      click("Home");
+      await wait(300);
+    }
   }
 
   // deep drive: open the demo console and walk its tabs
@@ -190,6 +199,33 @@ async function drive() {
     await wait(120);
   }
 
+  // ---- H-2 features phase: navigate to /features and open its signature overlays
+  const featuresLog: string[] = [];
+  click("Features");
+  await wait(400);
+  for (const label of ["Configure your first bot", "Open script studio", "New automation rule", "Full leaderboard"]) {
+    click(label);
+    await wait(250);
+    const panel = window.document.querySelector(".dx-dialog, .dx-drawer");
+    const title = panel?.querySelector(".dx-dialog-title")?.textContent?.trim().slice(0, 44) ?? "drawer";
+    featuresLog.push(`${label}: ${panel ? `panel "${title}"` : "NO PANEL"}`);
+    if (!panel) errors.push(`FEATURES CONTROL DEAD: ${label}`);
+    window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wait(150);
+  }
+  const cmpRow = Array.from(window.document.querySelectorAll<HTMLElement>("tr")).find((n) =>
+    (n.textContent ?? "").includes("JavaScript strategy engine"),
+  );
+  cmpRow?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await wait(250);
+  const cmpPanel = window.document.querySelector(".dx-dialog, .dx-drawer");
+  featuresLog.push(`comparison row click: ${cmpPanel ? `panel "${cmpPanel.querySelector(".dx-dialog-title")?.textContent?.trim().slice(0, 44) ?? "drawer"}"` : "NO PANEL"}`);
+  if (!cmpPanel) errors.push("FEATURES CONTROL DEAD: comparison row");
+  window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(150);
+  click("Home");
+  await wait(350);
+
   // ---- theme toggle round-trip ---------------------------------------------
   // Light is the default, so the toggle must move <html> light → dark → light
   // and persist the choice under localStorage("dx-theme").
@@ -232,6 +268,7 @@ async function drive() {
     labels,
     fuzzLog,
     themeLog,
+    featuresLog,
   };
 }
 

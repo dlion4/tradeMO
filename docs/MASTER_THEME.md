@@ -190,6 +190,8 @@ Class inventory is defined in `src/styles/tokens.scss` (grep `^\.dx-` there). Ad
 | 2026-10-13 | `.dx-card-inset-value` | single emphasised value inside an inset card (wizard receipts, KV blocks) | shared (§5) |
 | 2026-10-13 | `.dx-step-*`, `.dx-tabs`, `.dx-minitabs`, `.dx-dd-*` | overlay + wizard primitive styling | shared (§10) |
 | 2026-10-13 | *(no new classes)* `ThemeToggle` | light default: token-layer split + nav/footer theme switch (button reuses `.dx-btn .dx-btn-sm .dx-btn-ghost`) | shared (§1) |
+| 2026-10-14 | `.dx-hero`, `.dx-hero-glow`, `.dx-grid-bg`, `.dx-terminal-line` (H-2 copies) | H-2 hero art + sandbox/bot-log tape, mirroring the H-1 treatment so the H-group reads as one site | `.page-features` |
+| 2026-10-14 | `.dx-compare-highlight` | H-2 comparison table: DerivX column highlight (accent soft fill + hairline) | `.page-features` |
 
 ---
 

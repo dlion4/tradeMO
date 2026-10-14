@@ -5,7 +5,7 @@
 // real in-page action (anchor scroll or an overlay) — never a dead link.
 // =============================================================================
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, LayoutGrid, LogIn, Menu, Sparkles } from "lucide-react";
 import { Dropdown, ThemeToggle } from "../ui/primitives";
 
@@ -22,7 +22,7 @@ export interface MarketingNavItem {
 
 export const MARKETING_NAV: MarketingNavItem[] = [
   { id: "home", label: "Home", to: "/", ready: true },
-  { id: "features", label: "Features", anchor: "#features", ready: false, hint: "H-2 deep dive" },
+  { id: "features", label: "Features", to: "/features", ready: true },
   { id: "markets", label: "Markets", anchor: "#markets", ready: false, hint: "Live coverage" },
   { id: "pricing", label: "Pricing", anchor: "#pricing", ready: false, hint: "H-3 plans" },
   { id: "community", label: "Community", anchor: "#community", ready: false, hint: "Leaderboard + feed" },
@@ -31,6 +31,8 @@ export const MARKETING_NAV: MarketingNavItem[] = [
 
 export function MarketingNav({
   activeId = "home",
+  badgeLabel = "H-1 Landing",
+  anchorOverrides,
   onSignIn,
   onGetStarted,
   onOpenCommunity,
@@ -38,12 +40,16 @@ export function MarketingNav({
   onOpenMobile,
 }: {
   activeId?: string;
+  badgeLabel?: string;
+  /** per-item in-page anchor overrides for pages whose section ids differ (e.g. H-2) */
+  anchorOverrides?: Partial<Record<string, string>>;
   onSignIn: () => void;
   onGetStarted: () => void;
   onOpenCommunity: () => void;
   onOpenPricing: () => void;
   onOpenMobile: () => void;
 }) {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -94,7 +100,7 @@ export function MarketingNav({
                   onClick={() => {
                     if (item.id === "community") onOpenCommunity();
                     else if (item.id === "pricing") onOpenPricing();
-                    else if (item.anchor) scrollTo(item.anchor);
+                    else if (item.anchor) scrollTo(anchorOverrides?.[item.id] ?? item.anchor);
                   }}
                   title={item.hint}
                 >
@@ -106,7 +112,7 @@ export function MarketingNav({
 
           <div className="dx-nav-actions">
             <span className="dx-shell-badge d-none d-xl-inline-flex">
-              <Sparkles size={12} /> H-1 Landing
+              <Sparkles size={12} /> {badgeLabel}
             </span>
             <ThemeToggle />
             <button type="button" className="dx-btn dx-btn-sm dx-btn-ghost" onClick={onSignIn}>
@@ -132,8 +138,8 @@ export function MarketingNav({
                 { id: "n3", label: "How it works", onSelect: () => scrollTo("#how-it-works") },
                 { id: "n4", label: "Community channels", onSelect: onOpenCommunity },
                 { type: "divider" },
-                { type: "label", label: "Not built yet (gated)" },
-                { id: "n5", label: "/features — H-2", hint: "locked", onSelect: onOpenPricing },
+                { type: "label", label: "Pages" },
+                { id: "n5", label: "Features deep dive — /features", onSelect: () => void navigate({ to: "/features" }) },
                 { id: "n6", label: "/pricing — H-3", hint: "locked", onSelect: onOpenPricing },
                 { type: "divider" },
                 { id: "n7", label: "Sign in to dashboard", onSelect: onSignIn },
@@ -153,6 +159,7 @@ export function MarketingNav({
 export function MarketingMobileMenu({
   open,
   onClose,
+  anchorOverrides,
   onSignIn,
   onGetStarted,
   onOpenCommunity,
@@ -160,6 +167,7 @@ export function MarketingMobileMenu({
 }: {
   open: boolean;
   onClose: () => void;
+  anchorOverrides?: Partial<Record<string, string>>;
   onSignIn: () => void;
   onGetStarted: () => void;
   onOpenCommunity: () => void;
@@ -182,7 +190,7 @@ export function MarketingMobileMenu({
               onClick={() => {
                 if (item.id === "community") onOpenCommunity();
                 else if (item.id === "pricing") onOpenPricing();
-                else if (item.anchor) document.querySelector(item.anchor)?.scrollIntoView({ behavior: "smooth" });
+                else if (item.anchor) document.querySelector(anchorOverrides?.[item.id] ?? item.anchor)?.scrollIntoView({ behavior: "smooth" });
                 onClose();
               }}
             >
