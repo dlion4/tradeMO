@@ -3408,7 +3408,7 @@ export interface ScriptLintIssue {
 }
 
 export const SCRIPT_LINT_ISSUES: ScriptLintIssue[] = [
-  { id: "lint_01", scriptId: "scr_07", scriptName: "Pip Hunter Martingale v3", line: 14, column: 3, severity: "error", message: "Unexpected token '}' — block opened at line 9 is never closed.", suggestion: "Close the onTick callback before the risk.assert() call, or wrap both statements in one block.", offending: "api.onTick(\"R_50\", (t) => {\n  const stake = ladder(t);\n\n});", fixed: "api.onTick(\"R_50\", (t) => {\n  const stake = ladder(t);\n  risk.assert(stake <= 25, \"stake cap\");\n});" },
+  { id: "lint_01", scriptId: "scr_07", scriptName: "Pip Hunter Martingale v3", line: 14, column: 3, severity: "error", message: "Unexpected end of file — the block opened at line 14 is never closed.", suggestion: "Close the if (last && !last.win) block before the return statement.", offending: "api.onTick(\"R_50\", (t) => {\n  const stake = ladder(t);\n\n});", fixed: "api.onTick(\"R_50\", (t) => {\n  const stake = ladder(t);\n  risk.assert(stake <= 25, \"stake cap\");\n});" },
   { id: "lint_02", scriptId: "scr_09", scriptName: "Vol100 Night Shift", line: 22, column: 11, severity: "error", message: "api.buy() called with duration_unit \"m\" on a 1-tick contract.", suggestion: "Digits contracts only accept the ticks unit — use duration_unit: \"t\" with duration 1–10.", offending: "api.buy({ symbol: \"R_100\", contract_type: \"DIGITOVER\", barrier: 4, amount: 2, duration: 5, duration_unit: \"m\" });", fixed: "api.buy({ symbol: \"R_100\", contract_type: \"DIGITOVER\", barrier: 4, amount: 2, duration: 5, duration_unit: \"t\" });" },
   { id: "lint_03", scriptId: "scr_11", scriptName: "Gold Session Fade", line: 31, column: 5, severity: "warning", message: "risk.assert() missing — the script can exceed the configured daily loss cap.", suggestion: "Add a pre-trade guard: risk.assert(api.dailyPnl() > -config.maxDailyLoss, \"daily stop\").", offending: "if (z > 2) api.buy({ symbol: \"frxXAUUSD\", contract_type: \"PUT\", amount: 20, duration: 4, duration_unit: \"h\" });", fixed: "risk.assert(api.dailyPnl() > -config.maxDailyLoss, \"daily stop\");\nif (z > 2) api.buy({ symbol: \"frxXAUUSD\", contract_type: \"PUT\", amount: 20, duration: 4, duration_unit: \"h\" });" },
   { id: "lint_04", scriptId: "scr_05", scriptName: "Multiplier Momentum", line: 18, column: 8, severity: "warning", message: "Multiplier contract without stop_loss — an unhedged gap can exceed the stake.", suggestion: "Pass stop_loss: 0.5 (50% of stake) so the engine flattens before the loss grows.", offending: "api.buy({ symbol: \"cryETHUSD\", contract_type: \"MULTUP\", amount: 60, multiplier: 50 });", fixed: "api.buy({ symbol: \"cryETHUSD\", contract_type: \"MULTUP\", amount: 60, multiplier: 50, stop_loss: 0.5, take_profit: 1.5 });" },
@@ -3997,4 +3997,1510 @@ export function exportableConfig(config: BotConfigDraft): Record<string, unknown
     paper: config.paper,
     tags: config.tags,
   };
+}
+
+// =============================================================================
+// PAGE D-6 — Script Editor / Script Studio (/dashboard/scripts & /:id)
+// Front-end only: the engine below is the shape tradeMO.md documents for the
+// sandboxed JS runtime (onTick → TradeDecision). Everything here is mock data
+// plus pure helpers, so a backend can hydrate it without touching the UI.
+// =============================================================================
+export type ScriptGroup = "lifecycle" | "context" | "decision" | "tick" | "result" | "params" | "sandbox";
+export type ScriptRunStatus = "ok" | "timeout" | "forbidden" | "memory" | "syntax" | "queued";
+export type ScriptHealth = "healthy" | "warning" | "error";
+export type DiffKind = "same" | "add" | "remove";
+export type CodeTokenKind = "plain" | "comment" | "string" | "number" | "keyword" | "fn" | "punct" | "ai";
+
+export interface ScriptEditorRow {
+  id: string;
+  scriptId: string;
+  version: string;
+  usedByBots: string[];
+  health: ScriptHealth;
+  sandboxTimeoutMs: number;
+  peakMemoryMb: number;
+  memoryLimitMb: number;
+  autosave: boolean;
+  autosaveDelayMs: number;
+  lastTestAtMin: number;
+  coveragePct: number;
+  complexity: number;
+  dependencyCount: number;
+  ciStatus: "passing" | "failing" | "pending";
+  branch: string;
+  owner: string;
+}
+
+/** One row per script in the library — joins SCRIPTS (source of truth) with the editor metadata. */
+export const SCRIPT_EDITOR_ROWS: ScriptEditorRow[] = [
+  { id: "ser_01", scriptId: "scr_01", version: "v7.3", usedByBots: ["Vol10 Martingale Core", "Vol75 Touch Sniper"], health: "healthy", sandboxTimeoutMs: 100, peakMemoryMb: 34, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 12, coveragePct: 86, complexity: 9, dependencyCount: 2, ciStatus: "passing", branch: "main", owner: "Ade F." },
+  { id: "ser_02", scriptId: "scr_02", version: "v3.1", usedByBots: ["FX London Breakout"], health: "healthy", sandboxTimeoutMs: 100, peakMemoryMb: 41, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 64, coveragePct: 74, complexity: 12, dependencyCount: 3, ciStatus: "passing", branch: "main", owner: "Ade F." },
+  { id: "ser_03", scriptId: "scr_03", version: "v2.8", usedByBots: ["Digit Hunter 7", "Digit Hunter 7 (paper)"], health: "warning", sandboxTimeoutMs: 80, peakMemoryMb: 58, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 22, coveragePct: 68, complexity: 14, dependencyCount: 1, ciStatus: "failing", branch: "digits-tuning", owner: "Mina L." },
+  { id: "ser_04", scriptId: "scr_04", version: "v1.9", usedByBots: ["Accu Sniper 1HZ"], health: "healthy", sandboxTimeoutMs: 100, peakMemoryMb: 27, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 140, coveragePct: 81, complexity: 8, dependencyCount: 1, ciStatus: "passing", branch: "main", owner: "Kwame B." },
+  { id: "ser_05", scriptId: "scr_05", version: "v4.2", usedByBots: ["Gold Swing Basket"], health: "healthy", sandboxTimeoutMs: 100, peakMemoryMb: 36, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 300, coveragePct: 79, complexity: 10, dependencyCount: 2, ciStatus: "passing", branch: "main", owner: "Kwame B." },
+  { id: "ser_06", scriptId: "scr_06", version: "v2.2", usedByBots: ["BTC Grid Runner"], health: "healthy", sandboxTimeoutMs: 120, peakMemoryMb: 44, memoryLimitMb: 128, autosave: false, autosaveDelayMs: 2000, lastTestAtMin: 410, coveragePct: 71, complexity: 11, dependencyCount: 2, ciStatus: "passing", branch: "grid-v2", owner: "Tobi R." },
+  { id: "ser_07", scriptId: "scr_07", version: "v5.0", usedByBots: ["Vol100 Night Shift"], health: "error", sandboxTimeoutMs: 100, peakMemoryMb: 122, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 3, coveragePct: 49, complexity: 19, dependencyCount: 4, ciStatus: "failing", branch: "hotfix/night-shift", owner: "Tobi R." },
+  { id: "ser_08", scriptId: "scr_08", version: "v3.6", usedByBots: ["GBP Mean Reversion"], health: "healthy", sandboxTimeoutMs: 100, peakMemoryMb: 31, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 180, coveragePct: 88, complexity: 9, dependencyCount: 2, ciStatus: "passing", branch: "main", owner: "Mina L." },
+  { id: "ser_09", scriptId: "scr_09", version: "v2.4", usedByBots: ["Silver Fade"], health: "warning", sandboxTimeoutMs: 100, peakMemoryMb: 63, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 55, coveragePct: 64, complexity: 13, dependencyCount: 1, ciStatus: "pending", branch: "mean-reversion", owner: "Ade F." },
+  { id: "ser_10", scriptId: "scr_10", version: "v1.4", usedByBots: ["ETH Momentum 50x"], health: "healthy", sandboxTimeoutMs: 100, peakMemoryMb: 29, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 620, coveragePct: 76, complexity: 10, dependencyCount: 1, ciStatus: "passing", branch: "main", owner: "Tobi R." },
+  { id: "ser_11", scriptId: "scr_11", version: "v2.0", usedByBots: [], health: "warning", sandboxTimeoutMs: 100, peakMemoryMb: 22, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 940, coveragePct: 58, complexity: 7, dependencyCount: 2, ciStatus: "pending", branch: "carry-scalp", owner: "Kwame B." },
+  { id: "ser_12", scriptId: "scr_12", version: "v3.3", usedByBots: ["Vol75 Touch Sniper"], health: "healthy", sandboxTimeoutMs: 90, peakMemoryMb: 38, memoryLimitMb: 128, autosave: true, autosaveDelayMs: 2000, lastTestAtMin: 31, coveragePct: 83, complexity: 12, dependencyCount: 2, ciStatus: "passing", branch: "main", owner: "Mina L." },
+];
+
+export interface ScriptVersion {
+  id: string;
+  scriptId: string;
+  version: string;
+  atMin: number;
+  author: string;
+  message: string;
+  added: number;
+  removed: number;
+  hash: string;
+  status: "current" | "published" | "rolled-back" | "merged" | "branch";
+  branch: string;
+  checks: "passed" | "failed" | "pending";
+  tests: number;
+}
+
+export const SCRIPT_VERSIONS: ScriptVersion[] = [
+  { id: "sv_01", scriptId: "scr_01", version: "v7.3", atMin: 12, author: "Ade F.", message: "Cap ladder at config.maxStake before the 5th step", added: 6, removed: 3, hash: "9f4c1ab", status: "current", branch: "main", checks: "passed", tests: 14 },
+  { id: "sv_02", scriptId: "scr_01", version: "v7.2", atMin: 1480, author: "Ade F.", message: "Read multiplier from @param instead of the hard-coded 2.1", added: 4, removed: 4, hash: "b31d07e", status: "published", branch: "main", checks: "passed", tests: 13 },
+  { id: "sv_03", scriptId: "scr_01", version: "v7.1", atMin: 4020, author: "Mina L.", message: "Log skip reason on flat ticks (engine channel: info)", added: 3, removed: 1, hash: "77ac512", status: "published", branch: "main", checks: "passed", tests: 12 },
+  { id: "sv_04", scriptId: "scr_01", version: "v7.0", atMin: 9860, author: "Ade F.", message: "Port to engine v12: onResult() replaces the polling loop", added: 22, removed: 31, hash: "1de9f20", status: "published", branch: "main", checks: "passed", tests: 12 },
+  { id: "sv_05", scriptId: "scr_01", version: "v6.9", atMin: 21400, author: "Ade F.", message: "Cooldown after 3 consecutive losses", added: 9, removed: 2, hash: "c40b8aa", status: "rolled-back", branch: "main", checks: "failed", tests: 11 },
+  { id: "sv_06", scriptId: "scr_07", version: "v5.0", atMin: 3, author: "Tobi R.", message: "WIP: night-shift scaling — unclosed block at line 14", added: 18, removed: 6, hash: "ee02c71", status: "current", branch: "hotfix/night-shift", checks: "failed", tests: 6 },
+  { id: "sv_07", scriptId: "scr_07", version: "v4.9", atMin: 620, author: "Tobi R.", message: "Restore last green build before the Digits refactor", added: 2, removed: 24, hash: "3ab77d9", status: "rolled-back", branch: "hotfix/night-shift", checks: "passed", tests: 11 },
+  { id: "sv_08", scriptId: "scr_03", version: "v2.8", atMin: 22, author: "Mina L.", message: "Digit barrier 4 → 5 after the weekend distribution shift", added: 5, removed: 5, hash: "58d21fe", status: "current", branch: "digits-tuning", checks: "failed", tests: 9 },
+  { id: "sv_09", scriptId: "scr_03", version: "v2.7", atMin: 2610, author: "Mina L.", message: "Merge main: shared indicators module now pinned to 2.4.0", added: 3, removed: 1, hash: "a1f3c80", status: "merged", branch: "digits-tuning", checks: "passed", tests: 9 },
+  { id: "sv_10", scriptId: "scr_02", version: "v3.1", atMin: 64, author: "Ade F.", message: "Session window widened to 07:00–10:30 UTC", added: 2, removed: 2, hash: "d7e4411", status: "current", branch: "main", checks: "passed", tests: 16 },
+  { id: "sv_11", scriptId: "scr_06", version: "v2.2", atMin: 410, author: "Tobi R.", message: "Grid spacing follows ATR instead of fixed 0.4%", added: 11, removed: 7, hash: "6c9b1d3", status: "current", branch: "grid-v2", checks: "passed", tests: 10 },
+  { id: "sv_12", scriptId: "scr_08", version: "v3.6", atMin: 180, author: "Mina L.", message: "RSI period 14 → 9 on the 1m tape", added: 1, removed: 1, hash: "f2a9077", status: "current", branch: "main", checks: "passed", tests: 15 },
+  { id: "sv_13", scriptId: "scr_12", version: "v3.3", atMin: 31, author: "Mina L.", message: "Touch barrier spreads with realised volatility", added: 7, removed: 4, hash: "0b5ce12", status: "current", branch: "main", checks: "passed", tests: 13 },
+  { id: "sv_14", scriptId: "scr_05", version: "v4.2", atMin: 300, author: "Kwame B.", message: "Accumulator growth rate 3% → 2% for gold", added: 2, removed: 2, hash: "40dd8f1", status: "current", branch: "main", checks: "passed", tests: 12 },
+];
+
+export interface ScriptRun {
+  id: string;
+  scriptId: string;
+  runLabel: string;
+  botName: string;
+  loginId: string;
+  symbol: string;
+  contractType: string;
+  startedMin: number;
+  durationMs: number;
+  ticks: number;
+  trades: number;
+  winRate: number;
+  pnl: number;
+  peakMemoryMb: number;
+  status: ScriptRunStatus;
+  note: string;
+}
+
+export const SCRIPT_RUNS: ScriptRun[] = [
+  { id: "srn_01", scriptId: "scr_01", runLabel: "test #1841", botName: "Vol10 Martingale Core", loginId: "VRTC9031442", symbol: "R_10", contractType: "Rise/Fall", startedMin: 6, durationMs: 2140, ticks: 500, trades: 41, winRate: 63.4, pnl: 12.85, peakMemoryMb: 34, status: "ok", note: "5-step ladder capped correctly at maxStake." },
+  { id: "srn_02", scriptId: "scr_01", runLabel: "test #1840", botName: "Vol10 Martingale Core", loginId: "VRTC9031442", symbol: "R_10", contractType: "Rise/Fall", startedMin: 41, durationMs: 2205, ticks: 500, trades: 38, winRate: 60.5, pnl: 9.4, peakMemoryMb: 33, status: "ok", note: "Cooldown fired twice, no duplicate proposals." },
+  { id: "srn_03", scriptId: "scr_07", runLabel: "test #1839", botName: "Vol100 Night Shift", loginId: "CR8842197", symbol: "R_100", contractType: "Digits", startedMin: 3, durationMs: 100, ticks: 27, trades: 0, winRate: 0, pnl: 0, peakMemoryMb: 122, status: "syntax", note: "Unexpected token '}' at line 14 — execution never started." },
+  { id: "srn_04", scriptId: "scr_07", runLabel: "test #1838", botName: "Vol100 Night Shift", loginId: "CR8842197", symbol: "R_100", contractType: "Digits", startedMin: 18, durationMs: 100, ticks: 41, trades: 0, winRate: 0, pnl: 0, peakMemoryMb: 127, status: "memory", note: "Heap peaked at 127 MB of the 128 MB sandbox ceiling." },
+  { id: "srn_05", scriptId: "scr_03", runLabel: "test #1837", botName: "Digit Hunter 7", loginId: "VRTC9031442", symbol: "R_75", contractType: "Digits", startedMin: 22, durationMs: 1810, ticks: 400, trades: 52, winRate: 57.7, pnl: -3.2, peakMemoryMb: 58, status: "ok", note: "Barrier 5 under-performs the 4 tape on the weekend feed." },
+  { id: "srn_06", scriptId: "scr_02", runLabel: "test #1836", botName: "FX London Breakout", loginId: "CR8842197", symbol: "frxGBPUSD", contractType: "Higher/Lower", startedMin: 64, durationMs: 2460, ticks: 360, trades: 24, winRate: 62.5, pnl: 41.6, peakMemoryMb: 41, status: "ok", note: "Range lookback stable; 2 ticks late on the 07:00 open." },
+  { id: "srn_07", scriptId: "scr_11", runLabel: "test #1835", botName: "—", loginId: "MX5520143", symbol: "frxUSDJPY", contractType: "Rise/Fall", startedMin: 96, durationMs: 100, ticks: 63, trades: 0, winRate: 0, pnl: 0, peakMemoryMb: 22, status: "timeout", note: "Timeout at line 31 — while(true) poll inside onTick()." },
+  { id: "srn_08", scriptId: "scr_11", runLabel: "test #1834", botName: "—", loginId: "MX5520143", symbol: "frxUSDJPY", contractType: "Rise/Fall", startedMin: 108, durationMs: 40, ticks: 0, trades: 0, winRate: 0, pnl: 0, peakMemoryMb: 18, status: "forbidden", note: "process.exit() is not allowed in the sandbox." },
+  { id: "srn_09", scriptId: "scr_04", runLabel: "test #1833", botName: "Accu Sniper 1HZ", loginId: "CR8842197", symbol: "1HZ10V", contractType: "Accumulator", startedMin: 140, durationMs: 1620, ticks: 300, trades: 9, winRate: 77.8, pnl: 26.4, peakMemoryMb: 27, status: "ok", note: "Growth rate guard held through 3 vol spikes." },
+  { id: "srn_10", scriptId: "scr_05", runLabel: "test #1832", botName: "Gold Swing Basket", loginId: "CR8842197", symbol: "frxXAUUSD", contractType: "Touch", startedMin: 300, durationMs: 1980, ticks: 420, trades: 18, winRate: 55.6, pnl: 14.9, peakMemoryMb: 36, status: "ok", note: "Barrier respected the 4h range on both legs." },
+  { id: "srn_11", scriptId: "scr_06", runLabel: "test #1831", botName: "BTC Grid Runner", loginId: "MX5520143", symbol: "cryBTCUSD", contractType: "Multiplier", startedMin: 410, durationMs: 2680, ticks: 520, trades: 33, winRate: 51.5, pnl: -6.1, peakMemoryMb: 44, status: "ok", note: "ATR spacing opens fewer legs than the fixed grid." },
+  { id: "srn_12", scriptId: "scr_08", runLabel: "test #1830", botName: "GBP Mean Reversion", loginId: "VRTC9031442", symbol: "frxGBPUSD", contractType: "Rise/Fall", startedMin: 180, durationMs: 1880, ticks: 440, trades: 37, winRate: 64.9, pnl: 22.3, peakMemoryMb: 31, status: "ok", note: "RSI-9 reduces drawdown versus the 14-period build." },
+  { id: "srn_13", scriptId: "scr_06", runLabel: "test #1829", botName: "BTC Grid Runner", loginId: "MX5520143", symbol: "cryETHUSD", contractType: "Multiplier", startedMin: 1880, durationMs: 60, ticks: 0, trades: 0, winRate: 0, pnl: 0, peakMemoryMb: 17, status: "forbidden", note: "require('fs') blocked — network/filesystem access denied." },
+  { id: "srn_14", scriptId: "scr_12", runLabel: "queued #1828", botName: "Vol75 Touch Sniper", loginId: "CR8842197", symbol: "R_75", contractType: "Touch", startedMin: 2, durationMs: 0, ticks: 0, trades: 0, winRate: 0, pnl: 0, peakMemoryMb: 0, status: "queued", note: "Waiting for a sandbox worker — 2 runs ahead in the queue." },
+];
+
+// -----------------------------------------------------------------------------
+// D-6 script sources — engine v12 sandbox API (onTick / onResult / onComplete).
+// Kept as separate consts to satisfy the file-size budget; SCRIPT_SOURCES joins
+// them onto the SCRIPTS library below.
+// -----------------------------------------------------------------------------
+const SRC_01 = `/**
+ * Martingale Core v7 — engine v12
+ * @param {number} initStake=0.35 Base stake restored after a win
+ * @param {number} multiplier=2.1 Multiplier applied after a loss
+ * @param {number} maxSteps=5 Deepest ladder step before the cap applies
+ * @param {number} maxStake=50 Hard ceiling enforced by risk.assert()
+ */
+const STATE = require("state.js"); // pinned 1.4.2
+
+let stake = initStake;
+
+function onTick(tick) {
+  const last = getLastResult();
+  if (last === null) {
+    log("cold start on " + tick.symbol + " at " + tick.price);
+  } else if (last.win) {
+    stake = initStake;
+  } else if (getHistory(maxSteps).length >= maxSteps) {
+    stake = initStake; // ladder exhausted — reset instead of doubling
+  } else {
+    stake = Math.min(stake * multiplier, maxStake);
+  }
+
+  if (tick.price <= 0) return null; // never trade a stale feed
+
+  return {
+    contract: "CALL",
+    stake: Number(stake.toFixed(2)),
+    duration: 5,
+    durationUnit: "t",
+    basis: "stake",
+  };
+}
+
+function onResult(result) {
+  log(result.win ? "WIN +" + result.profit : "LOSS " + result.profit);
+}
+
+function onComplete(summary) {
+  log("session closed at " + getBalance() + " after " + summary.trades + " contracts");
+}
+
+// @test { scenario: '5 wins in a row resets the ladder' }
+// @test { scenario: 'ladder caps at maxStake on the 6th loss' }
+// @test { scenario: 'stale tick (price <= 0) returns null' }`;
+
+const SRC_02 = `/**
+ * London Breakout FX — EURUSD + GBPUSD basket
+ * @param {number} rangeHours=4 Lookback used to size the opening range
+ * @param {number} stake=25 Stake per breakout leg
+ * @param {number} bufferPips=1.2 Pips added beyond the range edge
+ */
+const ind = require("indicators.js"); // pinned 2.4.0
+const session = require("session_filter.js"); // pinned 1.1.0
+
+const levels = { frxEURUSD: null, frxGBPUSD: null };
+
+function onTick(tick) {
+  session.onlyDuring({ from: "07:00", to: "10:30", tz: "UTC" });
+
+  const range = ind.range(tick.symbol, { hours: rangeHours });
+  if (!range.ready) return null;
+
+  const edge = tick.symbol === "frxEURUSD" ? range.high : range.low;
+  const dist = Math.abs(tick.price - edge) / ind.pipSize(tick.symbol);
+
+  if (dist > bufferPips) levels[tick.symbol] = null; // reset once price retreats
+  if (dist <= bufferPips && levels[tick.symbol] === null) {
+    levels[tick.symbol] = tick.epoch;
+    log("breakout armed on " + tick.symbol + " at " + edge.toFixed(5));
+  }
+
+  if (levels[tick.symbol] === null) return null;
+  if (getOpenContracts().length >= 2) return null; // one leg per symbol
+
+  return {
+    contract: tick.price > edge ? "CALL" : "PUT",
+    stake: stake,
+    duration: 15,
+    durationUnit: "m",
+    barrier: edge.toFixed(5),
+  };
+}
+
+function onResult(result) {
+  log("leg settled: " + result.contractType + " " + result.entrySpot + " -> " + result.exitSpot);
+}
+
+// @test { scenario: 'outside the session window no trade is proposed' }
+// @test { scenario: 'second leg is skipped while one contract is open' }`;
+
+const SRC_03 = `/**
+ * Digit Sniper (Differs) — R_75 / R_100 digits
+ * @param {number} barrier=5 Digit threshold for DIGITOVER
+ * @param {number} stake=1 Stake per digit contract
+ * @param {number} minSample=80 Ticks required before the distribution is trusted
+ */
+const dist = require("digit_stats.js"); // pinned 1.0.7
+
+let seen = 0;
+
+function onTick(tick) {
+  if (tick.symbol !== "R_75" && tick.symbol !== "R_100") return null;
+  const last = String(tick.price).slice(-1);
+  dist.push(Number(last));
+  seen += 1;
+
+  if (seen < minSample) return null;
+
+  const pct = dist.pctOver(barrier); // % of recent ticks above the barrier
+  if (pct < 55) return null;
+
+  return {
+    contract: "DIGITOVER",
+    stake: stake,
+    duration: 1,
+    durationUnit: "t",
+    barrier: barrier,
+  };
+}
+
+function onResult(result) {
+  log("digit " + result.exitSpot + " vs barrier " + barrier + " → " + (result.win ? "over" : "under"));
+}
+
+// @test { scenario: 'no trade before minSample ticks have been collected' }
+// @test { scenario: 'barrier 5 fires only above a 55% skew' }`;
+
+const SRC_04 = `/**
+ * Accumulator Range Keeper — 1HZ10V
+ * @param {number} growthRate=0.02 Accumulator growth per step
+ * @param {number} stake=3 Stake per accumulator
+ * @param {number} maxSteps=4 Steps before the contract is closed
+ */
+let step = 0;
+let openedAt = null;
+
+function onTick(tick) {
+  if (tick.symbol !== "1HZ10V") return null;
+
+  if (openedAt === null) {
+    openedAt = tick.epoch;
+    step = 0;
+    return {
+      contract: "ACCU",
+      stake: stake,
+      duration: 1,
+      durationUnit: "t",
+    };
+  }
+
+  step += 1;
+  if (step >= maxSteps) {
+    log("range keeper releasing contract after " + step + " steps");
+    openedAt = null;
+    return null;
+  }
+  return null; // accumulator rides on its own schedule
+}
+
+function onResult(result) {
+  log("accumulator step payout " + result.payout + " (growth " + growthRate + ")");
+}
+
+function onComplete(summary) {
+  log("accumulator session: " + summary.trades + " runs, balance " + getBalance());
+}
+
+// @test { scenario: 'contract opens on the first eligible tick only' }
+// @test { scenario: 'release after maxSteps without re-entering' }`;
+
+const SRC_05 = `/**
+ * Gold Touch Ladder — frxXAUUSD touch contracts
+ * @param {number} stake=20 Stake per ladder rung
+ * @param {number} ladderGap=4.5 USD between rungs
+ * @param {number} rungs=3 Concurrent touch legs
+ */
+const levels = [];
+
+function onTick(tick) {
+  if (tick.symbol !== "frxXAUUSD") return null;
+  const open = getOpenContracts();
+  if (open.length >= rungs) return null;
+
+  const last = levels.length ? levels[levels.length - 1] : tick.price;
+  if (Math.abs(tick.price - last) < ladderGap) return null;
+
+  levels.push(tick.price);
+  log("touch rung " + levels.length + " armed at " + tick.price.toFixed(2));
+
+  return {
+    contract: "TOUCH",
+    stake: stake,
+    duration: 4,
+    durationUnit: "h",
+    barrier: (tick.price + ladderGap).toFixed(2),
+    basis: "stake",
+  };
+}
+
+function onResult(result) {
+  if (!result.win) levels.shift(); // drop the failed rung, keep the ladder tight
+  log("gold leg " + (result.win ? "touched" : "expired") + " at " + result.exitSpot);
+}
+
+// @test { scenario: 'three rungs maximum are held at once' }
+// @test { scenario: 'failed rung is released back into the pool' }`;
+
+const SRC_06 = `/**
+ * BTC Grid Fixed Stake — cryBTCUSD multiplier grid
+ * @param {number} stake=5 Stake per grid leg
+ * @param {number} atrPeriod=14 ATR window used for grid spacing
+ * @param {number} maxLegs=6 Deepest grid before entries pause
+ */
+const ind = require("indicators.js"); // pinned 2.4.0
+
+let legs = 0;
+
+function onTick(tick) {
+  if (tick.symbol !== "cryBTCUSD") return null;
+  if (legs >= maxLegs) {
+    log("grid full (" + legs + " legs) — waiting for the mean to catch up");
+    return null;
+  }
+
+  const atr = ind.atr(tick.symbol, atrPeriod);
+  if (!atr.ready) return null;
+  const spacing = atr.value * 0.6;
+
+  legs += 1;
+  return {
+    contract: "MULTUP",
+    stake: stake,
+    duration: 1,
+    durationUnit: "d",
+    barrier: (tick.price + spacing).toFixed(2),
+  };
+}
+
+function onResult(result) {
+  if (result.win) legs = Math.max(0, legs - 1);
+  log("grid leg settled " + (result.win ? "in profit" : "against us") + " — " + legs + " open");
+}
+
+// @test { scenario: 'grid pauses at maxLegs' }
+// @test { scenario: 'ATR spacing widens in high volatility' }`;
+
+const SRC_07 = `/**
+ * Vol100 Night Martingale — engine v12 (WIP: night-shift scaling)
+ * @param {number} initStake=0.5 Base stake for the night session
+ * @param {number} multiplier=2.3 Multiplier applied after a loss
+ * @param {number} maxStake=25 Ceiling for the night ladder
+ */
+const session = require("session_filter.js"); // pinned 1.1.0
+let stake = initStake;
+const buffer = []; // every tick kept for the night report
+const nightWindow = { from: "21:00", to: "05:00", tz: "UTC" };
+
+function onTick(tick) {
+  const last = getLastResult();
+  if (last && !last.win) {
+    stake = Math.min(stake * multiplier, maxStake);
+    buffer.push({ epoch: tick.epoch, price: tick.price, stake: stake });
+    log("night ladder " + stake.toFixed(2));
+
+  if (tick.price <= 0) return null;
+
+  return { contract: "CALL", stake: Number(stake.toFixed(2)), duration: 1, durationUnit: "m" };
+`;
+
+const SRC_08 = `/**
+ * GBP Mean Reversion — frxGBPUSD RSI-9 fade
+ * @param {number} rsiPeriod=9 RSI lookback on the 1-minute tape
+ * @param {number} overbought=72 Upper fade zone
+ * @param {number} stake=12 Stake per fade
+ */
+const ind = require("indicators.js"); // pinned 2.4.0
+const risk = require("risk.js"); // pinned 3.0.1
+
+let lastFade = 0;
+
+function onTick(tick) {
+  if (tick.symbol !== "frxGBPUSD") return null;
+  const rsi = ind.rsi(tick.symbol, rsiPeriod);
+  if (!rsi.ready) return null;
+  if (tick.epoch - lastFade < 60) return null; // one fade per minute
+
+  if (rsi.value >= overbought) {
+    lastFade = tick.epoch;
+    return { contract: "PUT", stake: stake, duration: 5, durationUnit: "m" };
+  }
+  if (rsi.value <= 100 - overbought) {
+    lastFade = tick.epoch;
+    return { contract: "CALL", stake: stake, duration: 5, durationUnit: "m" };
+  }
+  return null;
+}
+
+function onResult(result) {
+  risk.assert(getHistory(10).length < 10, "fade burst guard");
+  log("fade settled at " + result.exitSpot + " (" + result.contractType + ")");
+}
+
+// @test { scenario: 'one fade per minute maximum' }
+// @test { scenario: 'RSI 72/28 zones trigger opposite contracts' }`;
+
+const SRC_09 = `/**
+ * Silver Fade Swing — frxXAGUSD mean reversion
+ * @param {number} zScore=2.1 Standard deviations required to fade
+ * @param {number} stake=6 Stake per swing leg
+ * @param {number} maxHold=3 Consecutive losses before standing down
+ */
+const bands = require("vol_bands.js"); // pinned 1.3.0
+const session = require("session_filter.js"); // pinned 1.1.0
+
+let losses = 0;
+
+function onTick(tick) {
+  if (tick.symbol !== "frxXAGUSD") return null;
+  if (losses >= maxHold) return null;
+
+  const z = bands.zScore(tick.symbol, { lookback: "4h" });
+  if (!z.ready) return null;
+  if (Math.abs(z.value) < zScore) return null;
+
+  return {
+    contract: z.value > 0 ? "PUT" : "CALL",
+    stake: stake,
+    duration: 4,
+    durationUnit: "h",
+    basis: "stake",
+  };
+}
+
+function onResult(result) {
+  losses = result.win ? 0 : losses + 1;
+  if (!result.win) log("fade against us — " + losses + " of " + maxHold);
+}
+
+// @test { scenario: 'stands down after maxHold losses' }
+// @test { scenario: 'only fades outside a 2.1 sigma band' }`;
+
+const SRC_10 = `/**
+ * ETH Momentum DCA — cryETHUSD average-in
+ * @param {number} baseStake=4 First leg stake
+ * @param {number} stepPct=1.8 Price drop that opens the next leg
+ * @param {number} legs=4 Deepest DCA ladder
+ */
+const ind = require("indicators.js"); // pinned 2.4.0
+
+let entry = null;
+let filled = 0;
+
+function onTick(tick) {
+  if (tick.symbol !== "cryETHUSD") return null;
+  const trend = ind.ema(tick.symbol, 50);
+  if (!trend.ready) return null;
+
+  if (entry === null && tick.price > trend.value) {
+    entry = tick.price;
+    filled = 1;
+    return { contract: "MULTUP", stake: baseStake, duration: 1, durationUnit: "d" };
+  }
+
+  if (entry !== null && filled < legs && tick.price <= entry * (1 - stepPct / 100)) {
+    filled += 1;
+    return { contract: "MULTUP", stake: Number((baseStake * filled).toFixed(2)), duration: 1, durationUnit: "d" };
+  }
+  return null;
+}
+
+function onResult(result) {
+  if (result.win && filled >= legs) { entry = null; filled = 0; }
+  log("DCA leg " + filled + "/" + legs + " → " + (result.win ? "in profit" : "deepened"));
+}
+
+// @test { scenario: 'legs open in 1.8% steps below the entry' }
+// @test { scenario: 'ladder resets after a profitable full fill' }`;
+
+const SRC_11 = `/**
+ * USDJPY Carry Scalp — frxUSDJPY
+ * @param {number} stake=8 Stake per scalp
+ * @param {number} tpPips=6 Take-profit in pips
+ * @param {number} slPips=9 Stop-loss in pips
+ */
+const ind = require("indicators.js"); // pinned 2.4.0
+let dayPnl = 0;
+
+function waitingForCarry() {
+  const spread = ind.spread("frxUSDJPY");
+  return spread > 0.9; // carry only trades a tight book
+}
+
+function onTick(tick) {
+  if (tick.symbol !== "frxUSDJPY") return null;
+  if (waitingForCarry()) return null;
+
+  const atr = ind.atr("frxUSDJPY", 14);
+  if (!atr.ready) return null;
+
+  const tp = tick.price + tpPips / 100;
+  const sl = tick.price - slPips / 100;
+
+  if (dayPnl <= -45) {
+    log("daily scalp cap reached — standing down");
+    return null;
+  }
+
+  // NOTE: kept to demonstrate the 100 ms per-tick sandbox timeout guard
+  while (true) {
+    dayPnl = getHistory(1).reduce(function (a, r) { return a + r.profit; }, 0);
+  }
+
+  return { contract: "CALL", stake: stake, duration: 30, durationUnit: "s", barrier: tp.toFixed(3) };
+}
+
+function onComplete(summary) {
+  process.exit(0); // forbidden API — the sandbox blocks this at save time
+}
+
+// @test { scenario: 'stand down at the -45 daily cap' }`;
+
+const SRC_12 = `/**
+ * Vol75 Sniper Touch — R_75 touch ladder
+ * @param {number} stake=2 Stake per touch rung
+ * @param {number} volWindow=20 Ticks used to size the barrier
+ * @param {number} rungs=2 Rungs held at once
+ */
+const ind = require("indicators.js"); // pinned 2.4.0
+
+//ai add a spread filter before arming the touch legs
+
+function onTick(tick) {
+  if (tick.symbol !== "R_75") return null;
+  if (getOpenContracts().length >= rungs) return null;
+
+  const vol = ind.realisedVol(tick.symbol, volWindow);
+  if (!vol.ready) return null;
+
+  const barrier = (tick.price + vol.value * 2).toFixed(3);
+  log("touch rung armed at " + barrier);
+
+  return {
+    contract: "TOUCH",
+    stake: stake,
+    duration: 5,
+    durationUnit: "t",
+    barrier: barrier,
+  };
+}
+
+function onResult(result) {
+  log(result.win ? "touched +" + result.profit : "expired " + result.profit);
+}
+
+function onComplete(summary) {
+  log("sniper session: " + summary.trades + " rungs, balance " + getBalance());
+}
+
+// @test { scenario: 'two rungs maximum are held at once' }
+// @test { scenario: 'barrier scales with realised volatility' }`;
+
+/** Editor source for a script id — falls back to the library copy. */
+export function scriptSource(scriptId: string): string {
+  return SCRIPT_SOURCES[scriptId] ?? SCRIPTS.find((s) => s.id === scriptId)?.code ?? "";
+}
+
+export const SCRIPT_SOURCES: Record<string, string> = {
+  scr_01: SRC_01,
+  scr_02: SRC_02,
+  scr_03: SRC_03,
+  scr_04: SRC_04,
+  scr_05: SRC_05,
+  scr_06: SRC_06,
+  scr_07: SRC_07,
+  scr_08: SRC_08,
+  scr_09: SRC_09,
+  scr_10: SRC_10,
+  scr_11: SRC_11,
+  scr_12: SRC_12,
+};
+
+export interface ApiSymbol {
+  id: string;
+  name: string;
+  group: ScriptGroup;
+  signature: string;
+  returns: string;
+  description: string;
+  example: string;
+  since: string;
+  restricted: boolean;
+  quickRef: boolean;
+}
+
+export const API_REFERENCE: ApiSymbol[] = [
+  { id: "api_01", name: "onTick", group: "lifecycle", signature: "onTick(tick: Tick): TradeDecision | null", returns: "TradeDecision | null", description: "Called on every new tick of the subscribed symbol. Return a decision to propose a contract, or null to skip the tick.", example: "function onTick(tick) {\n  return { contract: \"CALL\", stake: 0.35, duration: 5, durationUnit: \"t\" };\n}", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_02", name: "onResult", group: "lifecycle", signature: "onResult(result: TradeResult): void", returns: "void", description: "Called after each contract settles. Use it to update ladders, streaks and logs.", example: "function onResult(result) {\n  log(result.win ? \"WIN\" : \"LOSS\");\n}", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_03", name: "onComplete", group: "lifecycle", signature: "onComplete(summary: SessionSummary): void", returns: "void", description: "Called when the bot stops — take-profit hit, stop-loss hit or a manual stop from the fleet board.", example: "function onComplete(summary) {\n  log(\"closed after \" + summary.trades + \" contracts\");\n}", since: "engine v11", restricted: false, quickRef: true },
+  { id: "api_04", name: "getLastResult", group: "context", signature: "getLastResult(): TradeResult | null", returns: "TradeResult | null", description: "The most recent settled contract, or null on a cold start.", example: "const last = getLastResult();\nif (last && last.win) stake = initStake;", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_05", name: "getHistory", group: "context", signature: "getHistory(limit: number): TradeResult[]", returns: "TradeResult[]", description: "The last N settled contracts, newest first. Capped at 500 by the sandbox.", example: "const losses = getHistory(5).filter(function (r) { return !r.win; }).length;", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_06", name: "getBalance", group: "context", signature: "getBalance(): number", returns: "number", description: "Balance of the account the bot runs on, in USD. Virtual accounts report the demo balance.", example: "if (getBalance() < 20) return null;", since: "engine v10", restricted: false, quickRef: true },
+  { id: "api_07", name: "getOpenContracts", group: "context", signature: "getOpenContracts(): Contract[]", returns: "Contract[]", description: "Contracts still running. Use it to respect max-concurrent settings.", example: "if (getOpenContracts().length >= 2) return null;", since: "engine v10", restricted: false, quickRef: true },
+  { id: "api_08", name: "placeTrade", group: "context", signature: "placeTrade(decision: TradeDecision): string", returns: "contract id", description: "Imperative buy, for scripts that trade inside onResult(). Equivalent to returning a decision from onTick.", example: "placeTrade({ contract: \"PUT\", stake: 2, duration: 1, durationUnit: \"t\" });", since: "engine v12", restricted: false, quickRef: true },
+  { id: "api_09", name: "log", group: "context", signature: "log(message: string): void", returns: "void", description: "Writes to the script console and the bot log. Rate-limited to 20 lines per second.", example: "log(\"skip tick \" + tick.epoch);", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_10", name: "TradeDecision", group: "decision", signature: "{ contract, stake, duration, durationUnit, barrier?, basis? }", returns: "TradeDecision", description: "The object onTick returns. contract accepts CALL/PUT/DIGITOVER/DIGITUNDER/TOUCH/ACCU/MULTUP, durationUnit accepts t/s/m/h/d.", example: "return { contract: \"DIGITOVER\", stake: 1, duration: 1, durationUnit: \"t\", barrier: 5 };", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_11", name: "Tick", group: "tick", signature: "{ price, symbol, epoch, pipSize }", returns: "Tick", description: "The tick object handed to onTick. price is the raw quote, epoch is the server second.", example: "const px = Number(tick.price.toFixed(tick.pipSize));", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_12", name: "TradeResult", group: "result", signature: "{ win, profit, payout, buyPrice, sellPrice, contractType, entrySpot, exitSpot }", returns: "TradeResult", description: "Settlement payload for a finished contract, delivered to onResult and stored for getHistory.", example: "if (result.entrySpot > result.exitSpot) log(\"fell through entry\");", since: "engine v9", restricted: false, quickRef: true },
+  { id: "api_13", name: "@param", group: "params", signature: "/** @param {number} name=default Description */", returns: "config field", description: "Comment annotations become editable fields in the bot configurator. Types: number, string, boolean.", example: "/** @param {number} multiplier=2.0 Multiplier on loss */", since: "engine v11", restricted: false, quickRef: true },
+  { id: "api_14", name: "Sandbox limits", group: "sandbox", signature: "128 MB · 100 ms/tick · 1 trade/tick", returns: "—", description: "No filesystem, network, process or DOM access. Exceeding a limit aborts the run and flags the script.", example: "// process, require(\"fs\"), fetch, eval and window are all blocked", since: "engine v12", restricted: true, quickRef: true },
+];
+
+export interface CodeSnippet {
+  id: string;
+  name: string;
+  category: "entry" | "indicator" | "recovery" | "risk" | "digits" | "utility";
+  description: string;
+  code: string;
+  uses: number;
+  shortcut: string;
+}
+
+export const SCRIPT_SNIPPETS: CodeSnippet[] = [
+  { id: "sn_01", name: "Buy Rise", category: "entry", description: "Propose a CALL on the current tick with a 5-tick duration.", shortcut: "Ctrl+Space · r", uses: 1840, code: `return {
+  contract: "CALL",
+  stake: stake,
+  duration: 5,
+  durationUnit: "t",
+  basis: "stake",
+};` },
+  { id: "sn_02", name: "Buy Fall", category: "entry", description: "Propose a PUT on the current tick.", shortcut: "Ctrl+Space · f", uses: 1612, code: `return {
+  contract: "PUT",
+  stake: stake,
+  duration: 5,
+  durationUnit: "t",
+  basis: "stake",
+};` },
+  { id: "sn_03", name: "Check RSI", category: "indicator", description: "Fade when the RSI leaves the neutral band — requires indicators.js.", shortcut: "Ctrl+Space · i", uses: 986, code: `const rsi = ind.rsi(tick.symbol, 9);
+if (!rsi.ready) return null;
+if (rsi.value >= 72) return { contract: "PUT", stake: stake, duration: 5, durationUnit: "m" };
+if (rsi.value <= 28) return { contract: "CALL", stake: stake, duration: 5, durationUnit: "m" };
+return null;` },
+  { id: "sn_04", name: "Check MA cross", category: "indicator", description: "Trade the fast/slow EMA cross with a trend filter.", shortcut: "Ctrl+Space · m", uses: 742, code: `const fast = ind.ema(tick.symbol, 9);
+const slow = ind.ema(tick.symbol, 21);
+if (!fast.ready || !slow.ready) return null;
+if (fast.value > slow.value && tick.price > fast.value) {
+  return { contract: "CALL", stake: stake, duration: 15, durationUnit: "m" };
+}
+return null;` },
+  { id: "sn_05", name: "Martingale step", category: "recovery", description: "Double (capped) after a loss, reset after a win.", shortcut: "Ctrl+Space · g", uses: 1284, code: `const last = getLastResult();
+if (last === null) stake = initStake;
+else if (last.win) stake = initStake;
+else stake = Math.min(stake * multiplier, maxStake);` },
+  { id: "sn_06", name: "Daily loss guard", category: "risk", description: "Stand down once the session P&L breaches the configured cap.", shortcut: "Ctrl+Space · d", uses: 1104, code: `const pnl = getHistory(500).reduce(function (a, r) { return a + r.profit; }, 0);
+if (pnl <= -config.maxDailyLoss) {
+  log("daily cap reached at " + pnl.toFixed(2));
+  return null;
+}` },
+  { id: "sn_07", name: "Consecutive-loss cooldown", category: "risk", description: "Pause after N losses so the ladder cannot run away.", shortcut: "Ctrl+Space · c", uses: 668, code: `const losses = getHistory(cooldownCount).filter(function (r) { return !r.win; }).length;
+if (losses >= cooldownCount) {
+  log("cooldown active — " + losses + " straight losses");
+  return null;
+}` },
+  { id: "sn_08", name: "Digit over", category: "digits", description: "DIGITOVER with a barrier and one-tick duration.", shortcut: "Ctrl+Space · o", uses: 512, code: `return {
+  contract: "DIGITOVER",
+  stake: stake,
+  duration: 1,
+  durationUnit: "t",
+  barrier: barrier,
+};` },
+  { id: "sn_09", name: "Accumulator open", category: "utility", description: "Open an accumulator and let it ride until maxSteps.", shortcut: "Ctrl+Space · a", uses: 288, code: `if (openedAt === null) {
+  openedAt = tick.epoch;
+  return { contract: "ACCU", stake: stake, duration: 1, durationUnit: "t" };
+}
+return null;` },
+  { id: "sn_10", name: "Session window", category: "utility", description: "Only trade inside a UTC session window.", shortcut: "Ctrl+Space · s", uses: 604, code: `const hour = new Date(tick.epoch * 1000).getUTCHours();
+if (hour < 7 || hour >= 10) return null;` },
+  { id: "sn_11", name: "Spread filter", category: "utility", description: "Skip ticks while the book is wide.", shortcut: "Ctrl+Space · p", uses: 331, code: `if (ind.spread(tick.symbol) > 0.9) {
+  log("spread too wide — skipping");
+  return null;
+}` },
+  { id: "sn_12", name: "On-complete report", category: "utility", description: "Write a session summary when the bot stops.", shortcut: "Ctrl+Space · e", uses: 402, code: `function onComplete(summary) {
+  log("closed after " + summary.trades + " contracts at " + getBalance());
+}` },
+];
+
+export interface ScriptTestCase {
+  id: string;
+  scriptId: string;
+  scenario: string;
+  layer: "unit" | "integration" | "e2e";
+  assertion: string;
+  status: "pass" | "fail" | "pending";
+  durationMs: number;
+  lastRunMin: number;
+  ci: boolean;
+  line: number;
+}
+
+export const SCRIPT_TESTS: ScriptTestCase[] = [
+  { id: "stc_01", scriptId: "scr_01", scenario: "5 wins in a row resets the ladder", layer: "unit", assertion: "stake === initStake after 5 winning ticks", status: "pass", durationMs: 34, lastRunMin: 12, ci: true, line: 46 },
+  { id: "stc_02", scriptId: "scr_01", scenario: "ladder caps at maxStake on the 6th loss", layer: "unit", assertion: "every proposed stake <= maxStake across 40 simulated ticks", status: "pass", durationMs: 41, lastRunMin: 12, ci: true, line: 47 },
+  { id: "stc_03", scriptId: "scr_01", scenario: "stale tick returns null", layer: "unit", assertion: "onTick({price: 0}) === null", status: "pass", durationMs: 8, lastRunMin: 12, ci: true, line: 48 },
+  { id: "stc_04", scriptId: "scr_01", scenario: "bot assignment survives a reload", layer: "integration", assertion: "assign to bot_mart_10, restart, strategy still resolves to scr_01", status: "pass", durationMs: 620, lastRunMin: 140, ci: true, line: 0 },
+  { id: "stc_05", scriptId: "scr_07", scenario: "night window closes at 05:00 UTC", layer: "unit", assertion: "onTick at 05:01 UTC returns null", status: "fail", durationMs: 2, lastRunMin: 3, ci: true, line: 19 },
+  { id: "stc_06", scriptId: "scr_07", scenario: "buffer stays under 128 MB", layer: "unit", assertion: "peak heap < 128 MB across 3,000 ticks", status: "fail", durationMs: 100, lastRunMin: 3, ci: true, line: 11 },
+  { id: "stc_07", scriptId: "scr_03", scenario: "no trade before minSample ticks", layer: "unit", assertion: "first 79 ticks return null", status: "pass", durationMs: 26, lastRunMin: 22, ci: true, line: 30 },
+  { id: "stc_08", scriptId: "scr_03", scenario: "barrier 5 fires above a 55% skew", layer: "unit", assertion: "DIGITOVER only when dist.pctOver(5) >= 55", status: "fail", durationMs: 29, lastRunMin: 22, ci: true, line: 31 },
+  { id: "stc_09", scriptId: "scr_02", scenario: "outside the session window nothing is proposed", layer: "unit", assertion: "onTick at 03:00 UTC returns null", status: "pass", durationMs: 18, lastRunMin: 64, ci: true, line: 38 },
+  { id: "stc_10", scriptId: "scr_02", scenario: "one leg per symbol stays open", layer: "integration", assertion: "getOpenContracts().length <= 2 after 200 ticks", status: "pass", durationMs: 580, lastRunMin: 64, ci: true, line: 0 },
+  { id: "stc_11", scriptId: "scr_08", scenario: "one fade per minute maximum", layer: "unit", assertion: "second fade inside 60 s returns null", status: "pass", durationMs: 22, lastRunMin: 180, ci: true, line: 45 },
+  { id: "stc_12", scriptId: "scr_11", scenario: "stand down at the -45 daily cap", layer: "unit", assertion: "onTick returns null once dayPnl <= -45", status: "fail", durationMs: 100, lastRunMin: 96, ci: false, line: 31 },
+  { id: "stc_13", scriptId: "scr_12", scenario: "two rungs maximum held at once", layer: "unit", assertion: "getOpenContracts().length <= 2", status: "pass", durationMs: 21, lastRunMin: 31, ci: true, line: 48 },
+  { id: "stc_14", scriptId: "scr_04", scenario: "accumulator releases after maxSteps", layer: "e2e", assertion: "assign → start → release within 4 steps, balance returns", status: "pass", durationMs: 1450, lastRunMin: 140, ci: false, line: 0 },
+];
+
+export interface ForbiddenApi {
+  id: string;
+  api: string;
+  reason: string;
+  alternative: string;
+  severity: "block" | "warn";
+  scope: "process" | "network" | "storage" | "dom" | "module" | "timing";
+}
+
+export const FORBIDDEN_APIS: ForbiddenApi[] = [
+  { id: "fa_01", api: "process.exit()", reason: "The sandbox owns the process; exiting would kill other tenants' runs.", alternative: "Return null from onTick() or set a standDown flag.", severity: "block", scope: "process" },
+  { id: "fa_02", api: "require(\"fs\")", reason: "No filesystem access — scripts cannot read or write files.", alternative: "Keep state in variables or require(\"state.js\") for persistence.", severity: "block", scope: "module" },
+  { id: "fa_03", api: "fetch()", reason: "No network access from the sandbox.", alternative: "Read quotes from tick.price and cached indicator modules.", severity: "block", scope: "network" },
+  { id: "fa_04", api: "XMLHttpRequest", reason: "No network access from the sandbox.", alternative: "Use the engine's tick stream only.", severity: "block", scope: "network" },
+  { id: "fa_05", api: "eval()", reason: "Dynamic code execution defeats static analysis and the @param scanner.", alternative: "Use plain control flow or a lookup object.", severity: "block", scope: "process" },
+  { id: "fa_06", api: "new Function()", reason: "Same risk as eval() — code is built at runtime.", alternative: "Declare named functions in the script body.", severity: "block", scope: "process" },
+  { id: "fa_07", api: "window / document", reason: "No DOM access inside the sandbox.", alternative: "Log to the script console with log().", severity: "block", scope: "dom" },
+  { id: "fa_08", api: "localStorage / sessionStorage", reason: "Storage is not shared between sandbox runs.", alternative: "require(\"state.js\") keeps values for the session.", severity: "block", scope: "storage" },
+  { id: "fa_09", api: "setInterval()", reason: "Timers bypass the per-tick execution budget.", alternative: "React to onTick() instead of scheduling work.", severity: "block", scope: "timing" },
+  { id: "fa_10", api: "while (true) / for (;;)", reason: "Infinite loops hit the 100 ms per-tick timeout and abort the run.", alternative: "Loop over a bounded array such as getHistory(50).", severity: "warn", scope: "timing" },
+  { id: "fa_11", api: "child_process", reason: "No shell or process spawning.", alternative: "Everything must stay inside the script.", severity: "block", scope: "process" },
+  { id: "fa_12", api: "WebSocket", reason: "Streams are opened by the engine, not the script.", alternative: "Subscribe through the bot configurator's symbol field.", severity: "block", scope: "network" },
+];
+
+export interface ScriptDependency {
+  id: string;
+  fromScriptId: string;
+  module: string;
+  version: string;
+  locked: boolean;
+  latest: string;
+  status: "ok" | "missing" | "outdated" | "circular";
+  sizeKb: number;
+  license: string;
+  importedBy: string[];
+  purpose: string;
+}
+
+export const SCRIPT_DEPENDENCIES: ScriptDependency[] = [
+  { id: "sdp_01", fromScriptId: "scr_01", module: "state.js", version: "1.4.2", locked: true, latest: "1.4.2", status: "ok", sizeKb: 6, license: "DerivX SDK", importedBy: ["Martingale Core v7", "Vol75 Sniper Touch"], purpose: "Session-scoped key/value state between ticks." },
+  { id: "sdp_02", fromScriptId: "scr_01", module: "indicators.js", version: "2.4.0", locked: true, latest: "2.4.0", status: "ok", sizeKb: 42, license: "DerivX SDK", importedBy: ["Martingale Core v7", "London Breakout FX", "BTC Grid Fixed Stake", "GBP Mean Reversion", "ETH Momentum DCA", "Vol75 Sniper Touch"], purpose: "SMA, EMA, RSI, ATR, realised volatility and spread helpers." },
+  { id: "sdp_03", fromScriptId: "scr_02", module: "session_filter.js", version: "1.1.0", locked: true, latest: "1.1.0", status: "ok", sizeKb: 4, license: "DerivX SDK", importedBy: ["London Breakout FX", "Vol100 Night Martingale", "Silver Fade Swing"], purpose: "UTC session windows and news blackout checks." },
+  { id: "sdp_04", fromScriptId: "scr_03", module: "digit_stats.js", version: "1.0.7", locked: true, latest: "1.1.2", status: "outdated", sizeKb: 3, license: "DerivX SDK", importedBy: ["Digit Sniper (Differs)"], purpose: "Rolling last-digit distribution and skew." },
+  { id: "sdp_05", fromScriptId: "scr_05", module: "touch_levels.js", version: "0.9.4", locked: false, latest: "1.0.0", status: "outdated", sizeKb: 5, license: "MIT", importedBy: ["Gold Touch Ladder"], purpose: "Barrier ladders adapted to the current range." },
+  { id: "sdp_06", fromScriptId: "scr_06", module: "grid_tools.js", version: "2.0.1", locked: true, latest: "2.0.1", status: "ok", sizeKb: 8, license: "DerivX SDK", importedBy: ["BTC Grid Fixed Stake"], purpose: "Leg bookkeeping, spacing and mean reversion metrics." },
+  { id: "sdp_07", fromScriptId: "scr_07", module: "session_filter.js", version: "1.1.0", locked: false, latest: "1.1.0", status: "ok", sizeKb: 4, license: "DerivX SDK", importedBy: ["Vol100 Night Martingale"], purpose: "Night window guard used before the ladder scales." },
+  { id: "sdp_08", fromScriptId: "scr_07", module: "night_report.js", version: "0.4.0", locked: false, latest: "0.4.0", status: "circular", sizeKb: 7, license: "Internal", importedBy: ["Vol100 Night Martingale"], purpose: "Builds the morning report — imports the parent script back." },
+  { id: "sdp_09", fromScriptId: "scr_09", module: "vol_bands.js", version: "1.3.0", locked: true, latest: "1.3.0", status: "missing", sizeKb: 0, license: "—", importedBy: ["Silver Fade Swing"], purpose: "Bollinger-style bands and z-score — the module is not published in this workspace yet." },
+  { id: "sdp_10", fromScriptId: "scr_08", module: "risk.js", version: "3.0.1", locked: true, latest: "3.0.1", status: "ok", sizeKb: 9, license: "DerivX SDK", importedBy: ["GBP Mean Reversion", "Vol75 Sniper Touch"], purpose: "risk.assert(), daily caps and exposure helpers." },
+  { id: "sdp_11", fromScriptId: "scr_10", module: "indicators.js", version: "2.4.0", locked: false, latest: "2.4.0", status: "ok", sizeKb: 42, license: "DerivX SDK", importedBy: ["ETH Momentum DCA"], purpose: "EMA trend filter for the DCA ladder." },
+  { id: "sdp_12", fromScriptId: "scr_11", module: "carry_feed.js", version: "0.2.1", locked: false, latest: "0.6.0", status: "outdated", sizeKb: 11, license: "Internal", importedBy: ["USDJPY Carry Scalp"], purpose: "Overnight swap rates used by the carry filter." },
+];
+
+export interface ProfileFrame {
+  id: string;
+  scriptId: string;
+  fn: string;
+  line: number;
+  calls: number;
+  totalMs: number;
+  avgMs: number;
+  pct: number;
+  peakMemoryMb: number;
+  hot: boolean;
+}
+
+export const SCRIPT_PROFILE_FRAMES: ProfileFrame[] = [
+  { id: "spf_01", scriptId: "scr_01", fn: "onTick", line: 12, calls: 500, totalMs: 62.4, avgMs: 0.12, pct: 38.1, peakMemoryMb: 34, hot: false },
+  { id: "spf_02", scriptId: "scr_01", fn: "getHistory", line: 18, calls: 500, totalMs: 41.2, avgMs: 0.08, pct: 25.2, peakMemoryMb: 34, hot: false },
+  { id: "spf_03", scriptId: "scr_01", fn: "onResult", line: 33, calls: 41, totalMs: 18.9, avgMs: 0.46, pct: 11.6, peakMemoryMb: 33, hot: false },
+  { id: "spf_04", scriptId: "scr_07", fn: "buffer.push", line: 16, calls: 2130, totalMs: 1284.6, avgMs: 0.6, pct: 62.8, peakMemoryMb: 122, hot: true },
+  { id: "spf_05", scriptId: "scr_07", fn: "onTick", line: 12, calls: 2130, totalMs: 884.1, avgMs: 0.42, pct: 43.2, peakMemoryMb: 118, hot: true },
+  { id: "spf_06", scriptId: "scr_03", fn: "dist.pctOver", line: 24, calls: 400, totalMs: 188.4, avgMs: 0.47, pct: 51.4, peakMemoryMb: 58, hot: true },
+  { id: "spf_07", scriptId: "scr_02", fn: "onTick", line: 15, calls: 360, totalMs: 74.8, avgMs: 0.21, pct: 44.9, peakMemoryMb: 41, hot: false },
+  { id: "spf_08", scriptId: "scr_02", fn: "ind.range", line: 19, calls: 360, totalMs: 46.2, avgMs: 0.13, pct: 27.7, peakMemoryMb: 41, hot: false },
+  { id: "spf_09", scriptId: "scr_06", fn: "ind.atr", line: 21, calls: 520, totalMs: 122.9, avgMs: 0.24, pct: 33.8, peakMemoryMb: 44, hot: false },
+  { id: "spf_10", scriptId: "scr_11", fn: "while(true)", line: 31, calls: 1, totalMs: 100, avgMs: 100, pct: 99.4, peakMemoryMb: 22, hot: true },
+  { id: "spf_11", scriptId: "scr_08", fn: "ind.rsi", line: 16, calls: 440, totalMs: 96.3, avgMs: 0.22, pct: 41.6, peakMemoryMb: 31, hot: false },
+  { id: "spf_12", scriptId: "scr_12", fn: "ind.realisedVol", line: 16, calls: 300, totalMs: 58.7, avgMs: 0.2, pct: 35.2, peakMemoryMb: 38, hot: false },
+];
+
+export interface CommunityTemplate {
+  id: string;
+  name: string;
+  author: string;
+  authorTier: "verified" | "pro" | "community";
+  category: "trend following" | "mean reversion" | "scalping" | "hedging" | "digits";
+  symbol: string;
+  contractType: string;
+  rating: number;
+  stars: number;
+  forks: number;
+  lines: number;
+  license: string;
+  verified: boolean;
+  benchmark: { winRate: number; pnl: number; maxDrawdown: number; trades: number; period: string };
+  description: string;
+  code: string;
+}
+
+export const COMMUNITY_TEMPLATES: CommunityTemplate[] = [
+  { id: "ct_01", name: "Trend Rider EMA 9/21", author: "Mina Larasati", authorTier: "verified", category: "trend following", symbol: "R_50", contractType: "Rise/Fall", rating: 4.8, stars: 1284, forks: 412, lines: 46, license: "MIT", verified: true, benchmark: { winRate: 64.2, pnl: 184.6, maxDrawdown: 42.1, trades: 612, period: "30 days" }, description: "Rides the 9/21 EMA cross with an ATR stop and one contract at a time.", code: `const fast = ind.ema(tick.symbol, 9);
+const slow = ind.ema(tick.symbol, 21);
+if (!fast.ready || !slow.ready) return null;
+if (fast.value > slow.value && getOpenContracts().length === 0) {
+  return { contract: "CALL", stake: 2, duration: 10, durationUnit: "m" };
+}
+return null;` },
+  { id: "ct_02", name: "Asia Range Fade", author: "Kwame Boateng", authorTier: "pro", category: "mean reversion", symbol: "frxEURUSD", contractType: "Touch", rating: 4.5, stars: 812, forks: 205, lines: 58, license: "Apache-2.0", verified: true, benchmark: { winRate: 61.8, pnl: 142.3, maxDrawdown: 38.4, trades: 488, period: "30 days" }, description: "Fades the Asian range edges once London opens, with a touch barrier per leg.", code: `const range = ind.range("frxEURUSD", { hours: 6 });
+if (!range.ready) return null;
+if (tick.price >= range.high) return { contract: "TOUCH", stake: 10, duration: 4, durationUnit: "h" };
+if (tick.price <= range.low) return { contract: "NOTOUCH", stake: 10, duration: 4, durationUnit: "h" };
+return null;` },
+  { id: "ct_03", name: "Tick Scalper 1/1", author: "Ade Fashola", authorTier: "verified", category: "scalping", symbol: "1HZ10V", contractType: "Rise/Fall", rating: 4.1, stars: 604, forks: 318, lines: 32, license: "MIT", verified: true, benchmark: { winRate: 58.4, pnl: 96.2, maxDrawdown: 61.8, trades: 1840, period: "30 days" }, description: "One tick, fixed stake, no recovery — volume comes from tick frequency.", code: `if (getOpenContracts().length > 0) return null;
+return { contract: tick.price > tick.prevPrice ? "CALL" : "PUT", stake: 0.5, duration: 1, durationUnit: "t" };` },
+  { id: "ct_04", name: "Digit Bias Over 4", author: "Tobi Rotimi", authorTier: "community", category: "digits", symbol: "R_100", contractType: "Digits", rating: 3.9, stars: 388, forks: 141, lines: 41, license: "MIT", verified: false, benchmark: { winRate: 55.1, pnl: 68.4, maxDrawdown: 74.2, trades: 1210, period: "30 days" }, description: "Trades DIGITOVER 4 only when the rolling digit skew favours over.", code: `if (dist.pctOver(4) < 56) return null;
+return { contract: "DIGITOVER", stake: 1, duration: 1, durationUnit: "t", barrier: 4 };` },
+  { id: "ct_05", name: "Hedge Pair EUR/GBP", author: "Lena Sørensen", authorTier: "pro", category: "hedging", symbol: "frxGBPUSD", contractType: "Rise/Fall", rating: 4.3, stars: 522, forks: 164, lines: 74, license: "GPL-3.0", verified: true, benchmark: { winRate: 59.7, pnl: 118.9, maxDrawdown: 22.6, trades: 396, period: "30 days" }, description: "Holds opposite legs on correlated FX pairs so variance nets out.", code: `if (getOpenContracts().length >= 2) return null;
+const corr = ind.correlation("frxEURUSD", "frxGBPUSD", 60);
+if (corr.value > 0.8) return { contract: "CALL", stake: 15, duration: 30, durationUnit: "m" };
+return null;` },
+  { id: "ct_06", name: "Gold Vol Squeeze", author: "Ravi Sharma", authorTier: "community", category: "trend following", symbol: "frxXAUUSD", contractType: "Higher/Lower", rating: 4.0, stars: 296, forks: 88, lines: 52, license: "MIT", verified: false, benchmark: { winRate: 57.2, pnl: 104.1, maxDrawdown: 48.9, trades: 274, period: "30 days" }, description: "Breaks out once the ATR squeeze releases, with a barrier at the prior high.", code: `const squeeze = ind.atrPercentile("frxXAUUSD", 100);
+if (squeeze.value > 0.85) return { contract: "CALL", stake: 20, duration: 2, durationUnit: "h" };
+return null;` },
+  { id: "ct_07", name: "Night Ladder Capped", author: "Jozef Kowalski", authorTier: "pro", category: "mean reversion", symbol: "R_25", contractType: "Rise/Fall", rating: 4.4, stars: 448, forks: 172, lines: 63, license: "Apache-2.0", verified: true, benchmark: { winRate: 62.4, pnl: 132.7, maxDrawdown: 34.5, trades: 512, period: "30 days" }, description: "The recovery ladder every reviewer asks for — hard capped, cooldown included.", code: `const losses = getHistory(5).filter(function (r) { return !r.win; }).length;
+if (losses >= 3) return null;
+stake = getLastResult() && !getLastResult().win ? Math.min(stake * 1.8, 20) : 1;
+return { contract: "CALL", stake: stake, duration: 5, durationUnit: "t" };` },
+  { id: "ct_08", name: "Crypto Momentum 50x", author: "Nadia Rahman", authorTier: "community", category: "trend following", symbol: "cryBTCUSD", contractType: "Multiplier", rating: 3.6, stars: 204, forks: 62, lines: 44, license: "MIT", verified: false, benchmark: { winRate: 52.9, pnl: 76.5, maxDrawdown: 88.4, trades: 188, period: "30 days" }, description: "Multiplier entries on momentum with a tight trailing stop.", code: `const trend = ind.ema("cryBTCUSD", 50);
+if (!trend.ready || tick.price < trend.value) return null;
+return { contract: "MULTUP", stake: 5, duration: 1, durationUnit: "d" };` },
+  { id: "ct_09", name: "Silver Bands Fade", author: "Priya Nair", authorTier: "pro", category: "mean reversion", symbol: "frxXAGUSD", contractType: "Rise/Fall", rating: 4.2, stars: 361, forks: 118, lines: 49, license: "MIT", verified: true, benchmark: { winRate: 60.6, pnl: 112.4, maxDrawdown: 41.2, trades: 344, period: "30 days" }, description: "Fades 2.1σ excursions on silver with a stand-down after three losses.", code: `const z = bands.zScore("frxXAGUSD", { lookback: "4h" });
+if (!z.ready || Math.abs(z.value) < 2.1) return null;
+return { contract: z.value > 0 ? "PUT" : "CALL", stake: 6, duration: 4, durationUnit: "h" };` },
+  { id: "ct_10", name: "Touch Ladder Vol75", author: "Sam Okonkwo", authorTier: "community", category: "scalping", symbol: "R_75", contractType: "Touch", rating: 3.8, stars: 187, forks: 54, lines: 38, license: "MIT", verified: false, benchmark: { winRate: 54.3, pnl: 58.9, maxDrawdown: 57.6, trades: 268, period: "30 days" }, description: "Scales the touch barrier with realised volatility on Vol 75.", code: `const vol = ind.realisedVol("R_75", 20);
+if (!vol.ready) return null;
+return { contract: "TOUCH", stake: 2, duration: 5, durationUnit: "t", barrier: (tick.price + vol.value * 2).toFixed(3) };` },
+  { id: "ct_11", name: "Accumulator Steady 2%", author: "Mina Larasati", authorTier: "verified", category: "trend following", symbol: "1HZ10V", contractType: "Accumulator", rating: 4.6, stars: 706, forks: 244, lines: 36, license: "DerivX Sample", verified: true, benchmark: { winRate: 71.4, pnl: 96.8, maxDrawdown: 18.2, trades: 142, period: "30 days" }, description: "Rides accumulators at 2% growth, closing after four steps.", code: `if (step >= 4) { step = 0; return null; }
+step += 1;
+return { contract: "ACCU", stake: 3, duration: 1, durationUnit: "t" };` },
+  { id: "ct_12", name: "GBP Opening Fade", author: "Ade Fashola", authorTier: "verified", category: "scalping", symbol: "frxGBPUSD", contractType: "Rise/Fall", rating: 4.3, stars: 402, forks: 126, lines: 57, license: "Apache-2.0", verified: true, benchmark: { winRate: 58.9, pnl: 88.4, maxDrawdown: 44.7, trades: 306, period: "30 days" }, description: "Fades the first spike of the London open, one shot per session.", code: `if (fired) return null;
+if (ind.spike("frxGBPUSD", 5).pips > 12) { fired = true; return { contract: "PUT", stake: 12, duration: 15, durationUnit: "m" }; }
+return null;` },
+];
+
+export interface ScriptBranch {
+  id: string;
+  scriptId: string;
+  name: string;
+  author: string;
+  ahead: number;
+  behind: number;
+  commits: number;
+  status: "active" | "merged" | "stale" | "protected";
+  updatedMin: number;
+  ci: "passing" | "failing" | "pending";
+  note: string;
+}
+
+export const SCRIPT_BRANCHES: ScriptBranch[] = [
+  { id: "sb_01", scriptId: "scr_01", name: "main", author: "Ade F.", ahead: 0, behind: 0, commits: 42, status: "protected", updatedMin: 12, ci: "passing", note: "Protected — changes land through a pull request." },
+  { id: "sb_02", scriptId: "scr_01", name: "feature/cooldown-v2", author: "Mina L.", ahead: 3, behind: 1, commits: 5, status: "active", updatedMin: 220, ci: "passing", note: "Cooldown keyed on consecutive losses instead of a counter." },
+  { id: "sb_03", scriptId: "scr_07", name: "hotfix/night-shift", author: "Tobi R.", ahead: 2, behind: 4, commits: 6, status: "active", updatedMin: 3, ci: "failing", note: "Unclosed block at line 14 — cannot merge until the syntax error clears." },
+  { id: "sb_04", scriptId: "scr_07", name: "main", author: "Tobi R.", ahead: 0, behind: 0, commits: 61, status: "protected", updatedMin: 620, ci: "passing", note: "Last green build is v4.9 — rollback target." },
+  { id: "sb_05", scriptId: "scr_03", name: "digits-tuning", author: "Mina L.", ahead: 1, behind: 2, commits: 4, status: "active", updatedMin: 22, ci: "failing", note: "Barrier 5 experiment fails the digit skew test." },
+  { id: "sb_06", scriptId: "scr_03", name: "main", author: "Mina L.", ahead: 0, behind: 0, commits: 33, status: "protected", updatedMin: 2610, ci: "passing", note: "Stable barrier-4 build in production." },
+  { id: "sb_07", scriptId: "scr_06", name: "grid-v2", author: "Tobi R.", ahead: 2, behind: 0, commits: 9, status: "active", updatedMin: 410, ci: "passing", note: "ATR-spaced grid — ready to merge after a paper week." },
+  { id: "sb_08", scriptId: "scr_09", name: "mean-reversion", author: "Ade F.", ahead: 1, behind: 5, commits: 3, status: "stale", updatedMin: 5400, ci: "pending", note: "Waiting on the vol_bands.js module to be published." },
+  { id: "sb_09", scriptId: "scr_11", name: "carry-scalp", author: "Kwame B.", ahead: 2, behind: 2, commits: 4, status: "active", updatedMin: 940, ci: "failing", note: "Timeout and forbidden-API failures block the merge." },
+  { id: "sb_10", scriptId: "scr_12", name: "main", author: "Mina L.", ahead: 0, behind: 0, commits: 27, status: "protected", updatedMin: 31, ci: "passing", note: "Touch sniper in production on Vol 75." },
+];
+
+export interface AiCodePrompt {
+  id: string;
+  title: string;
+  prompt: string;
+  intent: "snippet" | "refactor" | "explain" | "test";
+  summary: string;
+  code: string;
+  confidence: number;
+  tokens: number;
+}
+
+export const AI_CODE_PROMPTS: AiCodePrompt[] = [
+  { id: "aip_01", title: "Add a spread filter", prompt: "Add a spread filter before arming the touch legs", intent: "snippet", summary: "Inserts a guard that skips ticks while the book is wider than 0.9 pips.", confidence: 0.93, tokens: 142, code: `if (ind.spread(tick.symbol) > 0.9) {
+  log("spread too wide — standing down");
+  return null;
+}` },
+  { id: "aip_02", title: "Cap the ladder", prompt: "Cap the martingale ladder at the configured max stake", intent: "refactor", summary: "Replaces the doubling line with a Math.min clamp against maxStake.", confidence: 0.97, tokens: 96, code: `stake = Math.min(stake * multiplier, maxStake);` },
+  { id: "aip_03", title: "Explain onTick", prompt: "Explain what this onTick function does", intent: "explain", summary: "Step-by-step narration of the ladder, the guards and the returned decision.", confidence: 0.9, tokens: 268, code: `/**
+ * onTick()
+ * 1. Reads the last settled contract to know whether the previous leg won.
+ * 2. Resets the stake to initStake after a win, otherwise scales by multiplier
+ *    but never beyond maxStake.
+ * 3. Refuses stale ticks (price <= 0).
+ * 4. Returns a 5-tick CALL sized at the current stake.
+ */` },
+  { id: "aip_04", title: "Write the test cases", prompt: "Write test cases for the cooldown rules", intent: "test", summary: "Adds four @test blocks covering losses, wins and the cooldown boundary.", confidence: 0.88, tokens: 214, code: `// @test { scenario: 'cooldown engages after 3 losses' }
+// @test { scenario: 'cooldown clears after the window elapses' }
+// @test { scenario: 'a win during cooldown does not re-arm the ladder' }
+// @test { scenario: 'cooldown counts only settled losses' }` },
+  { id: "aip_05", title: "Reduce memory pressure", prompt: "The script peaks at 127 MB — suggest a fix", intent: "refactor", summary: "Drops the unbounded tick buffer and keeps a rolling window of 200 ticks.", confidence: 0.92, tokens: 188, code: `const buffer = [];
+if (buffer.length >= 200) buffer.shift();
+buffer.push({ epoch: tick.epoch, price: tick.price, stake: stake });` },
+  { id: "aip_06", title: "Replace the infinite loop", prompt: "Replace while(true) with a bounded loop", intent: "refactor", summary: "Rewrites the polling loop over a fixed history window so the sandbox cannot time out.", confidence: 0.95, tokens: 132, code: `const rows = getHistory(50);
+for (let i = 0; i < rows.length; i += 1) {
+  dayPnl += rows[i].profit;
+}` },
+  { id: "aip_07", title: "Add a session window", prompt: "Only trade between 07:00 and 10:30 UTC", intent: "snippet", summary: "Guards onTick with the UTC hour before any proposal is built.", confidence: 0.91, tokens: 118, code: `const hour = new Date(tick.epoch * 1000).getUTCHours();
+if (hour < 7 || hour > 10) return null;` },
+  { id: "aip_08", title: "Add digit-2 guard", prompt: "Stop trading when the last digit repeats three times", intent: "snippet", summary: "Detects a three-in-a-row digit and stands down for five ticks.", confidence: 0.84, tokens: 156, code: `const tail = String(tick.price).slice(-1);
+if (tail === lastDigit) repeats += 1; else repeats = 0;
+lastDigit = tail;
+if (repeats >= 3) return null;` },
+];
+
+export interface ScriptEvent {
+  id: string;
+  scriptId: string;
+  atMin: number;
+  actor: string;
+  action: string;
+  detail: string;
+  level: "info" | "warn" | "error";
+  channel: "editor" | "sandbox" | "ci" | "version" | "ai";
+}
+
+export const SCRIPT_EVENTS: ScriptEvent[] = [
+  { id: "sev_01", scriptId: "scr_01", atMin: 12, actor: "Ade F.", action: "published v7.3", detail: "Ladder cap merged to main · 14 tests passed · CI green.", level: "info", channel: "version" },
+  { id: "sev_02", scriptId: "scr_07", atMin: 3, actor: "Tobi R.", action: "save blocked", detail: "Unexpected end of file — the block opened at line 14 is never closed.", level: "error", channel: "editor" },
+  { id: "sev_03", scriptId: "scr_07", atMin: 18, actor: "sandbox", action: "run aborted", detail: "Heap peaked at 127 MB of the 128 MB ceiling on run #1838.", level: "error", channel: "sandbox" },
+  { id: "sev_04", scriptId: "scr_11", atMin: 96, actor: "sandbox", action: "tick timeout", detail: "Execution exceeded 100 ms at line 31 — while(true) inside onTick().", level: "error", channel: "sandbox" },
+  { id: "sev_05", scriptId: "scr_11", atMin: 108, actor: "sandbox", action: "forbidden API", detail: "process.exit() is on the block list — save refused.", level: "error", channel: "editor" },
+  { id: "sev_06", scriptId: "scr_03", atMin: 22, actor: "CI", action: "test failed", detail: "digits-tuning: 'barrier 5 fires above a 55% skew' failed on the weekend tape.", level: "warn", channel: "ci" },
+  { id: "sev_07", scriptId: "scr_03", atMin: 26, actor: "Mina L.", action: "opened branch", detail: "digits-tuning branched from main at v2.8.", level: "info", channel: "version" },
+  { id: "sev_08", scriptId: "scr_09", atMin: 55, actor: "editor", action: "module missing", detail: "require(\"vol_bands.js\") — not published in this workspace.", level: "error", channel: "editor" },
+  { id: "sev_09", scriptId: "scr_12", atMin: 31, actor: "AI assistant", action: "suggestion accepted", detail: "Spread filter inserted above the barrier calculation.", level: "info", channel: "ai" },
+  { id: "sev_10", scriptId: "scr_05", atMin: 300, actor: "Kwame B.", action: "rolled back", detail: "v4.2 restored after the gold ladder breached the 4h range.", level: "warn", channel: "version" },
+  { id: "sev_11", scriptId: "scr_06", atMin: 410, actor: "CI", action: "tests green", detail: "10 tests passed in 1.6 s on grid-v2.", level: "info", channel: "ci" },
+  { id: "sev_12", scriptId: "scr_02", atMin: 64, actor: "Ade F.", action: "autosave", detail: "Session window widened — buffered locally after 2 s idle.", level: "info", channel: "editor" },
+  { id: "sev_13", scriptId: "scr_04", atMin: 140, actor: "sandbox", action: "profiled", detail: "onTick averages 0.18 ms over 300 ticks — well inside budget.", level: "info", channel: "sandbox" },
+  { id: "sev_14", scriptId: "scr_10", atMin: 620, actor: "Tobi R.", action: "forked template", detail: "Forked 'Crypto Momentum 50x' into ETH Momentum DCA.", level: "info", channel: "version" },
+];
+
+// -----------------------------------------------------------------------------
+// D-6 pure helpers — static analysis, sandbox simulation, diffing, graphs.
+// Everything runs on the main thread here; the blueprint's worker boundaries
+// (syntax highlighting, test run, diff) are marked where they would sit.
+// -----------------------------------------------------------------------------
+export interface ScriptParam {
+  key: string;
+  type: string;
+  value: string;
+  defaultValue: string;
+  description: string;
+  line: number;
+}
+
+export interface ScriptIssue {
+  id: string;
+  line: number;
+  column: number;
+  severity: "error" | "warning" | "info";
+  rule: "syntax" | "forbidden" | "module" | "lint" | "perf";
+  message: string;
+  suggestion: string;
+  snippet: string;
+  fixId?: string;
+}
+
+export interface DiffLine {
+  kind: DiffKind;
+  a: number | null;
+  b: number | null;
+  text: string;
+}
+
+export interface AnalysisResult {
+  issues: ScriptIssue[];
+  params: ScriptParam[];
+  imports: { module: string; locked: boolean; line: number; status: "ok" | "missing" | "outdated" | "circular" }[];
+  tests: { scenario: string; line: number }[];
+  stats: { lines: number; bytes: number; functions: number; comments: number; blanks: number; longest: number; params: number; tests: number };
+  blocked: boolean;
+}
+
+const SCRIPT_KEYWORDS = new Set([
+  "const", "let", "var", "function", "return", "if", "else", "for", "while", "do", "break", "continue",
+  "switch", "case", "default", "new", "typeof", "instanceof", "null", "undefined", "true", "false",
+  "in", "of", "try", "catch", "finally", "throw", "class", "extends", "async", "await", "delete", "void", "this",
+]);
+
+/** Token stream per line — the editor paints these instead of shipping Monaco. */
+export function tokenizeJs(code: string): { text: string; kind: CodeTokenKind }[][] {
+  let inBlock = false;
+  return code.split("\n").map((line) => {
+    const tokens: { text: string; kind: CodeTokenKind }[] = [];
+    let i = 0;
+    if (inBlock) {
+      const end = line.indexOf("*/");
+      if (end === -1) {
+        tokens.push({ text: line, kind: "comment" });
+        return tokens;
+      }
+      tokens.push({ text: line.slice(0, end + 2), kind: "comment" });
+      i = end + 2;
+      inBlock = false;
+    }
+    while (i < line.length) {
+      const rest = line.slice(i);
+      const ch = line[i];
+      if (ch === " " || ch === "\t") {
+        let j = i;
+        while (line[j] === " " || line[j] === "\t") j += 1;
+        tokens.push({ text: line.slice(i, j), kind: "plain" });
+        i = j;
+        continue;
+      }
+      if (rest.startsWith("//")) {
+        const marker = rest.startsWith("//ai") || rest.startsWith("// @test");
+        tokens.push({ text: rest, kind: marker ? "ai" : "comment" });
+        break;
+      }
+      if (rest.startsWith("/*")) {
+        const end = rest.indexOf("*/", 2);
+        if (end === -1) {
+          tokens.push({ text: rest, kind: "comment" });
+          inBlock = true;
+          break;
+        }
+        tokens.push({ text: rest.slice(0, end + 2), kind: "comment" });
+        i += end + 2;
+        continue;
+      }
+      const word = /^[A-Za-z_$][\w$]*/.exec(rest);
+      if (word) {
+        const isFn = /^\s*\(/.test(rest.slice(word[0].length));
+        tokens.push({ text: word[0], kind: SCRIPT_KEYWORDS.has(word[0]) ? "keyword" : isFn ? "fn" : "plain" });
+        i += word[0].length;
+        continue;
+      }
+      const num = /^\d[\d.]*/.exec(rest);
+      if (num) {
+        tokens.push({ text: num[0], kind: "number" });
+        i += num[0].length;
+        continue;
+      }
+      const str = /^"[^"]*"?|^'[^']*'?/.exec(rest);
+      if (str) {
+        tokens.push({ text: str[0], kind: "string" });
+        i += str[0].length;
+        continue;
+      }
+      tokens.push({ text: ch, kind: "punct" });
+      i += 1;
+    }
+    return tokens;
+  });
+}
+
+/** @param ... annotations become editable bot-config fields (engine v11+). */
+export function scriptParamsOf(code: string): ScriptParam[] {
+  const out: ScriptParam[] = [];
+  code.split("\n").forEach((line, idx) => {
+    const m = /@param\s*\{(\w+)\}\s*(\w+)\s*=\s*([^\s]+)\s*(.*)$/.exec(line);
+    if (!m) return;
+    out.push({
+      key: m[2],
+      type: m[1],
+      value: m[3],
+      defaultValue: m[3],
+      description: m[4].replace(/\*\/\s*$/, "").trim(),
+      line: idx + 1,
+    });
+  });
+  return out;
+}
+
+const FORBIDDEN_MATCHERS: Record<string, RegExp> = {
+  fa_01: /process\.exit\s*\(/,
+  fa_02: /require\(\s*["']fs["']\s*\)/,
+  fa_03: /\bfetch\s*\(/,
+  fa_04: /\bXMLHttpRequest\b/,
+  fa_05: /\beval\s*\(/,
+  fa_06: /new\s+Function\s*\(/,
+  fa_07: /\b(window|document)\b/,
+  fa_08: /\b(localStorage|sessionStorage)\b/,
+  fa_09: /\bsetInterval\s*\(/,
+  fa_10: /while\s*\(\s*true\s*\)|for\s*\(\s*;\s*;\s*\)/,
+  fa_11: /\bchild_process\b/,
+  fa_12: /\bWebSocket\b/,
+};
+
+function stripTokens(line: string): string {
+  if (/^\s*(\/\*|\*)/.test(line)) return "";
+  return line
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+    .replace(/\/\/.*$/, "");
+}
+
+/** Static analysis: syntax balance, forbidden APIs, module resolution, perf hints. */
+export function analyzeScript(scriptId: string, code: string): AnalysisResult {
+  const issues: ScriptIssue[] = [];
+  const lines = code.split("\n");
+  const stack: { ch: string; line: number }[] = [];
+  let firstNegLine = -1;
+
+  lines.forEach((raw, idx) => {
+    const line = stripTokens(raw);
+    for (let c = 0; c < line.length; c += 1) {
+      const ch = line[c];
+      if (ch === "{" || ch === "(" || ch === "[") stack.push({ ch, line: idx + 1 });
+      else if (ch === "}" || ch === ")" || ch === "]") {
+        const top = stack.pop();
+        if (!top && firstNegLine === -1) {
+          firstNegLine = idx + 1;
+          issues.push({
+            id: `iss_neg_${idx}`,
+            line: idx + 1,
+            column: c + 1,
+            severity: "error",
+            rule: "syntax",
+            message: `Unexpected token '${ch}' — nothing is open at this position.`,
+            suggestion: "Delete the extra brace or wrap the statements above it in a block.",
+            snippet: raw.trim(),
+          });
+        }
+      }
+    }
+  });
+
+  if (stack.length && firstNegLine === -1) {
+    const open = stack[stack.length - 1];
+    issues.push({
+      id: "iss_eof",
+      line: open.line,
+      column: 1,
+      severity: "error",
+      rule: "syntax",
+      message: `Unexpected end of file — the block opened at line ${open.line} is never closed.`,
+      suggestion: `Close the block with '}' before line ${Math.min(lines.length, open.line + 8)} and re-run the test suite.`,
+      snippet: (lines[open.line - 1] ?? "").trim(),
+    });
+  }
+
+  const imports: AnalysisResult["imports"] = [];
+  lines.forEach((raw, idx) => {
+    const m = /require\(\s*["']([^"']+)["']\s*\)/.exec(stripTokens(raw));
+    if (!m) return;
+    const dep = SCRIPT_DEPENDENCIES.find((d) => d.fromScriptId === scriptId && d.module === m[1]);
+    const status = dep ? dep.status : "missing";
+    imports.push({ module: m[1], locked: dep?.locked ?? false, line: idx + 1, status });
+    if (status === "missing") {
+      issues.push({
+        id: `iss_mod_${idx}`,
+        line: idx + 1,
+        column: raw.indexOf(m[1]) + 1,
+        severity: "error",
+        rule: "module",
+        message: `Module not found: '${m[1]}' is not published in this workspace.`,
+        suggestion: "Create a stub module with the exported helpers, or swap the import for an SDK module.",
+        snippet: raw.trim(),
+        fixId: `stub:${m[1]}`,
+      });
+    } else if (status === "circular") {
+      issues.push({
+        id: `iss_circ_${idx}`,
+        line: idx + 1,
+        column: raw.indexOf(m[1]) + 1,
+        severity: "error",
+        rule: "module",
+        message: `Circular import: '${m[1]}' imports this script back.`,
+        suggestion: "Extract the shared helper into a third module both scripts can import.",
+        snippet: raw.trim(),
+      });
+    } else if (status === "outdated" && !dep?.locked) {
+      issues.push({
+        id: `iss_out_${idx}`,
+        line: idx + 1,
+        column: 1,
+        severity: "warning",
+        rule: "module",
+        message: `'${m[1]}' is pinned to ${dep?.version} but ${dep?.latest} is available.`,
+        suggestion: `Lock the import to ${dep?.latest} in the dependency panel, then re-run the suite.`,
+        snippet: raw.trim(),
+      });
+    }
+  });
+
+  lines.forEach((raw, idx) => {
+    const bare = stripTokens(raw);
+    FORBIDDEN_APIS.forEach((f) => {
+      const matcher = FORBIDDEN_MATCHERS[f.id];
+      if (!matcher || !matcher.test(bare)) return;
+      issues.push({
+        id: `iss_forb_${f.id}_${idx}`,
+        line: idx + 1,
+        column: Math.max(1, raw.search(matcher)),
+        severity: f.severity === "block" ? "error" : "warning",
+        rule: "forbidden",
+        message: f.severity === "block" ? `${f.api} is not allowed in the sandbox.` : `${f.api} risks the 100 ms per-tick timeout.`,
+        suggestion: f.alternative,
+        snippet: raw.trim(),
+      });
+    });
+  });
+
+  if (/\.push\(/.test(code) && !/buffer\.length\s*[<>]=?/.test(code) && !/\.slice\(/.test(code)) {
+    issues.push({
+      id: "iss_perf_buf",
+      line: lines.findIndex((l) => /\.push\(/.test(l)) + 1,
+      column: 1,
+      severity: "warning",
+      rule: "perf",
+      message: "Unbounded array growth — the buffer is never trimmed.",
+      suggestion: "Cap the array (for example keep the last 200 rows) or the run aborts at the 128 MB ceiling.",
+      snippet: lines.find((l) => /\.push\(/.test(l))?.trim() ?? "",
+    });
+  }
+
+  const tests = lines
+    .map((l, idx) => ({ scenario: /@test\s*\{\s*scenario:\s*'([^']+)'/.exec(l)?.[1] ?? "", line: idx + 1 }))
+    .filter((t) => t.scenario);
+
+  return {
+    issues,
+    params: scriptParamsOf(code),
+    imports,
+    tests,
+    stats: {
+      lines: lines.length,
+      bytes: new TextEncoder().encode(code).length,
+      functions: (code.match(/\bfunction\s+\w+/g) ?? []).length,
+      comments: lines.filter((l) => /^\s*(\/\/|\/\*|\*)/.test(l)).length,
+      blanks: lines.filter((l) => l.trim() === "").length,
+      longest: lines.reduce((max, l) => Math.max(max, l.length), 0),
+      params: scriptParamsOf(code).length,
+      tests: tests.length,
+    },
+    blocked: issues.some((i) => i.severity === "error"),
+  };
+}
+
+export function scriptMetaOf(scriptId: string): ScriptEditorRow | undefined {
+  return SCRIPT_EDITOR_ROWS.find((r) => r.scriptId === scriptId);
+}
+
+export function scriptById(scriptId: string): Script | undefined {
+  return SCRIPTS.find((s) => s.id === scriptId);
+}
+
+export interface SandboxTrade {
+  seq: number;
+  atMin: number;
+  contract: string;
+  stake: number;
+  payout: number;
+  profit: number;
+  win: boolean;
+  entrySpot: number;
+  exitSpot: number;
+}
+
+export interface SandboxRun {
+  scriptId: string;
+  status: "ok" | "syntax" | "timeout" | "memory";
+  ticks: number;
+  trades: SandboxTrade[];
+  equity: number[];
+  logLines: string[];
+  memory: number[];
+  peakMemoryMb: number;
+  durationMs: number;
+  timeoutAtLine: number | null;
+  winRate: number;
+  pnl: number;
+  maxDrawdown: number;
+}
+
+/** Sandboxed test run — deterministic, seeded from the script id + version. */
+export function runScriptSandbox(scriptId: string, code: string, opts?: { seed?: number; ticks?: number; version?: string }): SandboxRun {
+  const analysis = analyzeScript(scriptId, code);
+  const script = scriptById(scriptId);
+  const meta = scriptMetaOf(scriptId);
+  const ticks = opts?.ticks ?? 500;
+  const rand = mulberry32(opts?.seed ?? seedFrom(`${scriptId}${opts?.version ?? meta?.version ?? "v1"}${code.length}`));
+  const params = analysis.params;
+  const numParam = (key: string, fallback: number) => Number(params.find((p) => p.key === key)?.value ?? fallback);
+  const initStake = numParam("initStake", 0.35);
+  const multiplier = numParam("multiplier", 2);
+  const maxStake = numParam("maxStake", 50);
+  const barrier = numParam("barrier", 5);
+  const symbol = script?.symbol ?? "R_10";
+  const price = MARKET_SYMBOLS.find((s) => s.code === symbol)?.basePrice ?? 1000;
+  const pip = MARKET_SYMBOLS.find((s) => s.code === symbol)?.pipSize ?? 2;
+  const payoutPct = MARKET_SYMBOLS.find((s) => s.code === symbol)?.payoutPct ?? 95;
+  const winRate = (script?.winRate ?? 60) / 100;
+  const infinite = /while\s*\(\s*true\s*\)|for\s*\(\s*;\s*;\s*\)/.exec(stripTokens(code));
+  const loopLine = infinite ? code.slice(0, infinite.index).split("\n").length : null;
+
+  if (analysis.blocked) {
+    return {
+      scriptId,
+      status: "syntax",
+      ticks: 0,
+      trades: [],
+      equity: [],
+      logLines: [`error  save blocked — ${analysis.issues.filter((i) => i.severity === "error").length} error(s)`, `error  first error at line ${analysis.issues[0]?.line ?? 1}: ${analysis.issues[0]?.message ?? ""}`],
+      memory: [12, 14, 13],
+      peakMemoryMb: 14,
+      durationMs: 100,
+      timeoutAtLine: null,
+      winRate: 0,
+      pnl: 0,
+      maxDrawdown: 0,
+    };
+  }
+
+  const execTicks = loopLine ? Math.min(41, ticks) : ticks;
+  const trades: SandboxTrade[] = [];
+  const equity: number[] = [0];
+  const memory: number[] = [];
+  const logLines: string[] = [];
+  let stake = initStake;
+  let streak = 0;
+  let pnl = 0;
+  let peak = 0;
+  let drawdown = 0;
+  let heap = 14;
+
+  logLines.push(`info   sandbox worker ready · ${symbol} · timeout 100 ms/tick`);
+  logLines.push(`info   params: ${params.map((p) => `${p.key}=${p.value}`).join(" · ")}`);
+
+  for (let i = 1; i <= execTicks; i += 1) {
+    heap = Math.min(meta?.peakMemoryMb ?? 40, heap + rand() * 1.4);
+    if (i % 50 === 0) memory.push(Math.round(heap));
+    const win = rand() < winRate;
+    const payout = Math.round(stake * (payoutPct / 100) * 100) / 100;
+    const profit = win ? payout : -stake;
+    const entry = Math.round((price * (1 + (rand() - 0.5) * 0.002)) * 10 ** pip) / 10 ** pip;
+    const exit = Math.round((entry * (1 + (rand() - 0.5) * 0.003)) * 10 ** pip) / 10 ** pip;
+    trades.push({ seq: trades.length + 1, atMin: trades.length * 7 + 3, contract: script?.symbol === "R_100" ? "DIGITOVER" : "RISE", stake: Number(stake.toFixed(2)), payout, profit, win, entrySpot: entry, exitSpot: exit });
+    pnl = Math.round((pnl + profit) * 100) / 100;
+    equity.push(pnl);
+    peak = Math.max(peak, pnl);
+    drawdown = Math.max(drawdown, peak - pnl);
+    streak = win ? 0 : streak + 1;
+    stake = win ? initStake : Math.min(stake * multiplier, maxStake);
+    if (i % 60 === 0) logLines.push(`info   tick ${i} · ${win ? "WIN" : "LOSS"} ${profit >= 0 ? "+" : ""}${profit.toFixed(2)} · equity ${pnl.toFixed(2)}`);
+    if (loopLine) break;
+  }
+
+  const status: SandboxRun["status"] = loopLine ? "timeout" : (meta?.peakMemoryMb ?? 0) >= 120 ? "memory" : "ok";
+  if (loopLine) logLines.push(`error  Timeout at line ${loopLine} — execution exceeded 100 ms in a single tick`);
+  if (status === "memory") logLines.push(`error  Heap peaked at ${meta?.peakMemoryMb} MB of the 128 MB ceiling — run aborted`);
+  logLines.push(`info   ${trades.length} contracts · win rate ${((trades.filter((t) => t.win).length / Math.max(1, trades.length)) * 100).toFixed(1)}% · ${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)} USD`);
+  logLines.push(`info   ${barrier} barrier ${script?.symbol === "R_100" ? "applied to DIGITOVER" : "not used by this contract"}`);
+
+  return {
+    scriptId,
+    status,
+    ticks: execTicks,
+    trades,
+    equity,
+    logLines,
+    memory: memory.length ? memory : [heap],
+    peakMemoryMb: loopLine ? meta?.peakMemoryMb ?? 40 : Math.round(heap),
+    durationMs: loopLine ? 100 : 200 + trades.length * 26,
+    timeoutAtLine: loopLine,
+    winRate: trades.length ? (trades.filter((t) => t.win).length / trades.length) * 100 : 0,
+    pnl,
+    maxDrawdown: Math.round(drawdown * 100) / 100,
+  };
+}
+
+/** Test-suite run: keeps the fixture's failures failing so the CI story stays honest. */
+export function runScriptSuite(scriptId: string, cases: ScriptTestCase[]): { rows: ScriptTestCase[]; passed: number; failed: number; ms: number } {
+  const rows = cases.filter((c) => c.scriptId === scriptId);
+  const passed = rows.filter((r) => r.status === "pass").length;
+  const failed = rows.filter((r) => r.status === "fail").length;
+  return { rows, passed, failed, ms: rows.reduce((sum, r) => sum + r.durationMs, 0) };
+}
+
+export function profileScript(scriptId: string): ProfileFrame[] {
+  const frames = SCRIPT_PROFILE_FRAMES.filter((f) => f.scriptId === scriptId);
+  return frames.length ? frames : SCRIPT_PROFILE_FRAMES.slice(0, 4);
+}
+
+/** Line diff (LCS) — the blueprint computes this in a worker; the shape is identical. */
+export function diffCode(before: string, after: string): DiffLine[] {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  const table: number[][] = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i -= 1) {
+    for (let j = b.length - 1; j >= 0; j -= 1) {
+      table[i][j] = a[i] === b[j] ? table[i + 1][j + 1] + 1 : Math.max(table[i + 1][j], table[i][j + 1]);
+    }
+  }
+  const out: DiffLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      out.push({ kind: "same", a: i + 1, b: j + 1, text: a[i] });
+      i += 1;
+      j += 1;
+    } else if (table[i + 1][j] >= table[i][j + 1]) {
+      out.push({ kind: "remove", a: i + 1, b: null, text: a[i] });
+      i += 1;
+    } else {
+      out.push({ kind: "add", a: null, b: j + 1, text: b[j] });
+      j += 1;
+    }
+  }
+  while (i < a.length) {
+    out.push({ kind: "remove", a: i + 1, b: null, text: a[i] });
+    i += 1;
+  }
+  while (j < b.length) {
+    out.push({ kind: "add", a: null, b: j + 1, text: b[j] });
+    j += 1;
+  }
+  return out;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  kind: "script" | "module" | "missing" | "circular";
+  x: number;
+  y: number;
+  status: string;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  label: string;
+  status: "ok" | "missing" | "outdated" | "circular";
+}
+
+/** Dependency graph in a 0–100 coordinate space so the page can draw it with CSS. */
+export function dependencyGraphOf(scriptId: string): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const deps = SCRIPT_DEPENDENCIES.filter((d) => d.fromScriptId === scriptId);
+  const script = scriptById(scriptId);
+  const nodes: GraphNode[] = [{ id: scriptId, label: script?.name ?? scriptId, kind: "script", x: 50, y: 18, status: "root" }];
+  const edges: GraphEdge[] = [];
+  deps.forEach((d, i) => {
+    const angle = (Math.PI * (i + 0.6)) / Math.max(1, deps.length + 0.4);
+    nodes.push({
+      id: d.id,
+      label: d.module,
+      kind: d.status === "missing" ? "missing" : d.status === "circular" ? "circular" : "module",
+      x: Math.round(50 + Math.cos(angle) * 34),
+      y: Math.round(74 - Math.sin(angle) * 12),
+      status: d.status,
+    });
+    edges.push({ from: scriptId, to: d.id, label: d.version, status: d.status });
+  });
+  return { nodes, edges };
+}
+
+/** Free engine slot lookup reused by the export/deploy copy. */
+export function freeEngineSlots(): EngineSlot[] {
+  return ENGINE_SLOTS.filter((s) => s.state === "free");
 }

@@ -170,7 +170,7 @@ if (result.authLog) {
   for (const f of result.authLog) console.log("   ", f);
 }
 if (result.dashLog) {
-  console.log(`\ndashboard walk (D-1…D-5):`);
+  console.log(`\ndashboard walk (D-1…D-6):`);
   for (const d of result.dashLog) console.log("   ", d);
 }
 if (result.labels) {
