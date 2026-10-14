@@ -15,9 +15,9 @@ import { HOW_STEPS, HowItWorksSection } from "./sections/HowItWorksSection";
 import { SocialProofSection } from "./sections/SocialProofSection";
 import { CtaSection } from "./sections/CtaSection";
 import { useToast } from "../ui/primitives";
+import { useNavigate } from "@tanstack/react-router";
 import {
   OAuthWizard,
-  SignInDialog,
   SignupWizard,
   AccountSwitcherDialog,
 } from "./modals/AccountModals";
@@ -43,12 +43,11 @@ import type { DemoTab, FeatureId, LandingController, LeaderboardTab, QueuedBot }
 
 export function LandingPage() {
   const toast = useToast();
+  const navigate = useNavigate();
 
   // ---- overlay state (single owner) ---------------------------------------
   const [oauthOpen, setOauthOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
-  const [signUpPreset, setSignUpPreset] = useState<string | undefined>(undefined);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourSlide, setTourSlide] = useState<string | undefined>(undefined);
   const [demoOpen, setDemoOpen] = useState(false);
@@ -88,7 +87,6 @@ export function LandingPage() {
   const [connections, setConnections] = useState<string[]>(
     DERIV_ACCOUNTS.filter((a) => a.connected).map((a) => a.loginId),
   );
-  const [signedInAs, setSignedInAs] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<string | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [copiedTrader, setCopiedTrader] = useState<string | null>(null);
@@ -103,10 +101,8 @@ export function LandingPage() {
   const c: LandingController = useMemo(
     () => ({
       openOAuth: () => setOauthOpen(true),
-      openSignIn: () => setSignInOpen(true),
-      openSignUp: (preset) => {
-        setSignUpPreset(preset);
-        setSignUpOpen(true);
+      openSignUp: () => {
+        void navigate({ to: "/auth/signup" });
       },
       openTour: (slideId) => {
         setTourSlide(slideId);
@@ -173,7 +169,7 @@ export function LandingPage() {
         document.querySelector(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
       },
     }),
-    [toast],
+    [toast, navigate],
   );
 
   const runStepAction = useCallback(
@@ -195,7 +191,6 @@ export function LandingPage() {
       </a>
 
       <MarketingNav
-        onSignIn={() => setSignInOpen(true)}
         onGetStarted={() => setOauthOpen(true)}
         onOpenCommunity={() => setCommunityOpen(true)}
         onOpenPricing={() => setPricingOpen(true)}
@@ -204,7 +199,6 @@ export function LandingPage() {
       <MarketingMobileMenu
         open={mobileNav}
         onClose={() => setMobileNav(false)}
-        onSignIn={() => setSignInOpen(true)}
         onGetStarted={() => setOauthOpen(true)}
         onOpenCommunity={() => setCommunityOpen(true)}
         onOpenPricing={() => setPricingOpen(true)}
@@ -216,7 +210,6 @@ export function LandingPage() {
             <span className="dx-pulse" /> {connections.length} connections
           </span>
           <span className="dx-chip dx-chip-muted font-display">active {activeLoginId}</span>
-          {signedInAs ? <span className="dx-chip dx-chip-info">session {signedInAs.split("@")[0]}</span> : null}
           {onboarded ? <span className="dx-chip dx-chip-up font-display">onboarded {onboarded}</span> : null}
           {lastOrder ? <span className="dx-chip dx-chip-up font-display">last order {lastOrder}</span> : null}
           {copiedTrader ? (
@@ -297,27 +290,9 @@ export function LandingPage() {
         }}
       />
 
-      <SignInDialog
-        open={signInOpen}
-        onClose={() => setSignInOpen(false)}
-        onSignedIn={(email, loginId) => {
-          setSignedInAs(email);
-          setActiveLoginId(loginId);
-        }}
-        onOpenSignUp={() => {
-          setSignInOpen(false);
-          setSignUpOpen(true);
-        }}
-        onOpenDashboardNotice={() => {
-          setSignInOpen(false);
-          c.openDemo("trade");
-        }}
-      />
-
       <SignupWizard
         open={signUpOpen}
         onClose={() => setSignUpOpen(false)}
-        initialPresetId={signUpPreset}
         onOpenOAuth={() => {
           setSignUpOpen(false);
           setOauthOpen(true);

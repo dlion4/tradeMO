@@ -13,9 +13,7 @@ export type DemoTab = "trade" | "bots" | "portfolio" | "analytics" | "social";
 export interface LandingController {
   /** Deriv OAuth2 simulation (5-step wizard) */
   openOAuth: () => void;
-  /** credential sign-in dialog (email + password + optional 2FA step) */
-  openSignIn: () => void;
-  /** 4-step onboarding wizard used by every "Get started" CTA */
+  /** navigates to the real A-1 route (/auth/signup) — every "Get started" CTA */
   openSignUp: (presetId?: string) => void;
   /** product tour dialog (5 slides, stepper) */
   openTour: (slideId?: string) => void;

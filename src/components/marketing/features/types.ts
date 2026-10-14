@@ -11,7 +11,7 @@ export type FeatureSectionId = "bot" | "scripts" | "social" | "automation" | "ma
 export interface FeaturesController {
   // account / conversion (reused H-1 overlays)
   openOAuth: () => void;
-  openSignIn: () => void;
+  /** navigates to the real A-1 route (/auth/signup) */
   openSignUp: (presetId?: string) => void;
   openTour: () => void;
   openDemo: (tab?: "trade" | "bots" | "portfolio" | "analytics" | "social") => void;

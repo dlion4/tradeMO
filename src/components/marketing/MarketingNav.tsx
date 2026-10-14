@@ -3,6 +3,8 @@
 // Nav gating rule: an entry renders as a <Link> ONLY when `ready: true`
 // (its route exists in routeTree.gen.ts). Not-ready entries fall back to a
 // real in-page action (anchor scroll or an overlay) — never a dead link.
+// Auth actions are REAL routes since the A-group shipped: "Log in" links to
+// /auth/signin and signup CTAs link to /auth/signup — never sign-in modals.
 // =============================================================================
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -33,7 +35,6 @@ export function MarketingNav({
   activeId = "home",
   badgeLabel = "H-1 Landing",
   anchorOverrides,
-  onSignIn,
   onGetStarted,
   onOpenCommunity,
   onOpenPricing,
@@ -43,7 +44,6 @@ export function MarketingNav({
   badgeLabel?: string;
   /** per-item in-page anchor overrides for pages whose section ids differ (e.g. H-2) */
   anchorOverrides?: Partial<Record<string, string>>;
-  onSignIn: () => void;
   onGetStarted: () => void;
   onOpenCommunity: () => void;
   onOpenPricing: () => void;
@@ -115,9 +115,9 @@ export function MarketingNav({
               <Sparkles size={12} /> {badgeLabel}
             </span>
             <ThemeToggle />
-            <button type="button" className="dx-btn dx-btn-sm dx-btn-ghost" onClick={onSignIn}>
+            <Link to="/auth/signin" className="dx-btn dx-btn-sm dx-btn-ghost">
               <LogIn size={14} /> Log in
-            </button>
+            </Link>
             <button type="button" className="dx-btn dx-btn-sm dx-btn-primary" onClick={onGetStarted}>
               Connect to Deriv
             </button>
@@ -142,7 +142,8 @@ export function MarketingNav({
                 { id: "n5", label: "Features deep dive — /features", onSelect: () => void navigate({ to: "/features" }) },
                 { id: "n6", label: "/pricing — H-3", hint: "locked", onSelect: onOpenPricing },
                 { type: "divider" },
-                { id: "n7", label: "Sign in to dashboard", onSelect: onSignIn },
+                { id: "n7", label: "Sign in — /auth/signin", onSelect: () => void navigate({ to: "/auth/signin" }) },
+                { id: "n8", label: "Create account — /auth/signup", onSelect: () => void navigate({ to: "/auth/signup" }) },
               ]}
             />
 
@@ -160,7 +161,6 @@ export function MarketingMobileMenu({
   open,
   onClose,
   anchorOverrides,
-  onSignIn,
   onGetStarted,
   onOpenCommunity,
   onOpenPricing,
@@ -168,7 +168,6 @@ export function MarketingMobileMenu({
   open: boolean;
   onClose: () => void;
   anchorOverrides?: Partial<Record<string, string>>;
-  onSignIn: () => void;
   onGetStarted: () => void;
   onOpenCommunity: () => void;
   onOpenPricing: () => void;
@@ -200,9 +199,12 @@ export function MarketingMobileMenu({
           ),
         )}
         <hr className="dx-hr my-1" />
-        <button type="button" className="dx-btn dx-btn-ghost" onClick={() => { onSignIn(); onClose(); }}>
+        <Link to="/auth/signin" className="dx-btn dx-btn-ghost" onClick={onClose}>
           Log in
-        </button>
+        </Link>
+        <Link to="/auth/signup" className="dx-btn dx-btn-ghost" onClick={onClose}>
+          Create free account
+        </Link>
         <button type="button" className="dx-btn dx-btn-primary" onClick={() => { onGetStarted(); onClose(); }}>
           Connect to Deriv
         </button>

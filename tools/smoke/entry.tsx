@@ -121,6 +121,15 @@ async function drive() {
   };
   const controls = ["Connect to Deriv", "Watch Demo", "Features", "Pricing", "Community", "How it works", "Skip the tour", "Get started"];
 
+  // Auth CTAs are real routes now (nav Log in → /auth/signin, Get started →
+  // /auth/signup): if a click left the landing page, walk back before driving on.
+  const backHomeIfAuth = async () => {
+    if (window.document.querySelector(".page-auth-signin, .page-auth-signup, .page-auth-2fa, .page-auth-forgot, .page-auth-reset, .page-auth-verify, .page-auth-callback")) {
+      await router.navigate({ to: "/" });
+      await wait(350);
+    }
+  };
+
   for (const label of controls) {
     click(label);
     await wait(150);
@@ -133,6 +142,12 @@ async function drive() {
       click("Home");
       await wait(300);
     }
+    if (label === "Get started") {
+      const onSignup = Boolean(window.document.querySelector(".page-auth-signup"));
+      dialogs.push(`Get started: navigated to /auth/signup = ${onSignup}`);
+      if (!onSignup) errors.push("NAV: Get started did not reach /auth/signup");
+    }
+    await backHomeIfAuth();
   }
 
   // deep drive: open the demo console and walk its tabs
@@ -177,7 +192,7 @@ async function drive() {
     "Help & FAQ",
     "About DerivX",
     "Changelog",
-    "Sitemap (39 pages)",
+    "Sitemap (36 pages)",
     "Open full leaderboard",
     "Full story",
     "Explore Bot Builder",
@@ -192,7 +207,10 @@ async function drive() {
     await wait(200);
     const panel = window.document.querySelector(".dx-dialog, .dx-drawer");
     if (!panel) {
-      fuzzLog.push(`${label}: no panel`);
+      // No panel may be correct: Log in / Get started are real route links now.
+      const onAuth = Boolean(window.document.querySelector(".page-auth-signin, .page-auth-signup"));
+      fuzzLog.push(`${label}: no panel${onAuth ? " (navigated to auth route)" : ""}`);
+      await backHomeIfAuth();
       continue;
     }
     const inner = Array.from(panel.querySelectorAll<HTMLElement>("button")).filter(
@@ -213,6 +231,8 @@ async function drive() {
     fuzzLog.push(`${label}: ${acted} controls driven, panel still open=${Boolean(window.document.querySelector(".dx-dialog, .dx-drawer"))}`);
     window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await wait(120);
+    // Inner controls can navigate too (e.g. sitemap "open" links) — walk back.
+    await backHomeIfAuth();
   }
 
   // ---- H-2 features phase: navigate to /features and open its signature overlays

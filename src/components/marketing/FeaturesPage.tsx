@@ -12,7 +12,7 @@
 // digest subscribe) — everything else lands in visible page state.
 // =============================================================================
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Play, Radio, Rocket } from "lucide-react";
 import { MarketingFooter } from "./MarketingFooter";
 import { MarketingMobileMenu, MarketingNav } from "./MarketingNav";
@@ -31,7 +31,7 @@ import {
   ScriptTemplateDrawer,
 } from "./features/FeaturesDialogs";
 import type { FeaturesController, FeatureSectionId } from "./features/types";
-import { OAuthWizard, SignInDialog, SignupWizard, AccountSwitcherDialog } from "./modals/AccountModals";
+import { OAuthWizard, SignupWizard, AccountSwitcherDialog } from "./modals/AccountModals";
 import { DemoConsoleDialog, TourDialog } from "./modals/DemoModals";
 import {
   AboutDialog, ApiDocsDialog, ChangelogDialog, CommunityDialog, ContactDialog,
@@ -59,12 +59,11 @@ const SECTION_TABS: { id: FeatureSectionId; label: string; anchor: string }[] = 
 
 export function FeaturesPage() {
   const toast = useToast();
+  const navigate = useNavigate();
 
   // ---- reused H-1 overlay state -------------------------------------------
   const [oauthOpen, setOauthOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
-  const [signUpPreset, setSignUpPreset] = useState<string | undefined>(undefined);
   const [tourOpen, setTourOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoTab, setDemoTab] = useState<DemoTab>("trade");
@@ -113,7 +112,6 @@ export function FeaturesPage() {
   const [tickerSet, setTickerSet] = useState<"majors" | "synthetics" | "crypto">("majors");
   const [activeLoginId, setActiveLoginId] = useState(DERIV_ACCOUNTS[1].loginId);
   const [connections, setConnections] = useState<string[]>(DERIV_ACCOUNTS.filter((a) => a.connected).map((a) => a.loginId));
-  const [signedInAs, setSignedInAs] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<string | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [copied, setCopied] = useState<{ id: string; ratio: number; cap: number } | null>(null);
@@ -143,8 +141,7 @@ export function FeaturesPage() {
   const c: FeaturesController = useMemo(
     () => ({
       openOAuth: () => setOauthOpen(true),
-      openSignIn: () => setSignInOpen(true),
-      openSignUp: (preset) => { setSignUpPreset(preset); setSignUpOpen(true); },
+      openSignUp: () => { void navigate({ to: "/auth/signup" }); },
       openTour: () => setTourOpen(true),
       openDemo: (tab) => { setDemoTab(tab ?? "trade"); setDemoOpen(true); },
       openPricing: (planId) => { setPricingPlanId(planId); setPricingOpen(true); },
@@ -185,7 +182,6 @@ export function FeaturesPage() {
         activeId="features"
         badgeLabel="H-2 Features"
         anchorOverrides={{ markets: "#features-markets", how: "#features-bot" }}
-        onSignIn={() => setSignInOpen(true)}
         onGetStarted={() => setOauthOpen(true)}
         onOpenCommunity={() => c.openCommunity()}
         onOpenPricing={() => c.openPricing()}
@@ -195,7 +191,6 @@ export function FeaturesPage() {
         open={mobileNav}
         onClose={() => setMobileNav(false)}
         anchorOverrides={{ markets: "#features-markets", how: "#features-bot" }}
-        onSignIn={() => setSignInOpen(true)}
         onGetStarted={() => setOauthOpen(true)}
         onOpenCommunity={() => c.openCommunity()}
         onOpenPricing={() => c.openPricing()}
@@ -206,7 +201,6 @@ export function FeaturesPage() {
         <div className="container d-flex flex-wrap align-items-center gap-2">
           <span className="dx-chip dx-chip-accent"><span className="dx-pulse" /> {connections.length} Deriv connections</span>
           <span className="dx-chip dx-chip-muted font-display">active {activeLoginId}</span>
-          {signedInAs ? <span className="dx-chip dx-chip-info">session {signedInAs.split("@")[0]}</span> : null}
           {onboarded ? <span className="dx-chip dx-chip-up font-display">onboarded {onboarded}</span> : null}
           {lastOrder ? <span className="dx-chip dx-chip-up font-display">last order {lastOrder}</span> : null}
           {copiedTrader && copied ? (
@@ -502,18 +496,9 @@ export function FeaturesPage() {
         onOpenDemo={() => { setOauthOpen(false); c.openDemo("trade"); }}
       />
 
-      <SignInDialog
-        open={signInOpen}
-        onClose={() => setSignInOpen(false)}
-        onSignedIn={(email, loginId) => { setSignedInAs(email); setActiveLoginId(loginId); }}
-        onOpenSignUp={() => { setSignInOpen(false); setSignUpOpen(true); }}
-        onOpenDashboardNotice={() => { setSignInOpen(false); c.openDemo("trade"); }}
-      />
-
       <SignupWizard
         open={signUpOpen}
         onClose={() => setSignUpOpen(false)}
-        initialPresetId={signUpPreset}
         onOpenOAuth={() => { setSignUpOpen(false); setOauthOpen(true); }}
         onOpenDemo={() => { setSignUpOpen(false); c.openDemo("trade"); }}
         onOpenPresets={() => { setSignUpOpen(false); c.openPresets(); }}
