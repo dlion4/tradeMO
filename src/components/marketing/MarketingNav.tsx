@@ -3,9 +3,11 @@
 // Nav gating rule: an entry renders as a <Link> ONLY when `ready: true`
 // (its route exists in routeTree.gen.ts). Not-ready entries fall back to a
 // real in-page action (anchor scroll or an overlay) — never a dead link.
+// Auth actions are REAL routes since the A-group shipped: "Log in" links to
+// /auth/signin and signup CTAs link to /auth/signup — never sign-in modals.
 // =============================================================================
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, LayoutGrid, LogIn, Menu, Sparkles } from "lucide-react";
 import { Dropdown, ThemeToggle } from "../ui/primitives";
 
@@ -22,7 +24,7 @@ export interface MarketingNavItem {
 
 export const MARKETING_NAV: MarketingNavItem[] = [
   { id: "home", label: "Home", to: "/", ready: true },
-  { id: "features", label: "Features", anchor: "#features", ready: false, hint: "H-2 deep dive" },
+  { id: "features", label: "Features", to: "/features", ready: true },
   { id: "markets", label: "Markets", anchor: "#markets", ready: false, hint: "Live coverage" },
   { id: "pricing", label: "Pricing", anchor: "#pricing", ready: false, hint: "H-3 plans" },
   { id: "community", label: "Community", anchor: "#community", ready: false, hint: "Leaderboard + feed" },
@@ -31,19 +33,23 @@ export const MARKETING_NAV: MarketingNavItem[] = [
 
 export function MarketingNav({
   activeId = "home",
-  onSignIn,
+  badgeLabel = "H-1 Landing",
+  anchorOverrides,
   onGetStarted,
   onOpenCommunity,
   onOpenPricing,
   onOpenMobile,
 }: {
   activeId?: string;
-  onSignIn: () => void;
+  badgeLabel?: string;
+  /** per-item in-page anchor overrides for pages whose section ids differ (e.g. H-2) */
+  anchorOverrides?: Partial<Record<string, string>>;
   onGetStarted: () => void;
   onOpenCommunity: () => void;
   onOpenPricing: () => void;
   onOpenMobile: () => void;
 }) {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -94,7 +100,7 @@ export function MarketingNav({
                   onClick={() => {
                     if (item.id === "community") onOpenCommunity();
                     else if (item.id === "pricing") onOpenPricing();
-                    else if (item.anchor) scrollTo(item.anchor);
+                    else if (item.anchor) scrollTo(anchorOverrides?.[item.id] ?? item.anchor);
                   }}
                   title={item.hint}
                 >
@@ -106,12 +112,12 @@ export function MarketingNav({
 
           <div className="dx-nav-actions">
             <span className="dx-shell-badge d-none d-xl-inline-flex">
-              <Sparkles size={12} /> H-1 Landing
+              <Sparkles size={12} /> {badgeLabel}
             </span>
             <ThemeToggle />
-            <button type="button" className="dx-btn dx-btn-sm dx-btn-ghost" onClick={onSignIn}>
+            <Link to="/auth/signin" className="dx-btn dx-btn-sm dx-btn-ghost">
               <LogIn size={14} /> Log in
-            </button>
+            </Link>
             <button type="button" className="dx-btn dx-btn-sm dx-btn-primary" onClick={onGetStarted}>
               Connect to Deriv
             </button>
@@ -132,11 +138,12 @@ export function MarketingNav({
                 { id: "n3", label: "How it works", onSelect: () => scrollTo("#how-it-works") },
                 { id: "n4", label: "Community channels", onSelect: onOpenCommunity },
                 { type: "divider" },
-                { type: "label", label: "Not built yet (gated)" },
-                { id: "n5", label: "/features — H-2", hint: "locked", onSelect: onOpenPricing },
+                { type: "label", label: "Pages" },
+                { id: "n5", label: "Features deep dive — /features", onSelect: () => void navigate({ to: "/features" }) },
                 { id: "n6", label: "/pricing — H-3", hint: "locked", onSelect: onOpenPricing },
                 { type: "divider" },
-                { id: "n7", label: "Sign in to dashboard", onSelect: onSignIn },
+                { id: "n7", label: "Sign in — /auth/signin", onSelect: () => void navigate({ to: "/auth/signin" }) },
+                { id: "n8", label: "Create account — /auth/signup", onSelect: () => void navigate({ to: "/auth/signup" }) },
               ]}
             />
 
@@ -153,14 +160,14 @@ export function MarketingNav({
 export function MarketingMobileMenu({
   open,
   onClose,
-  onSignIn,
+  anchorOverrides,
   onGetStarted,
   onOpenCommunity,
   onOpenPricing,
 }: {
   open: boolean;
   onClose: () => void;
-  onSignIn: () => void;
+  anchorOverrides?: Partial<Record<string, string>>;
   onGetStarted: () => void;
   onOpenCommunity: () => void;
   onOpenPricing: () => void;
@@ -182,7 +189,7 @@ export function MarketingMobileMenu({
               onClick={() => {
                 if (item.id === "community") onOpenCommunity();
                 else if (item.id === "pricing") onOpenPricing();
-                else if (item.anchor) document.querySelector(item.anchor)?.scrollIntoView({ behavior: "smooth" });
+                else if (item.anchor) document.querySelector(anchorOverrides?.[item.id] ?? item.anchor)?.scrollIntoView({ behavior: "smooth" });
                 onClose();
               }}
             >
@@ -192,9 +199,12 @@ export function MarketingMobileMenu({
           ),
         )}
         <hr className="dx-hr my-1" />
-        <button type="button" className="dx-btn dx-btn-ghost" onClick={() => { onSignIn(); onClose(); }}>
+        <Link to="/auth/signin" className="dx-btn dx-btn-ghost" onClick={onClose}>
           Log in
-        </button>
+        </Link>
+        <Link to="/auth/signup" className="dx-btn dx-btn-ghost" onClick={onClose}>
+          Create free account
+        </Link>
         <button type="button" className="dx-btn dx-btn-primary" onClick={() => { onGetStarted(); onClose(); }}>
           Connect to Deriv
         </button>

@@ -1,0 +1,54 @@
+// =============================================================================
+// src/styles/pages/auth-signup.scss — A-1 ONLY (.page-auth-signup)
+// Imported exclusively by src/routes/auth/signup.tsx so it code-splits with
+// the signup route chunk. Tokens only, no new colors/fonts.
+// Documented in docs/MASTER_THEME.md §13.
+// =============================================================================
+@use "../tokens";
+
+.page-auth-signup {
+  // ---- terminal/log tape reused by drawers on this page ---------------------
+  .dx-terminal-line {
+    font-size: 0.74rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    animation: dx-auth-tape-in 260ms var(--dx-ease);
+
+    & + & {
+      margin-top: 2px;
+    }
+  }
+
+  @keyframes dx-auth-tape-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+  }
+
+  // ---- live rows in the brand panel -----------------------------------------
+  .dx-list-row {
+    transition: border-color var(--dx-t-fast) var(--dx-ease), background var(--dx-t-fast) var(--dx-ease);
+
+    &:hover {
+      background: var(--dx-surface-2);
+    }
+  }
+
+  .dx-table tbody tr td:first-child {
+    border-left: 2px solid transparent;
+  }
+
+  .dx-table tbody tr:hover td:first-child {
+    border-left-color: var(--dx-accent);
+  }
+
+  @media (max-width: 575.98px) {
+    .dx-dialog-head,
+    .dx-dialog-body,
+    .dx-dialog-foot {
+      padding: 14px;
+    }
+  }
+}

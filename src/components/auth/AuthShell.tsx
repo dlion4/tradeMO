@@ -1,11 +1,22 @@
 // =============================================================================
 // AuthShell.tsx — the A-group shell (A-1 … A-7). Split panel: brand story +
-// form slot. Scaffolding for the auth group; H-1 does not mount this shell.
+// form slot. Built out on A-1 (the first A-group page); later auth pages mount
+// inside it unchanged. The shell owns only chrome — every control a page adds
+// inside the slots must resolve to a real route or a real overlay (pages wire
+// those handlers; the shell never invents navigation).
 // =============================================================================
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ShieldCheck, Zap } from "lucide-react";
-import { Chip } from "../ui/primitives";
+import { Chip, ThemeToggle } from "../ui/primitives";
+
+/** The auth journey every A-page belongs to (A-1 signup is step 1). */
+export const AUTH_JOURNEY = [
+  { id: "signup", label: "Create account", hint: "A-1 · this page" },
+  { id: "verify", label: "Verify email", hint: "A-6 · in-page step" },
+  { id: "deriv", label: "Link Deriv (OAuth2)", hint: "A-3 · after signup" },
+  { id: "trade", label: "First contract", hint: "Demo console" },
+] as const;
 
 export function AuthShell({
   title,
@@ -13,12 +24,22 @@ export function AuthShell({
   children,
   footer,
   side = "signup",
+  extras,
+  journeyStep = 0,
+  stepLabel,
 }: {
   title: string;
   subtitle: string;
   children: ReactNode;
   footer?: ReactNode;
   side?: "signup" | "signin" | "2fa" | "reset";
+  /** page-specific panel under the trust bullets (live widgets, quotes…) */
+  extras?: ReactNode;
+  /** index into AUTH_JOURNEY shown as the shell progress hint */
+  journeyStep?: number;
+  /** overrides the journey chip for pages outside the signup journey
+   *  (sign-in, password recovery, 2FA challenge) */
+  stepLabel?: string;
 }) {
   const bullets =
     side === "signin"
@@ -28,7 +49,18 @@ export function AuthShell({
   return (
     <div className="dx-auth-shell">
       <div className="container">
-        <div className="row g-4 justify-content-center align-items-center">
+        <div className="d-flex align-items-center justify-content-between gap-3 mb-4">
+          <span className="dx-chip dx-chip-muted">
+            {stepLabel ?? `Step ${journeyStep + 1} of ${AUTH_JOURNEY.length} · ${AUTH_JOURNEY[journeyStep]?.label}`}
+          </span>
+          <span className="d-inline-flex align-items-center gap-2">
+            <Link to="/" className="dx-btn dx-btn-sm dx-btn-ghost">Landing</Link>
+            <Link to="/features" className="dx-btn dx-btn-sm dx-btn-ghost">Features</Link>
+            <ThemeToggle />
+          </span>
+        </div>
+
+        <div className="row g-4 justify-content-center align-items-start">
           <div className="col-12 col-lg-5">
             <Link to="/" className="dx-brand mb-4">
               <span className="dx-brand-mark">DX</span>
@@ -46,12 +78,14 @@ export function AuthShell({
                 </li>
               ))}
             </ul>
-            <div className="d-flex gap-2 mt-4">
+            <div className="d-flex flex-wrap gap-2 mt-4">
               <Chip tone="up">
                 <ShieldCheck size={12} /> 256-bit encryption
               </Chip>
               <Chip tone="muted">Deriv OAuth2</Chip>
+              <Chip tone="info">Front-end build · mock data</Chip>
             </div>
+            {extras ? <div className="mt-4">{extras}</div> : null}
           </div>
           <div className="col-12 col-lg-6">
             <div className="dx-card dx-card-pad">

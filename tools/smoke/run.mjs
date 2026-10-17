@@ -18,6 +18,28 @@ const MODULES = [
   "/src/router.tsx",
   "/src/components/marketing/LandingPage.tsx",
   "/src/styles/pages/home.scss",
+  "/src/routes/features.tsx",
+  "/src/components/marketing/FeaturesPage.tsx",
+  "/src/styles/pages/features.scss",
+  "/src/routes/auth/signup.tsx",
+  "/src/components/auth/SignupPage.tsx",
+  "/src/components/auth/SignupDialogs.tsx",
+  "/src/components/auth/AuthShell.tsx",
+  "/src/styles/pages/auth-signup.scss",
+  "/src/routes/auth/signin.tsx",
+  "/src/components/auth/SigninPage.tsx",
+  "/src/routes/auth/deriv/callback.tsx",
+  "/src/components/auth/DerivCallbackPage.tsx",
+  "/src/styles/pages/auth-callback.scss",
+  "/src/routes/auth/forgot-password.tsx",
+  "/src/components/auth/ForgotPasswordPage.tsx",
+  "/src/routes/auth/reset-password.tsx",
+  "/src/components/auth/ResetPasswordPage.tsx",
+  "/src/routes/auth/verify-email.tsx",
+  "/src/components/auth/VerifyEmailPage.tsx",
+  "/src/routes/auth/2fa.tsx",
+  "/src/components/auth/TwoFactorPage.tsx",
+  "/src/components/auth/AuthDialogs.tsx",
 ];
 const moduleFailures = [];
 for (const id of MODULES) {
@@ -134,6 +156,22 @@ for (const d of result.dialogs) console.log("   ", d);
 if (result.fuzzLog) {
   console.log(`\nfuzz walk (${result.fuzzLog.length} overlays):`);
   for (const f of result.fuzzLog) console.log("   ", f);
+}
+if (result.featuresLog) {
+  console.log(`\nfeatures walk (H-2 /features):`);
+  for (const f of result.featuresLog) console.log("   ", f);
+}
+if (result.signupLog) {
+  console.log(`\nsignup walk (A-1 /auth/signup):`);
+  for (const f of result.signupLog) console.log("   ", f);
+}
+if (result.authLog) {
+  console.log(`\nauth walk (A-2…A-7):`);
+  for (const f of result.authLog) console.log("   ", f);
+}
+if (result.dashLog) {
+  console.log(`\ndashboard walk (D-1…D-6):`);
+  for (const d of result.dashLog) console.log("   ", d);
 }
 if (result.labels) {
   console.log(`\ncontrol labels (${result.labels.length}):`);
