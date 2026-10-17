@@ -1,3 +1,6 @@
+Here's the complete document — copy everything below and save as `derivx-dashboard-outline.md`:
+
+```markdown
 # DerivX — Advanced Application Outline
 
 ## Trading Platform Connected to Deriv API Endpoints
@@ -10,25 +13,23 @@
 
 ```
 1.  PROJECT OVERVIEW & ARCHITECTURE
-    (1.4 = UI/STYLING & MOTION SYSTEM: Bootstrap 5.3 + TanStack + page-scoped CSS)
 2.  DERIV API INTEGRATION MAP
 3.  HOME PAGES (3)
-4.  AUTH PAGES (7)
-5.  DASHBOARD PAGES (14 — each page has 8 sections: 3 base + 5 advanced)
-6.  SHARED COMPONENTS
-7.  STATE MANAGEMENT
-8.  DATABASE SCHEMA
-9.  AUTOMATION & BOT ENGINE
-10. SCRIPT ENGINE
-11. SOCIAL / USER MONITORING
-12. DEPLOYMENT & ENVIRONMENT
-
-COMPANION FILE: investorMO.md
-  - Investor / Crowdfunding Admin Module (12 pages)
-  - Covers: pool trade plans, schedules, funds / paid-in finances,
-    investors, payouts, analytics, documents, communications, settings
-  - Admin-side first (mock data, no backend integration required)
-  - See "INVESTOR MODULE PAGES" in COMPLETE PAGE INDEX below
+4.  AUTH PAGES (8)
+5.  OPERATOR DASHBOARD PAGES (15)
+6.  INVESTOR DASHBOARD PAGES (12)
+7.  SHARED COMPONENTS
+8.  STATE MANAGEMENT
+9.  DATABASE SCHEMA
+10. AUTOMATION & BOT ENGINE
+11. SCRIPT ENGINE
+12. CROWDFUNDING POOL DATA MODEL
+13. LIVE TRADE TRACKER ENGINE
+14. WALLET & FINANCE ENGINE
+15. PROFIT CALCULATION ENGINE
+16. DEPLOYMENT & ENVIRONMENT
+17. COMPLETE PAGE INDEX
+18. IMPLEMENTATION PHASES
 ```
 
 ---
@@ -39,29 +40,22 @@ COMPANION FILE: investorMO.md
 
 ```
 FRONTEND:
-  Framework:       TanStack Start (React 19) — SSR + SPA rendering modes
-  Routing:         TanStack Router — type-safe, file-based, route-level
-                   code-splitting (each page ships as its own chunk)
-  UI Library:      Bootstrap 5.3.x (latest) + Bootstrap Icons
-  Custom CSS:      Per-page scoped stylesheets — each page loads its OWN
-                   stylesheet (bundled with that route's chunk, injected on
-                   route enter, removed on leave) so page-specific styles are
-                   NEVER shared with or leaked to other pages
-  State:           Zustand (client) + TanStack Query (server)
+  Framework:       Next.js 14 (App Router)
+  UI Library:      Bootstrap 5.3.x + Bootstrap Icons
+  Custom CSS:      Per-page scoped stylesheets
+  State:           Zustand (client) + React Query (server)
   Charts:          Lightweight Charts (TradingView) + Recharts
   Realtime:        WebSocket (Deriv API) + Socket.IO (internal)
   Forms:           React Hook Form + Zod
   Code Editor:     Monaco Editor (script editing)
-  Animation:       CSS keyframes + Animate.css (entrance/stagger) + GSAP
-                   (hero + scroll effects on landing/features/pricing)
-  Animated Icons:  Animated SVG + Lottie icons (pulse dots, spinners, ticker
-                   arrow flips) + Bootstrap Icons animated via CSS utilities
+  Animation:       Framer Motion + CSS keyframes + Animate.css
+  Tables:          TanStack Table (sortable/filterable/paginated)
 
 BACKEND:
-  Runtime:         Node.js + Express (or TanStack Start server functions)
+  Runtime:         Node.js + Express
   Database:        PostgreSQL (Prisma ORM)
   Cache:           Redis (sessions, rate limits, pub/sub)
-  Auth:            Auth.js (credentials) + Deriv OAuth2
+  Auth:            NextAuth.js (credentials) + Deriv OAuth2
   Queue:           BullMQ (bot jobs, trade execution)
   WebSocket:       ws (Deriv WebSocket API)
   Scripts:         VM2 / isolated-vm (sandboxed strategy scripts)
@@ -78,24 +72,24 @@ INFRASTRUCTURE:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CLIENT (TanStack)                     │
+│                    CLIENT (Next.js)                      │
 │  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────────┐  │
-│  │ Home │  │ Auth │  │Dash  │  │ Bots │  │ Scripts  │  │
+│  │ Home │  │ Auth │  │Oper  │  │Invst │  │ Scripts  │  │
 │  └──────┘  └──────┘  └──────┘  └──────┘  └──────────┘  │
 └──────────────────────┬──────────────────────────────────┘
                        │ HTTPS / WSS
 ┌──────────────────────▼──────────────────────────────────┐
 │                  API GATEWAY (Express)                   │
 │  ┌────────────┐  ┌─────────────┐  ┌──────────────────┐ │
-│  │ Auth Routes│  │ Trade Routes│  │ Bot Job Routes   │ │
+│  │ Auth Routes│  │ Trade Routes│  │ Pool/Pkg Routes  │ │
 │  └────────────┘  └─────────────┘  └──────────────────┘ │
 └────┬───────────────┬────────────────┬──────────────────┘
      │               │                │
 ┌────▼────┐  ┌───────▼───────┐  ┌────▼─────────────────┐
 │PostgreSQL│  │Deriv WebSocket│  │  BullMQ + Bot Engine │
 │(Users,  │  │API (trades,   │  │  (strategy runner,   │
-│ Bots,   │  │ ticks, auth)  │  │   trade executor)    │
-│ Scripts)│  │               │  │                      │
+│ Pools,  │  │ ticks, auth)  │  │   trade executor)    │
+│ Pkgs)   │  │               │  │                      │
 └─────────┘  └───────┬───────┘  └──────────┬───────────┘
                      │                      │
               ┌──────▼──────────────────────▼──┐
@@ -105,87 +99,44 @@ INFRASTRUCTURE:
               └─────────────────────────────────┘
 ```
 
-### 1.3 Deriv API Connection Pattern (BMX-Style)
+### 1.3 Key Architecture Principle
 
 ```
-BMX BOT FLOW (app.bmxbot.com):
-1. User clicks "Connect to Deriv"
-2. Redirected to Deriv OAuth authorization page
-3. User logs into Deriv and authorizes the app
-4. Deriv redirects back with authorization code
-5. Backend exchanges code for access token
-6. Token stored securely (encrypted in DB)
-7. WebSocket connection opened to Deriv API using token
-8. All subsequent API calls use this authenticated WebSocket
+OPERATOR MODEL:
+  I (operator) → connect MY Deriv account → run MY bots
+  Investors → join packages → their funds pooled into my capital
+  I trade the pooled capital → profits distributed per package plan
 
-OUR IMPLEMENTATION:
-- Deriv App ID: registered at api.deriv.com
-- OAuth Scope: read, trade, payments, admin
-- WebSocket endpoint: wss://ws.derivws.com/websockets/v3?app_id={APP_ID}
-- Authorization: authorize token via WebSocket after OAuth
+  OPERATOR DASH = my command center (solo trading + managing investors)
+  INVESTOR DASH = what investors see (their packages, earnings, wallet)
+
+  The operator dashboard IS the trading dashboard.
+  There is no per-user trading on the operator side. I trade for everyone.
+  Investors don't need Deriv accounts. They invest through me.
 ```
 
-### 1.4 UI FRAMEWORK, STYLING & MOTION SYSTEM (Bootstrap 5.3 + TanStack)
-
-> Global styling contract for ALL 27 trading pages + 12 investor pages.
-> Every page spec in this outline is built on this system. Conventions only — no code yet.
+### 1.4 UI Framework & Styling System
 
 ```
-TANSTACK RESPONSIBILITIES:
-  TanStack Start    — app shell, SSR/SSG per route, server functions
-  TanStack Router   — type-safe file-based routing, layout routes,
-                      route-level code-splitting (page = own chunk incl. CSS)
-  TanStack Query    — server state, polling, optimistic updates
-  TanStack Table    — all data tables (sortable / filterable / paginated)
-  TanStack Virtual  — long lists (activity feeds, tick streams)
-
-BOOTSTRAP 5.3.x (LATEST) RESPONSIVE BASE:
+BOOTSTRAP 5.3.x RESPONSIVE BASE:
   Grid:             container / row / col-* with sm-md-lg-xl-xxl
-                    (6 breakpoints, mobile-first on every page)
-  Components:       card, table, modal, offcanvas (mobile sidebar),
-                    accordion, toast, dropdown, nav-tabs, progress, badge
-  Utilities:        spacing, flex, gap, d-none/d-* (responsive visibility),
-                    ratio (chart aspect boxes), rounded-4, shadow-*, g-* gutters
-  Dark mode:        data-bs-theme="dark" native 5.3 toggle (topbar switch)
-  RTL-ready:        logical properties (ms-*/me-*) throughout
+  Components:       card, table, modal, offcanvas, accordion,
+                    toast, dropdown, nav-tabs, progress, badge
+  Utilities:        spacing, flex, gap, d-none/d-*, rounded-4, shadow-*
+  Dark mode:        data-bs-theme="dark" native 5.3 toggle
   No jQuery — Bootstrap JS via bundle import only
 
-PAGE-SCOPED CUSTOM CSS (NOT shared across pages):
-  Convention:       one stylesheet per page/route —
-                      src/styles/pages/trade.scss       (imported ONLY by D-3)
-                      src/styles/pages/bot-detail.scss  (imported ONLY by D-13)
-                      src/styles/pages/pool-detail.scss (imported ONLY by I-4)
-  Loading:          imported by the route module itself → bundled with that
-                    route's chunk, injected on enter and removed on leave,
-                    so page styles never leak into other pages
-  Namespacing:      every rule nested under the page root class
-                      .page-trade { … }   .page-bot-detail { … }
-  Layer order:      1) Bootstrap 5.3   2) shared tokens.scss (colors,
-                    spacing, radii, motion, card base)   3) page-scoped .scss
-  Use cases:        bespoke gradients, glow/pulse effects, custom card art,
-                    chart-panel chrome, per-page layout tweaks
+PAGE-SCOPED CUSTOM CSS:
+  Convention:       one stylesheet per page/route
+  Loading:          bundled with that route's chunk
+  Namespacing:      .page-trade { … }  .page-packages { … }
+  Layer order:      1) Bootstrap 5.3  2) shared tokens  3) page-scoped
 
-ANIMATION SYSTEM (every page):
-  Page entrance:    fade + slide-up stagger on cards/sections (Animate.css
-                    or CSS keyframes, 50–80ms stagger per item)
-  Micro-interact:   hover-lift + shadow on all cards; spin/pulse on live
-                    icons; button press scale; skeleton shimmer loaders
-  Animated icons:   pulse dot (live status), spin (loading/sync), bounce
-                    (notifications), draw-stroke SVG (success/error),
-                    ticker arrow flip on price change
-  Rich motion:      GSAP for hero/scroll effects on H-1/H-2/H-3; CSS
-                    transforms preferred elsewhere (GPU-friendly)
-  Data motion:      number count-up on KPI cards; row flash green/red on
-                    price/P&L updates; chart draw-in on mount
-  A11y:             honor prefers-reduced-motion — disable all of the above
-
-RESPONSIVE CARDS & SECTIONS (every page):
-  KPI/stat rows:    col-12 → sm-6 → lg-3 (4-up desktop, 1-up mobile)
-  Card grids:       row row-cols-1 row-cols-sm-2 row-cols-lg-3/4 + g-3/g-4
-  Tables:           table-responsive wrapper; tables become stacked cards < md
-  Sections:         restack on mobile via d-grid/stack utilities; charts keep
-                    16:9 ratio; side panels collapse to offcanvas below lg
-  Touch targets:    min 44px; sticky bottom action bar on mobile
+ANIMATION SYSTEM:
+  Page entrance:    fade + slide-up stagger (50-80ms per item)
+  Micro-interact:   hover-lift + shadow on cards; spin/pulse on live icons
+  Data motion:      number count-up on KPI cards; row flash green/red
+  A11y:             honor prefers-reduced-motion
 ```
 
 ---
@@ -224,7 +175,6 @@ PORTFOLIO:
 
 ACCOUNT:
   account_settings     → Get/set account settings
-  self_exclusion       → Self-exclusion limits
   reality_check        → Reality check reminder
 
 UTILITY:
@@ -307,112 +257,51 @@ DURATIONS:
 
 ```
 PURPOSE:
-  First impression. Convince traders to sign up and connect
-  their Deriv account. Show platform value proposition.
+  First impression. Convince traders and investors to sign up.
+  Show platform value proposition for both audiences.
 
 LAYOUT:
 ┌─────────────────────────────────────────────────────────┐
 │  NAVBAR                                                  │
-│  [Logo: DerivX]  [Features] [Pricing] [Community] [Login]│
+│  [Logo: DerivX]  [Features] [Pricing] [Login] [Sign Up] │
 └─────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────┐
 │  HERO SECTION                                            │
 │                                                          │
 │  "Trade Smarter on Deriv"                               │
-│  "Automate strategies. Build bots. Monitor the crowd."   │
+│  "Automate strategies. Pool capital. Distribute profits."│
 │                                                          │
-│  [Connect to Deriv →]  [Watch Demo ▶]                   │
+│  [🤖 Start Trading →]  [💎 Invest in Pools →]          │
 │                                                          │
-│  Live Ticker Strip: EUR/USD 1.0842 ▲ | BTC/USD 67,432 ▼│
+│  Live Ticker Strip: EUR/USD 1.0842 ▲ | R_10 4532.11 ▲  │
 └─────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────┐
 │  TRUST BAR                                               │
 │  "Powered by Deriv API" | "256-bit Encryption"          │
 │  | "10,000+ traders" | "24/7 Automation"                │
 └─────────────────────────────────────────────────────────┘
-┌──────────────────────┬──────────────────────────────────┐
-│  FEATURE CARDS (3)    │                                  │
-│                       │                                  │
-│  ┌─────────────────┐  │  ┌─────────────────┐            │
-│  │ 🤖 Bot Builder  │  │  │ 📜 Script Engine │            │
-│  │ Set up automated │  │  │ Write custom     │            │
-│  │ trading bots     │  │  │ JS strategies    │            │
-│  └─────────────────┘  │  └─────────────────┘            │
-│                       │                                  │
-│  ┌─────────────────┐  │                                  │
-│  │ 👥 Social Trade │  │                                  │
-│  │ Monitor & follow │  │                                  │
-│  │ other traders    │  │                                  │
-│  └─────────────────┘  │                                  │
-└──────────────────────┴──────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────┐
-│  LIVE PREVIEW SECTION                                    │
-│  "See it in action"                                     │
-│  [Embedded demo dashboard screenshot/animation]          │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  HOW IT WORKS (4 Steps)                                 │
+│  FEATURE CARDS (3)                                       │
 │                                                          │
-│  1. Connect Deriv  →  2. Choose Strategy  →             │
-│  3. Configure Bot  →  4. Let It Trade                   │
+│  ┌─────────────────┐  ┌─────────────────┐              │
+│  │ 🤖 Bot Engine   │  │ 💎 Crowdfunding │              │
+│  │ Schedule & run  │  │ Pool capital,   │              │
+│  │ automated trades│  │ earn from bots  │              │
+│  └─────────────────┘  └─────────────────┘              │
+│  ┌─────────────────┐                                   │
+│  │ 📜 Script Engine│                                   │
+│  │ Write custom JS │                                   │
+│  │ strategies      │                                   │
+│  └─────────────────┘                                   │
 └─────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────┐
-│  SOCIAL PROOF                                            │
-│  "Trusted by X traders" | Testimonial cards             │
-│  | Leaderboard preview (top 5 traders)                  │
+│  HOW IT WORKS                                            │
+│  1. Connect Deriv  →  2. Set Packages  →               │
+│  3. Schedule Trades  →  4. Distribute Profits           │
 └─────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────┐
-│  CTA SECTION                                             │
-│  "Ready to automate your trading?"                      │
-│  [Get Started Free →]                                   │
+│  CTA + FOOTER                                           │
 └─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FOOTER                                                  │
-│  Links | Socials | Legal | "Not affiliated with Deriv"  │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### Components Breakdown
-
-```
-HeroSection/
-  ├── headline: string
-  ├── subheadline: string
-  ├── ctaButton: Button (→ /auth/signup)
-  ├── demoButton: Button (→ opens modal)
-  └── liveTicker: TickerStrip
-        ├── data: Deriv tick WebSocket (unauth, public)
-        ├── symbols: string[] (top 6 pairs)
-        └── animation: scroll left
-
-FeatureCards/
-  ├── cards: FeatureCard[]
-  │     ├── icon: LucideIcon
-  │     ├── title: string
-  │     ├── description: string
-  │     └── link: string
-  └── animation: stagger-in on scroll
-
-HowItWorks/
-  ├── steps: Step[]
-  │     ├── number: number
-  │     ├── title: string
-  │     ├── description: string
-  │     └── icon: LucideIcon
-  └── connector: animated line between steps
-
-LivePreview/
-  ├── type: video | iframe | animation
-  └── source: dashboard demo recording
-
-SocialProof/
-  ├── testimonials: Testimonial[]
-  ├── leaderboard: LeaderboardEntry[] (from API)
-  └── totalUsers: number
-
-CTASection/
-  ├── headline: string
-  └── button: Button (→ /auth/signup)
 ```
 
 ---
@@ -421,88 +310,20 @@ CTASection/
 
 ```
 PURPOSE:
-  Deep dive into every feature. Technical enough for 
-  experienced traders, accessible for beginners.
+  Deep dive into every feature for both operators and investors.
 
 LAYOUT:
 ┌─────────────────────────────────────────────────────────┐
-│  NAVBAR (same)                                           │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
 │  PAGE HERO                                               │
-│  "Everything You Need to Trade on Autopilot"            │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FEATURE SECTION 1: Bot Engine                           │
-│  ┌────────────────────┬──────────────────────────────┐  │
-│  │  Description       │  Screenshot / Animation       │  │
-│  │  • Pre-built bots  │  [Bot config UI demo]        │  │
-│  │  • Custom params   │                              │  │
-│  │  • Multi-market    │                              │  │
-│  │  • Backtesting     │                              │  │
-│  └────────────────────┴──────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FEATURE SECTION 2: Script Engine                        │
-│  ┌────────────────────┬──────────────────────────────┐  │
-│  │  Screenshot        │  Description                  │  │
-│  │  [Monaco Editor    │  • Write in JavaScript        │  │
-│  │   with strategy    │  • Access tick data           │  │
-│  │   code]           │  • Sandboxed execution        │  │
-│  │                   │  • Template library            │  │
-│  └────────────────────┴──────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FEATURE SECTION 3: Social Trading                       │
-│  • Follow traders  • Copy trades  • Leaderboards        │
-│  • Activity feed   • Performance charts                 │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FEATURE SECTION 4: Automation                           │
-│  • Scheduled bots   • Conditional triggers              │
-│  • Risk management  • Notification rules                │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FEATURE SECTION 5: Market Coverage                      │
-│  • All Deriv markets  • 100+ instruments                │
-│  • Synthetics 24/7   • Real-time pricing               │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
+│  Feature sections with screenshots/animation             │
+│  1. Bot Engine & Scheduling                             │
+│  2. Script Engine                                       │
+│  3. Crowdfunding Pools & Packages                       │
+│  4. AI Guardian Capital Protection                      │
+│  5. Market Coverage (100+ instruments)                  │
 │  COMPARISON TABLE                                       │
-│  DerivX vs Deriv Native vs BMX Bot vs Other Bots       │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
 │  CTA + FOOTER                                           │
 └─────────────────────────────────────────────────────────┘
-```
-
-#### Components Breakdown
-
-```
-FeatureSection/
-  ├── id: string
-  ├── title: string
-  ├── subtitle: string
-  ├── features: BulletPoint[]
-  ├── visual: ReactNode (screenshot/video/animation)
-  ├── layout: "left-right" | "right-left" | "full-width"
-  └── animation: slide-in on scroll
-
-ComparisonTable/
-  ├── columns: Platform[] ["DerivX", "Deriv", "BMX Bot", "Other"]
-  ├── rows: ComparisonRow[]
-  │     ├── feature: string
-  │     └── values: (boolean | string | "partial")[]
-  └── highlight: "DerivX" column
-
-FeatureList/
-  ├── features: DetailedFeature[]
-  │     ├── icon: LucideIcon
-  │     ├── title: string
-  │     ├── description: string
-  │     ├── technicalDetails: string
-  │     └── badge?: "New" | "Beta" | "Pro"
-  └── layout: "grid" | "list"
 ```
 
 ---
@@ -511,86 +332,21 @@ FeatureList/
 
 ```
 PURPOSE:
-  Tiered pricing. Free tier to get started.
-  Pro tier for serious traders. Team for groups.
+  Tiered pricing for operators. Free tier to start.
+  Pro tier for serious operators. Team for groups.
 
 LAYOUT:
 ┌─────────────────────────────────────────────────────────┐
-│  NAVBAR                                                  │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  PAGE HERO                                               │
-│  "Simple Pricing. Powerful Trading."                    │
-│  [Monthly | Yearly toggle]                              │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  PRICING CARDS (3)                                       │
-│                                                          │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  FREE    │  │  PRO ($29/mo)│  │  TEAM ($79/mo│      │
-│  │          │  │  ★ POPULAR   │  │              │      │
-│  │ 2 bots   │  │ 10 bots      │  │ Unlimited    │      │
-│  │ 3 scripts│  │ Unlimited    │  │ Unlimited    │      │
-│  │ Basic    │  │ Advanced     │  │ Advanced+    │      │
-│  │ markets  │  │ markets      │  │ markets      │      │
-│  │ 5 follow │  │ 50 follow    │  │ Unlimited    │      │
-│  │ No copy  │  │ Copy trade   │  │ Copy trade   │      │
-│  │          │  │ Backtesting  │  │ Team sharing │      │
-│  │ [Start]  │  │ [Upgrade]    │  │ [Contact]    │      │
-│  └──────────┘  └──────────────┘  └──────────────┘      │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FEATURE MATRIX (detailed comparison)                    │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FAQ SECTION                                             │
-│  • Do I need a Deriv account?                           │
-│  • Is my money safe?                                    │
-│  • Can I cancel anytime?                                │
-│  • What markets are supported?                          │
-│  • How does copy trading work?                          │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
+│  PRICING CARDS (3): Free / Pro ($29/mo) / Team ($79/mo) │
+│  FEATURE MATRIX                                         │
+│  FAQ SECTION                                            │
 │  CTA + FOOTER                                           │
 └─────────────────────────────────────────────────────────┘
 ```
 
-#### Components Breakdown
-
-```
-PricingCard/
-  ├── tier: "free" | "pro" | "team"
-  ├── price: { monthly: number, yearly: number }
-  ├── features: PricingFeature[]
-  │     ├── text: string
-  │     ├── included: boolean
-  │     └── badge?: string
-  ├── popular: boolean
-  └── cta: Button → /auth/signup?tier={tier}
-
-PricingToggle/
-  ├── period: "monthly" | "yearly"
-  ├── discount: string (e.g. "Save 20%")
-  └── onToggle: callback
-
-FeatureMatrix/
-  ├── categories: MatrixCategory[]
-  │     ├── name: string
-  │     └── rows: MatrixRow[]
-  │           ├── feature: string
-  │           └── values: Record<tier, boolean | string>
-  └── tiers: string[]
-
-FAQSection/
-  ├── items: FAQItem[]
-  │     ├── question: string
-  │     └── answer: string
-  └── layout: "accordion"
-```
-
 ---
 
-## 4. AUTH PAGES (7 PAGES)
+## 4. AUTH PAGES (8 PAGES)
 
 ---
 
@@ -598,64 +354,72 @@ FAQSection/
 
 ```
 PURPOSE:
-  Create DerivX account. Email + password.
-  Deriv connection happens AFTER account creation.
+  Create DerivX account WITH role selection.
+  User chooses: "Trade Myself (Operator)" or "Invest in Crowdfunding"
 
 LAYOUT:
 ┌─────────────────────────────────────────────────────────┐
-│  LEFT PANEL (branding)          │ RIGHT PANEL (form)    │
-│                                 │                        │
-│  DerivX Logo                    │  "Create your account" │
-│  Illustration/animation         │                        │
-│  "Join 10,000+ automated       │  ┌──────────────────┐  │
-│   traders on Deriv"            │  │ Full Name        │  │
-│                                 │  ├──────────────────┤  │
-│                                 │  │ Email            │  │
-│                                 │  ├──────────────────┤  │
-│                                 │  │ Password         │  │
-│                                 │  ├──────────────────┤  │
-│                                 │  │ Confirm Password │  │
-│                                 │  ├──────────────────┤  │
-│                                 │  │ ☐ I agree to T&C │  │
-│                                 │  ├──────────────────┤  │
-│                                 │  │ [Create Account] │  │
-│                                 │  └──────────────────┘  │
-│                                 │                        │
-│                                 │  ── or continue with ──│
-│                                 │                        │
-│                                 │  [G] Google  [D] Deriv│
-│                                 │                        │
-│                                 │  Already have account? │
-│                                 │  [Sign In →]           │
-└─────────────────────────────────┴────────────────────────┘
+│  LEFT PANEL (branding)       │ RIGHT PANEL (form)       │
+│                               │                          │
+│  DerivX Logo                  │  "Create your account"   │
+│  Illustration                 │                          │
+│                               │  ┌────────────────────┐  │
+│                               │  │ Full Name          │  │
+│                               │  ├────────────────────┤  │
+│                               │  │ Email              │  │
+│                               │  ├────────────────────┤  │
+│                               │  │ Password           │  │
+│                               │  ├────────────────────┤  │
+│                               │  │ Confirm Password   │  │
+│                               │  └────────────────────┘  │
+│                               │                          │
+│                               │  ── Choose Your Path ──  │
+│                               │                          │
+│                               │  ┌──────────────────┐   │
+│                               │  │  🤖 TRADE MYSELF │   │
+│                               │  │  Connect to      │   │
+│                               │  │  Deriv API. Run  │   │
+│                               │  │  bots. Manage    │   │
+│                               │  │  investors.      │   │
+│                               │  │  → Operator Dash │   │
+│                               │  └──────────────────┘   │
+│                               │                          │
+│                               │  ┌──────────────────┐   │
+│                               │  │  💎 BECOME AN     │   │
+│                               │  │  INVESTOR        │   │
+│                               │  │  Join crowdfunding│   │
+│                               │  │  pools. Earn from│   │
+│                               │  │  pooled trading. │   │
+│                               │  │  → Investor Dash │   │
+│                               │  └──────────────────┘   │
+│                               │                          │
+│                               │  ☐ I agree to T&C       │
+│                               │  [Create Account]        │
+│                               │                          │
+│                               │  Already have account?   │
+│                               │  [Sign In →]             │
+└───────────────────────────────┴──────────────────────────┘
 ```
 
-#### Form Fields & Validation
+#### Role Selection Schema
 
 ```
-SCHEMA: signupSchema
-  fullName:    z.string().min(2).max(100)
-  email:       z.string().email()
-  password:    z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/).regex(/[^a-zA-Z0-9]/)
+SCHEMA: signupSchema (extended)
+  fullName:        z.string().min(2).max(100)
+  email:           z.string().email()
+  password:        z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/).regex(/[^a-zA-Z0-9]/)
   confirmPassword: z.string().refine(val => val === password)
-  termsAccepted: z.literal(true)
+  role:            z.enum(["operator", "investor"])
+  termsAccepted:   z.literal(true)
 
-API ENDPOINT: POST /api/auth/register
-  REQUEST:
-    { fullName, email, password }
-  RESPONSE:
-    { user: { id, email, fullName }, token, refreshToken }
-  SIDE EFFECTS:
-    - Hash password (bcrypt, 12 rounds)
-    - Create user record in PostgreSQL
-    - Send verification email
-    - Create default settings record
-    - Create free-tier subscription
+ROLE ROUTING:
+  role === "operator"  → onboarding → /dashboard (operator dash)
+  role === "investor"  → onboarding → /investor (investor dash)
 
-STATE:
-  - loading: boolean
-  - error: string | null
-  - step: "form" | "verify-email-sent"
+DUAL ACCESS:
+  - Users CAN switch later in settings
+  - Primary role determines default landing page
+  - Role stored in users table: role "operator" | "investor" | "both"
 ```
 
 ---
@@ -664,8 +428,8 @@ STATE:
 
 ```
 PURPOSE:
-  Authenticate existing DerivX user.
-  NOT Deriv login — that's OAuth redirect.
+  Sign in with awareness of user's role.
+  Redirect to correct dashboard.
 
 LAYOUT:
 ┌─────────────────────────────────────────────────────────┐
@@ -685,123 +449,28 @@ LAYOUT:
 │  └──────────────────────────────────────────────────┘   │
 │                                                          │
 │  ── or sign in with ──                                  │
+│  [G] Google   [D] Deriv OAuth                            │
 │                                                          │
-│  [G] Google                                             │
-│  [D] Sign in with Deriv (OAuth)                         │
-│                                                          │
-│  Don't have an account? [Sign Up →]                     │
+│  AFTER SIGN IN — ROLE ROUTER:                           │
+│  If user.role === "operator"   → /dashboard              │
+│  If user.role === "investor"   → /investor               │
+│  If user.role === "both"       → show dashboard picker   │
 └─────────────────────────────────────────────────────────┘
-```
-
-#### Form Fields & Validation
-
-```
-SCHEMA: signinSchema
-  email:       z.string().email()
-  password:    z.string().min(1)
-  rememberMe:  z.boolean().default(false)
-
-API ENDPOINT: POST /api/auth/login
-  REQUEST:
-    { email, password }
-  RESPONSE:
-    { user, token, refreshToken, hasDerivConnection: boolean }
-  SIDE EFFECTS:
-    - Verify password hash
-    - Generate JWT (15min access, 7day refresh)
-    - Store refresh token in Redis
-    - If rememberMe: extended refresh token (30 days)
-    - Log login event
-
-DERIV OAUTH BUTTON:
-  onClick → window.location.href = 
-    `https://oauth.deriv.com/en/authorize?app_id=${APP_ID}&redirect_uri=${CALLBACK}/auth/deriv/callback&state=${csrfState}`
 ```
 
 ---
 
-### PAGE A-3: Deriv OAuth Callback (`/auth/deriv/callback`)
+### PAGE A-3: Investor Onboarding (`/auth/onboarding/investor`)
 
 ```
 PURPOSE:
-  Handle redirect from Deriv after user authorizes.
-  Exchange code for token. Link Deriv account.
+  First-time investor setup. How pools work, KYC, wallet setup.
 
-LAYOUT (states):
-┌─────────────────────────────────────────────────────────┐
-│  STATE: LOADING                                         │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │            ⟳ Connecting to Deriv...              │   │
-│  │                                                   │   │
-│  │  [Animated spinner + progress steps]             │   │
-│  │  ☑ Redirected from Deriv                         │   │
-│  │  ⟳ Exchanging authorization code...              │   │
-│  │  ○ Establishing WebSocket connection...           │   │
-│  │  ○ Fetching account details...                    │   │
-│  │  ○ Linking to your DerivX account...             │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│  STATE: SUCCESS                                         │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  ✅ Deriv Account Connected!                     │   │
-│  │                                                   │   │
-│  │  Account: CR1234567                              │   │
-│  │  Balance: $1,000.00 (USD)                        │   │
-│  │  Currency: USD                                    │   │
-│  │                                                   │   │
-│  │  [Go to Dashboard →]                             │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│  STATE: ERROR                                           │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  ❌ Connection Failed                            │   │
-│  │                                                   │   │
-│  │  "Authorization was denied or expired"           │   │
-│  │                                                   │   │
-│  │  [Try Again]  [Contact Support]                  │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### Implementation Details
-
-```
-FLOW:
-  1. Extract code & state from URL params
-  2. Validate state matches CSRF token from session
-  3. Open WebSocket to Deriv API
-  4. Send: { "authorize": "{code}" }
-  5. Receive: { "authorize": { loginid, balance, currency, ... } }
-  6. Store encrypted token in deriv_connections table
-  7. Fetch active_symbols to cache available markets
-  8. Fetch balance for display
-  9. Redirect to /dashboard
-
-API ENDPOINT: POST /api/auth/deriv/connect
-  REQUEST:
-    { code: string, state: string }
-  RESPONSE:
-    { 
-      connection: { id, derivLoginId, currency, balance },
-      isNewConnection: boolean 
-    }
-  SIDE EFFECTS:
-    - Validate CSRF state
-    - WebSocket authorize with code
-    - Encrypt and store token (AES-256-GCM)
-    - Create deriv_connections record
-    - Create default bot_settings if none exist
-    - Emit WebSocket event to user's active sessions
-
-SECURITY:
-  - CSRF state validation (prevent CSRF attacks)
-  - Token encrypted before DB storage
-  - Token never sent to client
-  - PKCE flow if supported
+STEPPER:
+  Step 1: WELCOME — explain crowdfunding pools
+  Step 2: HOW POOLS WORK — Pool → Trading → Profit Sharing → Payout
+  Step 3: KYC / IDENTITY VERIFICATION — ID upload, selfie, proof of address
+  Step 4: DONE — show available pools, link to investor dashboard
 ```
 
 ---
@@ -809,44 +478,8 @@ SECURITY:
 ### PAGE A-4: Forgot Password (`/auth/forgot-password`)
 
 ```
-PURPOSE:
-  Request password reset email.
-
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  CENTERED CARD                                          │
-│                                                          │
-│  🔒 "Reset your password"                               │
-│  "Enter your email and we'll send you a reset link"     │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Email                                            │   │
-│  ├──────────────────────────────────────────────────┤   │
-│  │ [Send Reset Link]                                │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  Remember your password? [Sign In →]                    │
-│                                                          │
-│  SUCCESS STATE:                                         │
-│  ✅ "Reset link sent! Check your email."               │
-│  "Didn't receive it? [Resend]"                          │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### Implementation
-
-```
-SCHEMA: forgotPasswordSchema
-  email: z.string().email()
-
-API ENDPOINT: POST /api/auth/forgot-password
-  SIDE EFFECTS:
-    - Find user by email
-    - Generate reset token (crypto.randomBytes(32))
-    - Store hashed token in password_resets table (expires 1hr)
-    - Send email via SendGrid/Resend with link:
-      /auth/reset-password?token={token}
-    - Always return success (prevent email enumeration)
+PURPOSE: Request password reset email.
+  Email input → Send Reset Link → Success message
 ```
 
 ---
@@ -854,49 +487,8 @@ API ENDPOINT: POST /api/auth/forgot-password
 ### PAGE A-5: Reset Password (`/auth/reset-password`)
 
 ```
-PURPOSE:
-  Set new password using token from email.
-
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  CENTERED CARD                                          │
-│                                                          │
-│  "Set new password"                                     │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ New Password                         [Show 👁]   │   │
-│  ├──────────────────────────────────────────────────┤   │
-│  │ Confirm New Password                 [Show 👁]   │   │
-│  ├──────────────────────────────────────────────────┤   │
-│  │ [Reset Password]                                 │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  VALID STATE:                                           │
-│  ✅ Passwords match                                     │
-│  ✅ Minimum 8 characters                                │
-│  ✅ Contains uppercase + number + special               │
-│                                                          │
-│  INVALID/EXPIRED TOKEN STATE:                           │
-│  ❌ "This link has expired. Request a new one."         │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### Implementation
-
-```
-SCHEMA: resetPasswordSchema
-  token:       z.string()
-  password:    z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/).regex(/[^a-zA-Z0-9]/)
-  confirmPassword: z.string().refine(val => val === password)
-
-API ENDPOINT: POST /api/auth/reset-password
-  FLOW:
-    1. Hash incoming token
-    2. Find matching record in password_resets (not expired)
-    3. Update user password hash
-    4. Delete all reset tokens for this user
-    5. Invalidate all existing sessions
-    6. Return success → redirect to /auth/signin
+PURPOSE: Set new password using token from email.
+  New Password + Confirm → Reset Password → Redirect to signin
 ```
 
 ---
@@ -904,56 +496,8 @@ API ENDPOINT: POST /api/auth/reset-password
 ### PAGE A-6: Email Verification (`/auth/verify-email`)
 
 ```
-PURPOSE:
-  Verify user's email address after signup.
-
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  STATE: PENDING (no token in URL)                       │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  📧 "Verify your email"                          │   │
-│  │                                                   │   │
-│  │  "We've sent a verification link to              │   │
-│  │   user@example.com"                              │   │
-│  │                                                   │   │
-│  │  "Didn't get the email?"                         │   │
-│  │  [Resend Verification Email]                     │   │
-│  │                                                   │   │
-│  │  [Skip for now →] (limited access)               │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│  STATE: VERIFIED (valid token)                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  ✅ "Email verified!"                            │   │
-│  │                                                   │   │
-│  │  "Your account is ready. Connect your Deriv       │   │
-│  │   account to start trading."                     │   │
-│  │                                                   │   │
-│  │  [Connect Deriv Account →]                       │   │
-│  │  [Go to Dashboard]                               │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### Implementation
-
-```
-API ENDPOINT: GET /api/auth/verify-email?token={token}
-  FLOW:
-    1. Hash token, find in email_verifications table
-    2. Check not expired (24hr window)
-    3. Update user.emailVerified = true
-    4. Delete verification token
-    5. Return success
-
-API ENDPOINT: POST /api/auth/resend-verification
-  FLOW:
-    1. Rate limit: 1 per minute
-    2. Generate new token
-    3. Send email
-    4. Return success
+PURPOSE: Verify user's email address after signup.
+  Pending state → Click link → Verified state → Redirect
 ```
 
 ---
@@ -961,3351 +505,1078 @@ API ENDPOINT: POST /api/auth/resend-verification
 ### PAGE A-7: Two-Factor Authentication (`/auth/2fa`)
 
 ```
-PURPOSE:
-  2FA verification step during sign-in (if enabled).
-
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  CENTERED CARD                                          │
-│                                                          │
-│  🔐 "Two-Factor Authentication"                         │
-│  "Enter the 6-digit code from your authenticator app"   │
-│                                                          │
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐     │
-│  │  4  │ │  7  │ │  2  │ │  9  │ │  1  │ │  5  │     │
-│  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘     │
-│                                                          │
-│  [Verify]                                               │
-│                                                          │
-│  "Having trouble?"                                      │
-│  [Use backup code]                                      │
-│                                                          │
-│  RECOVERY CODE STATE:                                   │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Backup code:                                     │   │
-│  │ [________________]                               │   │
-│  │ [Verify Backup Code]                             │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### Implementation
-
-```
-SETUP (in settings):
-  - Generate TOTP secret (otpauth:// URI)
-  - Show QR code for Google Authenticator / Authy
-  - User verifies setup by entering first code
-  - Generate and display 10 backup codes
-  - Store: secret (encrypted), backupCodes (hashed), enabled=true
-
-VERIFICATION:
-  - Verify TOTP code (speakeasy.totp.verify)
-  - Or verify backup code (mark as used)
-  - Rate limit: 5 attempts per 5 minutes
-  - On failure: increment attempt counter
-  - On 10 failures: lock account temporarily
+PURPOSE: 2FA verification step during sign-in (if enabled).
+  6-digit code input → Verify → or Backup code → Access
 ```
 
 ---
 
-## 5. DASHBOARD PAGES (14 PAGES — each with 8 sections: PURPOSE/LAYOUT/Components/Data Flow + 5 ADVANCED sections: Advanced Features, Edge Cases & Error Handling, Performance Considerations, Testing Strategy, Accessibility & UX Enhancements)
-
-STYLE & MOTION RULE (applies to every page D-1..D-14): each page is built on the
-Bootstrap 5.3 responsive system from 1.4 and ships its OWN page-scoped stylesheet
-(loaded only by that route, never shared with other pages), with entrance +
-micro-interaction animations, animated icons for live data, and fully responsive
-styled cards/sections that restack on mobile.
-
----
-
-### PAGE D-1: Dashboard Overview (`/dashboard`)
+### PAGE A-8: Deriv OAuth Callback (`/auth/deriv/callback`)
 
 ```
 PURPOSE:
-  Main hub. Account status, active bots, quick market view,
-  recent activity, and social feed preview.
+  Handle redirect from Deriv after user authorizes.
+  Exchange code for token. Link Deriv account.
+
+STATES:
+  LOADING → Show progress steps (redirected → exchanging → connecting → linking)
+  SUCCESS → Show account details, redirect to dashboard
+  ERROR → Show error, try again button
+
+FLOW:
+  1. Extract code & state from URL params
+  2. Validate state matches CSRF token
+  3. Open WebSocket to Deriv API
+  4. Send: { "authorize": "{code}" }
+  5. Store encrypted token in deriv_connections table
+  6. Redirect to /dashboard
+```
+
+---
+
+## 5. OPERATOR DASHBOARD PAGES (15 PAGES)
+
+---
+
+### PAGE D-1: Command Center Overview (`/dashboard`)
+
+```
+PURPOSE:
+  My primary hub. What I traded last, what's scheduled next,
+  how many investors are active, total funds under management,
+  profits earned and distributed.
 
 LAYOUT:
 ┌─────────────────────────────────────────────────────────┐
-│  SIDEBAR          │  TOP BAR                              │
-│  ┌──────────┐    │  [Search] [Notifications 🔔] [User▼] │
-│  │ Dashboard │    ├──────────────────────────────────────┤
-│  │ Markets   │    │                                       │
-│  │ Bots      │    │  WELCOME BACK, {name}                │
-│  │ Scripts   │    │  Last login: 2 hours ago             │
-│  │ Portfolio │    │                                       │
-│  │ Social    │    │  ┌─────────────────────────────────┐ │
-│  │ Analytics │    │  │  ACCOUNT CARDS (3)              │ │
-│  │ Automation│    │  │  ┌──────┐┌──────┐┌──────┐     │ │
-│  │ Settings  │    │  │  │Bal   ││P&L   ││Win % │     │ │
-│  └──────────┘    │  │  │$1,000││+$42  ││ 68%  │     │ │
-│                   │  │  └──────┘└──────┘└──────┘     │ │
-│                   │  └─────────────────────────────────┘ │
-│                   │                                       │
-│                   │  ┌────────────────┬─────────────────┐│
-│                   │  │ ACTIVE BOTS    │  LIVE TICKS     ││
-│                   │  │                │                  ││
-│                   │  │ 🟢 Martingale  │  EUR/USD 1.0842 ││
-│                   │  │   R_10  ▲+$3  │  GBP/USD 1.2631 ││
-│                   │  │                │  R_100  4532.11  ││
-│                   │  │ 🟢 DCA Bot    │  BTC/USD 67,432  ││
-│                   │  │   frxEUR ▲+$1 │                  ││
-│                   │  │                │  [See all →]     ││
-│                   │  │ [+ New Bot]   │                  ││
-│                   │  └────────────────┴─────────────────┘│
-│                   │                                       │
-│                   │  ┌────────────────┬─────────────────┐│
-│                   │  │ QUICK TRADE    │  SOCIAL FEED    ││
-│                   │  │                │                  ││
-│                   │  │ Symbol: [___▼] │  👤 TraderX     ││
-│                   │  │ Type: Rise ▼   │    Won +$15 R10 ││
-│                   │  │ Stake: $1      │  👤 BotMaster    ││
-│                   │  │ Duration: 5t   │    Started bot  ││
-│                   │  │                │  👤 NewTrader    ││
-│                   │  │ [Buy Rise]     │    Lost -$2 EUR ││
-│                   │  │ [Buy Fall]     │                  ││
-│                   │  └────────────────┴─────────────────┘│
-└───────────────────┴───────────────────────────────────────┘
+│  SIDEBAR             │  TOP BAR                          │
+│  ┌───────────────┐  │  [Deriv: 🟢 Connected] [🔔] [Me▼]│
+│  │ ⚡ Command     │  ├──────────────────────────────────┤
+│  │ 📅 Schedules  │  │                                   │
+│  │ 🔄 Live Trades│  │  SECTION 1: OPERATOR KPI STRIP    │
+│  │ 📊 Trade Log  │  │  ───────────────────────────────  │
+│  │ 📦 Packages   │  │                                   │
+│  │ 👥 Investors  │  │  ┌─────────┐┌─────────┐┌────────┐│
+│  │ 💰 Funds     │  │  │Total    ││Active   ││Total   ││
+│  │ 📤 Withdrawals│  │  │Capital  ││Investors││Profit  ││
+│  │ 💬 Comms     │  │  │$156,000 ││38       ││+$18,240││
+│  │ 📥 Deposits  │  │  │▲+$12k   ││▲ +3     ││+11.7%  ││
+│  │ 📋 Logs      │  │  └─────────┘└─────────┘└────────┘│
+│  │ 🎯 Markets   │  │                                   │
+│  │ 🤖 Bots      │  │  ┌─────────┐┌─────────┐┌────────┐│
+│  │ ⚙️ Settings  │  │  │Scheduled││Trades   ││Pending ││
+│  └───────────────┘  │  │Today    ││Today    ││Payouts ││
+│                      │  │8        ││47       ││4 ($720)││
+│                      │  └─────────┘└─────────┘└────────┘│
+│                      │                                   │
+│                      │  SECTION 2: LAST 5 TRADES         │
+│                      │  ───────────────────────────────  │
+│                      │  ┌───────────────────────────────┐│
+│                      │  │ #    Symbol  Type    P&L  Time ││
+│                      │  │ 247  R_10   Rise5t +$35 14:23 ││
+│                      │  │ 246  R_75   Even   +$28 14:21 ││
+│                      │  │ 245  R_10   Rise5t -$35 14:18 ││
+│                      │  │ 244  R_100  Odd    +$70 14:15 ││
+│                      │  │ 243  R_10   Rise5t +$35 14:12 ││
+│                      │  │ Session: +$133  |  Win: 4/5   ││
+│                      │  └───────────────────────────────┘│
+│                      │                                   │
+│                      │  SECTION 3: UPCOMING SCHEDULED    │
+│                      │  ───────────────────────────────  │
+│                      │  📅 Next Scheduled Trades          │
+│                      │  15:00  R_10  Martingale  $35    │
+│                      │  15:30  R_75  Even/Odd   $35    │
+│                      │  16:00  R_100 DCA        $70    │
+│                      │  Next in: 23m 14s                  │
+│                      │  [View Full Schedule]              │
+│                      │                                   │
+│                      │  SECTION 4: FUNDS & INVESTORS     │
+│                      │  ───────────────────────────────  │
+│                      │  ┌──────────────┬────────────────┐│
+│                      │  │ FUNDS FLOW   │ INVESTOR WATCH  ││
+│                      │  │ Capital:     │ Total: 38      ││
+│                      │  │ $156,000     │ Active: 32     ││
+│                      │  │ In trades:   │ New today: 3   ││
+│                      │  │ $142,000     │ Top: User_8f2a ││
+│                      │  │ Available:   │ $15,000 (5sl)  ││
+│                      │  │ $14,000      │ Pending KYC: 2 ││
+│                      │  └──────────────┴────────────────┘│
+│                      │                                   │
+│                      │  SECTION 5: PROFIT DISTRIBUTION    │
+│                      │  ───────────────────────────────  │
+│                      │  Pool P&L:    +$18,240            │
+│                      │  My share:    +$3,648 (20%)       │
+│                      │  Distributed: $11,675             │
+│                      │  Pending:     $2,917              │
+│                      │  ████████████░░░░ 80% distributed │
+│                      │  [Distribute Pending]              │
+│                      │                                   │
+│                      │  SECTION 6: QUICK ACTIONS          │
+│                      │  ───────────────────────────────  │
+│                      │  [⚡ Execute Trade]  [📅 Schedule]│
+│                      │  [📦 New Package]   [💬 Announce]│
+│                      │  [📤 Process Payouts]             │
+└──────────────────────┴───────────────────────────────────┘
 ```
 
 #### Components Breakdown
 
 ```
-DashboardPage/
-  ├── WelcomeBanner
-  │     ├── userName: string
-  │     ├── lastLogin: Date
-  │     └── derivConnectionStatus: "connected" | "disconnected"
+CommandCenterPage/
+  ├── SECTION 1: OperatorKPIStrip
+  │     ├── totalCapital, activeInvestors, totalProfit, profitPercent
+  │     ├── scheduledToday, tradesToday
+  │     └── pendingPayouts: { count, totalAmount }
   │
-  ├── AccountCards
-  │     ├── BalanceCard
-  │     │     ├── balance: number
-  │     │     ├── currency: string
-  │     │     └── derivAccountId: string
-  │     ├── PnLCard
-  │     │     ├── todayPnL: number
-  │     │     ├── weekPnL: number
-  │     │     └── trend: "up" | "down"
-  │     └── WinRateCard
-  │           ├── winRate: number
-  │           ├── totalTrades: number
-  │           └── period: "today" | "week" | "month"
+  ├── SECTION 2: Last5Trades
+  │     ├── trades: TradeRecord[] (tradeNumber, symbol, contractType, profit, timestamp, packageId)
+  │     └── sessionSummary: { pnl, winCount, totalCount }
   │
-  ├── ActiveBotsWidget
-  │     ├── bots: ActiveBot[]
-  │     │     ├── id: string
-  │     │     ├── name: string
-  │     │     ├── status: "running" | "paused" | "error"
-  │     │     ├── symbol: string
-  │     │     ├── currentPnL: number
-  │     │     └── runtime: number (seconds)
-  │     └── onNewBot: () → /dashboard/bots/new
+  ├── SECTION 3: UpcomingScheduled
+  │     ├── schedules: ScheduledTrade[] (executeAt, symbol, strategy, stake, packageIds)
+  │     ├── nextIn: { minutes, seconds }
+  │     └── onViewFullSchedule: () → /dashboard/schedules
   │
-  ├── LiveTicksWidget
-  │     ├── ticks: Tick[]
-  │     │     ├── symbol: string
-  │     │     ├── price: number
-  │     │     ├── direction: "up" | "down"
-  │     │     └── timestamp: Date
-  │     └── subscription: Deriv WebSocket tick subscription
+  ├── SECTION 4: FundsAndInvestors
+  │     ├── FundsFlow: totalCapital, capitalInTrades, availableCapital, todayDeposits
+  │     └── InvestorWatch: totalInvestors, activeInvestors, newToday, topInvestor, pendingKYC
   │
-  ├── QuickTradeWidget
-  │     ├── symbol: string (selected)
-  │     ├── contractType: string
-  │     ├── stake: number
-  │     ├── duration: number
-  │     ├── durationUnit: "t" | "s" | "m"
-  │     ├── onBuy: (params) → Deriv buy API call
-  │     └── requiresDerivConnection: boolean
+  ├── SECTION 5: ProfitDistribution
+  │     ├── poolPnL, operatorShare, distributed, pending, distributionPercent
+  │     └── onDistribute: () → batch distribute pending
   │
-  └── SocialFeedWidget
-        ├── activities: Activity[]
-        │     ├── user: { name, avatar }
-        │     ├── action: "trade_won" | "trade_lost" | "bot_started" | ...
-        │     ├── details: string
-        │     └── timestamp: Date
-        └── limit: 5 (preview only)
+  └── SECTION 6: QuickActions
+        ├── onExecuteTrade, onSchedule, onNewPackage, onAnnounce, onProcessPayouts
 ```
-
-#### Data Flow
-
-```
-ON MOUNT:
-  1. Check Deriv connection status
-  2. If connected: open WebSocket, subscribe to balance + ticks
-  3. Fetch active bots from /api/bots?status=running
-  4. Fetch today's trade summary from /api/trades/summary
-  5. Fetch social feed from /api/social/feed?limit=5
-  6. Set up real-time subscriptions
-
-WEBSOCKET SUBSCRIPTIONS:
-  - balance: { "balance": 1, "subscribe": 1 }
-  - tick for each favorite symbol
-  - bot status updates (internal Socket.IO)
-
-PERIODIC REFRESH:
-  - Trade summary: every 30s
-  - Social feed: every 60s
-  - Bot statuses: real-time via Socket.IO
-```
-
-#### Advanced Features
-
-```
-1. SMART GREETING & CONTEXTUAL WIDGETS
-   - Time-aware greeting (morning/afternoon/evening) using user TZ
-   - Adaptive widget ordering: most-used widgets surface to top (drag & drop saved)
-   - "Focus Mode" toggle: collapses non-essential widgets when a bot is running
-
-2. AI-DRIVEN DAILY INSIGHTS PANEL
-   - Auto-generated summary: "Today's best performer: Martingale Bot (+$23.40)"
-   - Suggested actions: "R_10 volatility is high — consider pausing scalper bot"
-   - Powered by server-side LLM summarization of bot_logs + market state
-
-3. MULTI-ACCOUNT DASHBOARD SWITCHER
-   - Dropdown in top bar to switch between connected Deriv accounts
-   - Each account has its own widget state, saved per accountId
-   - Aggregate view: combined balance & P&L across all accounts
-
-4. VOICE-OVERVIEW MODE (Accessibility)
-   - One-click "Read my dashboard" button — Web Speech API
-   - Reads out balance, P&L, active bots count, last trade result
-   - Useful for visually impaired users
-
-5. KEYBOARD SHORTCUTS
-   - `g d` -> dashboard, `g m` -> markets, `g b` -> bots, `g p` -> portfolio
-   - `?` -> show shortcuts help overlay
-   - `/` -> focus global search
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Deriv WS disconnects on mount         Show red banner "Reconnecting..."
-                                      Retry with exponential backoff
-                                      (1s, 2s, 4s, 8s, max 30s)
-                                      Cache last-known balance with warning badge
-
-No active Deriv connection            Blur widgets that need API access
-                                      Show "Connect Deriv to enable" CTA
-
-Active bot crashed mid-render         Bot card shows red error state with
-                                      last error message + "View Logs" link
-
-Social feed empty                     Show onboarding card:
-                                      "Follow traders to populate your feed"
-
-WebSocket tick rate > 50/s            Throttle UI updates to 5/s
-                                      (drop intermediate ticks in UI layer)
-
-User timezone not detected            Fallback to UTC, show notice in settings
-
-QuickTrade while bot is running       Confirm modal:
-                                      "A bot is currently trading this symbol.
-                                       Manual trade may conflict. Continue?"
-
-Balance returns null from API         Show "—" instead of $0
-                                      Log to Sentry, don't crash UI
-
-Session expired (401 on any API)      Redirect to /login?reason=expired
-                                      Preserve intended destination in `next`
-```
-
-#### Performance Considerations
-
-```
-- Use React.memo on BotCard, MarketTick, ActivityItem to prevent re-renders
-- Virtualize ActivityFeed (react-window) when > 100 items
-- Debounce LiveTicks UI updates to 4 fps (visual smoothness vs accuracy)
-- WebSocket message queue with requestAnimationFrame flushing
-- Pre-fetch bot detail data on hover (link prefetch) for instant navigation
-- Lazy-load below-the-fold animations (GSAP/CSS) — keep entrance stagger instant
-- Cache /api/trades/summary in TanStack Query with 30s staleTime
-- Use `useTransition` for non-urgent state updates (filter changes)
-- Server-Sent Events instead of polling where possible
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS (Jest + React Testing Library):
-  - WelcomeBanner renders correct greeting per hour
-  - AccountCards handle null balance gracefully
-  - ActiveBotsWidget filters by status correctly
-  - QuickTradeWidget validates stake > 0 and <= maxStake
-
-INTEGRATION TESTS:
-  - Mount with mocked Deriv WS -> assert correct subscribe messages
-  - Simulate tick stream -> assert UI updates
-  - Simulate bot status change via Socket.IO -> assert card re-renders
-  - OAuth flow -> mock callback -> assert dashboard loads
-
-E2E TESTS (Playwright):
-  - Login -> land on /dashboard -> see balance card populated
-  - Click "New Bot" -> navigate to /dashboard/bots/new
-  - Click trade in QuickTrade -> confirm modal -> execute
-  - Test offline mode: disconnect network -> see reconnect banner
-
-VISUAL REGRESSION (Percy/Chromatic):
-  - Snapshot dashboard with 0 bots, 1 bot, 5 bots
-  - Light + dark theme snapshots
-  - Mobile (375px) + tablet (768px) + desktop (1440px)
-```
-
-#### Accessibility & UX Enhancements
-
-```
-ARIA:
-  - role="region" + aria-label on each widget
-  - aria-live="polite" on balance updates (announces changes)
-  - aria-live="assertive" on critical alerts (bot error, drawdown)
-  - role="status" on active bot count
-
-KEYBOARD NAVIGATION:
-  - All widgets focusable via Tab
-  - Enter activates widget's primary action
-  - Escape closes any open modal/dropdown
-
-COLOR & CONTRAST:
-  - All text meets WCAG AA (4.5:1) contrast ratio
-  - P&L colors: green (#16a34a) and red (#dc2626) never sole indicator
-    (also use up/down arrow glyphs + "Profit"/"Loss" text)
-  - Dark theme: use oklch(0.15 0 0) bg, oklch(0.95 0 0) fg
-
-RESPONSIVE:
-  - Mobile: widgets stack vertically, sidebar collapses to hamburger
-  - Tablet: 2-column grid, sidebar persistent
-  - Desktop (>=1280px): 3-column hero grid
-
-REDUCED MOTION:
-  - Respect prefers-reduced-motion media query
-  - Disable CSS/GSAP transitions, instant state changes
-```
-
 
 ---
 
-### PAGE D-2: Markets Browser (`/dashboard/markets`)
+### PAGE D-2: Trade Scheduler (`/dashboard/schedules`)
 
 ```
 PURPOSE:
-  Browse all Deriv markets and instruments.
-  Select a symbol to trade or view details.
+  Schedule trades by date, time, market, strategy, amount.
+  Trades serve specific packages. Calendar + list + timeline view.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  MARKET TABS                                            │
-│  [Forex] [Synthetics] [Commodities] [Crypto] [Indices]  │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  SEARCH + FILTER                                        │
-│  [🔍 Search symbol...]  [Volatility ▼] [Favorites ★]   │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  MARKET GRID                                            │
-│                                                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ EUR/USD     │  │ GBP/USD     │  │ USD/JPY     │     │
-│  │ 1.0842 ▲    │  │ 1.2631 ▼    │  │ 149.32 ▲    │     │
-│  │ +0.12%      │  │ -0.05%      │  │ +0.08%      │     │
-│  │ [Trade] [★] │  │ [Trade] [★] │  │ [Trade] [★] │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-│                                                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ Volatility 10│  │ Volatility 25│  │ Volatility 75│   │
-│  │ 4532.11 ▲   │  │ 3241.56 ▼   │  │ 1234.89 ▲   │     │
-│  │ +0.34%      │  │ -0.12%      │  │ +0.56%      │     │
-│  │ [Trade] [★] │  │ [Trade] [★] │  │ [Trade] [★] │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  MARKET SCHEDULE                                        │
-│  "Forex markets close in 4h 23m"                       │
-│  "Synthetics: Open 24/7"                               │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: CALENDAR VIEW
+    - Month view with ● on days that have scheduled trades
+    - Click day to expand and see trades for that day
+
+  SECTION 2: TODAY'S SCHEDULE (timeline)
+    - Horizontal timeline showing trade blocks through the day
+    - Current time indicator
+    - Each block: time, strategy, symbol, stake, trade count
+
+  SECTION 3: SCHEDULED TRADE LIST (TanStack Table)
+    - Columns: Time, Symbol, Strategy, Package, Stake, Count, Status
+    - Actions per row: Edit, Skip, Run Now
+    - Filterable by date, package, status
+
+  SECTION 4: NEW SCHEDULE FORM
+    - Schedule Name, Date, Start/End Time
+    - Symbol, Strategy, Initial Stake, Max Trades
+    - Assign to Packages (checkboxes with % allocation)
+    - Recurrence: One-time, Daily, Weekdays, Custom cron
+    - Risk Limits: Stop Loss, Take Profit, Max Drawdown, Cooldown
+    - [Save Schedule] [Save & Run Now]
+
+  SECTION 5: PACKAGE-TRADE MAPPING
+    - Which packages are served by which schedules
+    - Table: Package, Schedules, Capital, % Share
+    - Capital auto-calculated from investor deposits per package
 ```
-
-#### Components Breakdown
-
-```
-MarketsPage/
-  ├── MarketTabs
-  │     ├── markets: Market[]
-  │     │     ├── id: string
-  │     │     ├── name: string
-  │     │     ├── icon: LucideIcon
-  │     │     └── isAlwaysOpen: boolean
-  │     └── activeTab: string
-  │
-  ├── SearchFilter
-  │     ├── searchQuery: string
-  │     ├── volatilityFilter: "all" | "low" | "medium" | "high"
-  │     └── showFavoritesOnly: boolean
-  │
-  ├── MarketGrid
-  │     ├── symbols: Symbol[]
-  │     │     ├── symbol: string
-  │     │     ├── displayName: string
-  │     │     ├── market: string
-  │     │     ├── currentPrice: number
-  │     │     ├── priceChange: number
-  │     │     ├── priceChangePercent: number
-  │     │     ├── isFavorite: boolean
-  │     │     └── pipSize: number
-  │     └── onTrade: (symbol) → /dashboard/trade?symbol={symbol}
-  │
-  └── MarketSchedule
-        ├── schedules: MarketSchedule[]
-        │     ├── market: string
-        │     ├── isOpen: boolean
-        │     ├── nextOpen: Date
-        │     └── nextClose: Date
-        └── updateFrequency: 60s
-
-DATA SOURCE:
-  - active_symbols API call on mount
-  - trading_times API for schedules
-  - tick subscriptions for real-time prices
-  - Favorites stored in user_settings table
-```
-
-#### Advanced Features
-
-```
-1. SMART MARKET SCANNER
-   - Heatmap view: color-code all symbols by % change (last 1h / 24h)
-   - Volatility scanner: top 10 most volatile symbols right now
-   - "Movers" tab: biggest gainers/losers in last 15 minutes
-   - Configurable thresholds (e.g. "show only > 2% moves")
-
-2. CUSTOM WATCHLISTS
-   - Multiple named watchlists (e.g. "My Forex", "High Vol Synthetics")
-   - Drag symbols between watchlists
-   - Per-watchlist alert rules (price alert, % move alert)
-
-3. MARKET DEPTH & SENTIMENT
-   - For each symbol: show recent trade direction split (calls vs puts)
-   - Aggregated from social feed: "X% of traders are bullish on R_10"
-   - Sentiment timeline chart (last 24h)
-
-4. ADVANCED FILTERING & SAVED VIEWS
-   - Filter by: pip size, payout %, market hours, volatility band
-   - Save current filter as named view (e.g. "Quick Scalp Set")
-   - Share views with team via URL
-
-5. ECONOMIC CALENDAR INTEGRATION
-   - Inline calendar showing upcoming events affecting each market
-   - "High impact" events flagged with red badge
-   - Click event -> see affected symbols highlighted in grid
-
-6. ONE-CLICK MULTI-ACCOUNT TRADE
-   - Buy same contract across multiple Deriv accounts simultaneously
-   - Distribute stake by configurable ratio
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-active_symbols API fails              Show cached symbols with warning badge
-                                      "Last updated: 5 minutes ago"
-
-Symbol delisted by Deriv              Grey out card with "Delisted" tooltip
-                                      Prevent trade action
-                                      Notify users who had it favorited
-
-Market closed (forex weekend)         Show "Closed" pill + next open time
-                                      Disable Trade button, show countdown
-
-Tick subscription rate-limited        Switch to polling fallback (every 5s)
-                                      Show "Live: degraded" indicator
-
-Favorite symbol not in active list    Show in "Inactive Favorites" section
-                                      with reactivation prompt
-
-Search returns no matches             Show suggestions: "Did you mean R_10?"
-                                      + "Browse all markets" link
-
-User tries to trade restricted symbol Show modal: "This symbol requires
-                                      account verification. Submit documents."
-```
-
-#### Performance Considerations
-
-```
-- Paginate symbol grid (50 per page) to avoid 1000+ DOM nodes
-- Virtualize grid when scrolling (react-window FixedSizeGrid)
-- Memoize MarketCard with React.memo + custom comparator
-- Cache active_symbols in Redis (TTL 1h) — rarely changes
-- Use Web Worker for heatmap color calculation (off main thread)
-- Throttle tick updates to 2 fps per card
-- Lazy-load EconomicCalendar component
-- Use IntersectionObserver to only subscribe to ticks for visible cards
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - MarketTabs switches active class correctly
-  - SearchFilter debounces input (300ms)
-  - MarketGrid renders correct count of cards
-  - Favorites toggle persists to localStorage
-
-INTEGRATION:
-  - Mock active_symbols response -> assert grid populated
-  - Toggle favorite -> assert /api/favorites called
-  - Click Trade -> assert navigation to /dashboard/trade?symbol=R_10
-
-E2E:
-  - Browse markets, search "R_10", click Trade -> trade page loads
-  - Switch tab to Synthetics -> assert symbol list updates
-  - Add to favorites -> refresh page -> favorite persists
-
-ACCESSIBILITY:
-  - Axe automated scan on each tab
-  - Screen reader test: navigate grid with arrow keys
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Grid items: role="button" + aria-label="Trade EUR/USD, current price 1.0842, up 0.12%"
-- Tablist follows WAI-ARIA tabs pattern (arrow keys to switch)
-- Price changes announced via aria-live="polite" region
-- Colorblind mode: use shapes (up/down/dot) + colors for direction
-- Focus visible ring on all interactive elements
-- "Skip to content" link at top of page
-- Symbol search: autocomplete with keyboard navigation
-```
-
 
 ---
 
-### PAGE D-3: Trade Page (`/dashboard/trade`)
+### PAGE D-3: Live Trading (`/dashboard/live`)
 
 ```
 PURPOSE:
-  Full trading interface for a selected symbol.
-  Chart, order panel, and live contract monitoring.
+  Active trades running NOW. Real-time feed, no charts.
+  Numbers streaming, adding to profits/losses live.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  SYMBOL SELECTOR  │  [EUR/USD ▼]  │  Price: 1.0842 ▲  │
-└─────────────────────────────────────────────────────────┘
-┌──────────────────────────────┬──────────────────────────┐
-│  CHART AREA                  │  ORDER PANEL             │
-│                              │                          │
-│  [1m|5m|15m|1h|1d]          │  Contract Type:          │
-│  [Candle ▼] [Indicators]    │  [Rise/Fall ▼]          │
-│                              │                          │
-│  ┌────────────────────────┐ │  ┌────────────────────┐ │
-│  │                        │ │  │ Rise   │  Fall      │ │
-│  │   TradingView          │ │  │ 1.0844 │  1.0840   │ │
-│  │   Lightweight Chart    │ │  └────────────────────┘ │
-│  │                        │ │                          │
-│  │   (OHLC candles)       │ │  Duration:              │
-│  │                        │ │  [5] [ticks ▼]          │
-│  │                        │ │                          │
-│  │                        │ │  Stake:                 │
-│  └────────────────────────┘ │  [$1.00]                │
-│                              │                          │
-│                              │  ┌─ Potential Profit ──┐│
-│                              │  │ Win:  +$1.95 (195%) ││
-│                              │  │ Lose: -$1.00        ││
-│                              │  └────────────────────┘│
-│                              │                          │
-│                              │  [🤖 Assign Bot ▼]     │
-│                              │                          │
-│                              │  [Buy Rise]  [Buy Fall] │
-└──────────────────────────────┴──────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  OPEN CONTRACTS                                         │
-│  ┌───────┬────────┬────────┬────────┬────────┬───────┐ │
-│  │ ID    │ Type   │ Entry  │ Current│ P&L    │ Action│ │
-│  ├───────┼────────┼────────┼────────┼────────┼───────┤ │
-│  │ #1234 │ Rise   │ 1.0842 │ 1.0845 │ +$0.50 │ [Sell]│ │
-│  │ #1235 │ Fall   │ 1.0840 │ 1.0838 │ +$0.30 │ [Sell]│ │
-│  └───────┴────────┴────────┴────────┴────────┴───────┘ │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: RUNNING TOTALS
+    - Capital in market, Session P&L, Trades count (W/L)
+    - Win Rate, Current Streak, AI Guardian status
+
+  SECTION 2: LIVE TRADE FEED (newest first, streaming)
+    - ✅ WIN / ❌ LOSS with symbol, type, stake, payout, P&L
+    - Entry/exit spot, timestamp, package assignment
+    - Green/red flash animation on new entries
+
+  SECTION 3: LIVE TICK PRICES
+    - All subscribed symbols with current price and direction
+    - Update in real-time via WebSocket
+
+  SECTION 4: ACTIVE BOTS
+    - Each bot: status, symbol, trade count, win rate, P&L
+    - [Pause All] [Stop All] [Restart All]
+
+  SECTION 5: PER-PACKAGE LIVE P&L
+    - Each package: capital, current P&L, ROI
+    - P&L split proportional to each package's capital share
 ```
-
-#### Components Breakdown
-
-```
-TradePage/
-  ├── SymbolSelector
-  │     ├── symbols: Symbol[] (from active_symbols cache)
-  │     ├── selected: string
-  │     └── favorites: string[]
-  │
-  ├── ChartArea
-  │     ├── chart: LightweightCharts instance
-  │     ├── data: OHLC[] (from ticks_history)
-  │     ├── timeframe: "1m" | "5m" | "15m" | "1h" | "1d"
-  │     ├── chartType: "candle" | "line" | "bar"
-  │     ├── indicators: Indicator[]
-  │     │     ├── type: "SMA" | "EMA" | "RSI" | "MACD" | "BB"
-  │     │     ├── params: Record<string, number>
-  │     │     └── visible: boolean
-  │     └── subscriptions: tick WebSocket
-  │
-  ├── OrderPanel
-  │     ├── contractType: string
-  │     ├── proposal: Proposal (from Deriv proposal API)
-  │     │     ├── askPrice: number
-  │     │     ├── payout: number
-  │     │     └── spot: number
-  │     ├── duration: number
-  │     ├── durationUnit: "t" | "s" | "m" | "h" | "d"
-  │     ├── stake: number
-  │     ├── barrier?: number (for higher/lower, touch)
-  │     ├── selectedBot?: string (assign to bot)
-  │     ├── onBuy: (params) → buy API call
-  │     └── proposalSubscription: real-time pricing
-  │
-  └── OpenContracts
-        ├── contracts: Contract[]
-        │     ├── contractId: string
-        │     ├── type: string
-        │     ├── entrySpot: number
-        │     ├── currentSpot: number
-        │     ├── pnl: number
-        │     ├── isSold: boolean
-        │     └── sellTime?: Date
-        ├── onSell: (contractId) → sell API call
-        └── subscription: proposal_open_contract stream
-
-DERIV API CALLS:
-  1. ticks_history: get historical OHLC
-  2. tick: subscribe to real-time price
-  3. proposal: subscribe to live pricing
-  4. buy: execute trade
-  5. proposal_open_contract: monitor open positions
-  6. sell: close position early
-```
-
-#### Advanced Features
-
-```
-1. MULTI-LEGGED TRADE BUILDER
-   - Build multi-contract positions (e.g. Rise + higher/lower combo)
-   - Visualize combined P&L curve
-   - Save as template for reuse
-
-2. ONE-CLICK TRADING MODE
-   - Pre-configure 4 quick-trade buttons (e.g. R_10 Rise $1 5t)
-   - Hover over chart shows price; click buys instantly
-   - Confirm modal optional (toggle in settings)
-
-3. TRADING JOURNAL (INLINE)
-   - After each trade closes, prompt for note + emotion tag
-   - Auto-attach screenshot of chart at entry
-   - Sync to /dashboard/analytics journal tab
-
-4. SMART ORDER ROUTING
-   - Auto-select best account (lowest utilization) for trade
-   - Spread large stakes across multiple accounts to avoid limits
-   - Failover to backup account if primary rejects
-
-5. PRICE ALERTS & AUTO-EXECUTE
-   - Set conditional orders: "Buy Rise if R_10 > 4540"
-   - Up to 10 active alerts per symbol
-   - Triggered alerts execute trade automatically
-
-6. ADVANCED CHART FEATURES
-   - Drawing tools (trendline, fib retracement, support/resistance)
-   - Multi-timeframe view (e.g. 1m + 5m side-by-side)
-   - Save chart layouts per symbol
-   - Indicator templates (apply 3 indicators with one click)
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Buy API returns error_code            Show specific error:
-  - InvalidStake                       "Stake must be between $0.35 and $50,000"
-  - MarketClosed                       "Market closed. Opens in 4h 23m"
-  - InsufficientBalance                "Balance: $0.50. Required: $1.00"
-  - RateLimitExceeded                  "Too many trades. Wait 30s."
-  - ContractExpired                    "Proposal expired. Refreshing..."
-                                      (auto-fetch new proposal)
-
-Proposal subscription drops            Re-subscribe transparently
-                                      Show "Pricing: reconnecting..." pill
-
-Entry spot not received in 10s        Mark contract as "Pending"
-                                      Show "Verifying entry..." badge
-                                      Auto-resolve when spot arrives
-
-Chart WS disconnects                   Pause chart, show "Paused" overlay
-                                      Resume on reconnect (don't lose data)
-
-User navigates away mid-trade          Confirm modal:
-                                      "You have 1 open trade. Leaving will
-                                       hide the monitor. Continue?"
-
-Sell API fails                         Retry 3x with 1s backoff
-                                      If still failing: show "Manual sell
-                                      required" with retry button
-
-Bot assigned to trade but bot is busy Queue trade in bot's pipeline
-                                      Show "Queued for bot X" badge
-```
-
-#### Performance Considerations
-
-```
-- LightweightCharts uses canvas — keep < 5000 candles in viewport
-- Use `setData` instead of `update` for batch candle updates
-- Throttle proposal subscription updates to 2 fps (price flicker reduction)
-- Debounce stake input (250ms) before fetching proposal
-- Web Worker for indicator calculations (RSI, MACD) on historical data
-- Lazy-load drawing tools (only when user clicks "draw" mode)
-- Use `requestIdleCallback` for non-critical UI work
-- Chart resize observer with debounce (100ms)
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - OrderPanel validates stake, duration, barrier constraints
-  - SymbolSelector filters favorites correctly
-  - ChartArea timeframe switch triggers correct ticks_history call
-  - OpenContracts sell button calls sell API with contract_id
-
-INTEGRATION:
-  - Mock Deriv proposal stream -> assert OrderPanel updates
-  - Buy flow -> mock success -> assert OpenContracts row appears
-  - Sell flow -> mock success -> assert row removed
-  - Bot assignment dropdown -> assert only running bots listed
-
-E2E (paper trading mode):
-  - Select EUR/USD -> set Rise 5 ticks $1 -> Buy -> contract closes -> P&L shown
-  - Test partial fill scenario (rare but possible)
-  - Test chart drawing tools persist across symbol switches
-
-PERFORMANCE:
-  - Lighthouse CI: < 2s LCP, < 100ms CLS
-  - Chart render benchmark: 1000 candles in < 50ms
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Chart keyboard mode: arrow keys to move cursor, Enter for action
-- Order form: full keyboard navigable, logical tab order
-- Error messages: role="alert" + aria-live="assertive"
-- OpenContracts table: sortable via keyboard (Enter on header)
-- High-contrast theme for chart (white bg, black candles)
-- Screen reader announces price changes every 5s (toggleable)
-- Magnifier mode for chart (accessibility setting)
-- "Reduce visual noise" toggle: hides animations, simplifies colors
-```
-
 
 ---
 
-### PAGE D-4: Bot Management (`/dashboard/bots`)
+### PAGE D-4: Trade Log & Records (`/dashboard/trades`)
 
 ```
 PURPOSE:
-  List, manage, and create trading bots.
-  Overview of all bots with status and performance.
+  Complete history of all trades I've executed.
+  Filterable by date, package, market, result. Exportable.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  BOTS HEADER                                            │
-│  "Trading Bots"                    [+ Create New Bot]   │
-│  [All] [Running 🟢] [Paused 🟡] [Stopped 🔴]           │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  BOT CARDS                                              │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 🟢 Martingale Bot                    [⏸] [⏹] [⚙]│   │
-│  │ Symbol: R_10 (Volatility 10 Index)              │   │
-│  │ Strategy: Martingale | Script: martingale_v2.js  │   │
-│  │ Runtime: 2h 34m | Trades: 156 | Win Rate: 64%   │   │
-│  │ P&L: +$23.40 ▲ | Current Stake: $0.35           │   │
-│  │                                                  │   │
-│  │ ┌──────────────────────────────────────────────┐ │   │
-│  │ │ [Mini P&L chart - last 50 trades]            │ │   │
-│  │ └──────────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 🟡 DCA Bot                           [▶] [⏹] [⚙]│   │
-│  │ Symbol: frxEURUSD | Strategy: DCA              │   │
-│  │ Runtime: 0h 00m | Trades: 45 | Win Rate: 71%   │   │
-│  │ P&L: +$12.80 ▲ | Status: Paused by user        │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 🔴 Scalper Bot                        [▶] [🗑] [⚙]│   │
-│  │ Symbol: cryBTCUSD | Last run: 2 days ago       │   │
-│  │ Total Trades: 340 | Win Rate: 58%              │   │
-│  │ P&L: -$8.20 ▼                                  │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: SUMMARY CARDS
+    - Total trades, Wins, Losses, Net P&L, Win Rate, Avg Win, Avg Loss, Best trade
+
+  SECTION 2: TRADE TABLE (TanStack Table)
+    - Columns: #, Date, Symbol, Type, Stake, Payout, P&L, Package
+    - Paginated, sortable, filterable, column-resizable
+    - Row click expands to show full execution details
+
+  SECTION 3: DAILY AGGREGATION
+    - Table: Date, Trades, Wins, Win %, P&L, Running Capital
+
+  SECTION 4: PER-PACKAGE BREAKDOWN
+    - Table: Package, Trades, Wins, P&L, ROI
+
+  SECTION 5: TRADE EXECUTION DETAILS (expanded row)
+    - Symbol, Contract, Duration, Entry/Exit spot
+    - Buy/Sell price, Profit, Bot name, Schedule name
+    - Package assignment, Deriv Contract ID, Executed at
 ```
-
-#### Components Breakdown
-
-```
-BotsPage/
-  ├── BotsHeader
-  │     ├── totalCount: number
-  │     ├── runningCount: number
-  │     └── onCreateNew: () → /dashboard/bots/new
-  │
-  ├── BotsFilter
-  │     ├── status: "all" | "running" | "paused" | "stopped"
-  │     └── sortBy: "name" | "pnl" | "winRate" | "recent"
-  │
-  └── BotCard[]
-        ├── id: string
-        ├── name: string
-        ├── status: "running" | "paused" | "stopped" | "error"
-        ├── symbol: string
-        ├── strategy: string
-        ├── scriptId: string
-        ├── runtime: number
-        ├── totalTrades: number
-        ├── winRate: number
-        ├── pnl: number
-        ├── currentStake: number
-        ├── pnlChart: { x: number, y: number }[] (last 50 trades)
-        ├── actions:
-        │     ├── start: () → POST /api/bots/{id}/start
-        │     ├── pause: () → POST /api/bots/{id}/pause
-        │     ├── stop: () → POST /api/bots/{id}/stop
-        │     ├── configure: () → /dashboard/bots/{id}/config
-        │     └── delete: () → DELETE /api/bots/{id}
-        └── realTimeUpdates: Socket.IO subscription
-```
-
-#### Advanced Features
-
-```
-1. BOT GROUPS & TAGS
-   - Group bots by tag (e.g. "Scalping", "Long-term", "Test")
-   - Bulk actions on group: pause all, stop all, delete all
-   - Filter by tag in sidebar
-
-2. BOT TEMPLATES LIBRARY
-   - Save any bot config as template (without runtime data)
-   - Share templates with team
-   - "Fork" a public template from marketplace
-
-3. BOT PERFORMANCE COMPARISON
-   - Select 2-4 bots -> side-by-side comparison view
-   - Overlay P&L curves, win rate trends, trade frequency
-   - Identify which strategy is outperforming
-
-4. BOT HEALTH SCORING
-   - Auto-score each bot 0-100 based on:
-     - Win rate vs benchmark
-     - Drawdown depth
-     - Trade frequency stability
-     - Error rate
-   - Red/yellow/green badges on cards
-   - "Action needed" filter shows low-scoring bots
-
-5. BOT CLONING & SCENARIO TESTING
-   - Clone a bot with different parameters (A/B testing)
-   - Run both in paper-trade mode, compare results
-   - Promote winner to live
-
-6. COLLABORATIVE BOT OWNERSHIP
-   - Multiple users can co-own a bot
-   - Role-based permissions (viewer / editor / admin)
-   - Audit log of who changed what
-
-7. BOT PAUSE/RESUME SCHEDULES
-   - Per-bot schedule: "Pause weekdays 12:00-13:00 (lunch)"
-   - Holiday calendar auto-pause
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Bot status update missed (WS lag)     Show "Syncing..." badge for 5s
-                                      Then force-refresh via REST API
-
-Bot stuck in "starting" state > 30s   Mark as warning "Delayed start"
-                                      Offer "Force start" / "Cancel" buttons
-
-Bot errored repeatedly (5x in 1 min)  Auto-pause bot
-                                      Send critical notification
-                                      Show error trace on card
-
-P&L chart data missing (new bot)      Show "No trades yet" placeholder
-                                      Don't render empty chart
-
-Delete bot with open trades           Confirm modal:
-                                      "Bot has 2 open contracts. Stop bot
-                                       (contracts will close) or wait?"
-
-Bot assigned to delisted symbol       Disable start button
-                                      Show "Symbol no longer available"
-                                      Suggest replacement symbol
-
-Concurrent edits (two users edit)     Optimistic UI + server-side conflict
-                                      resolution: last-write-wins with
-                                      notification to other user
-```
-
-#### Performance Considerations
-
-```
-- Render only visible bot cards (pagination 12 per page or virtualize)
-- P&L mini-chart: SVG sparkline (not Recharts) for 50 data points
-- Debounce filter changes (200ms)
-- Cache bot list in TanStack Query (staleTime 10s, refetchOnWindowFocus)
-- Use `useTransition` for filter+sort operations
-- WebSocket updates batched (5/s max per card)
-- Lazy-load BotComparison modal
-- Skeleton loaders for initial fetch
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - BotsFilter correctly filters by status and sort
-  - BotCard actions call correct API endpoints
-  - P&L sparkline renders correct trend direction
-  - Health score calculation matches expected formula
-
-INTEGRATION:
-  - Create bot via API -> assert appears in list
-  - Pause bot -> assert status changes via Socket.IO
-  - Delete bot -> assert removed from list + confirmation
-
-E2E:
-  - Create new bot, start, wait for first trade, pause, stop, delete
-  - Test bulk pause action on filtered set
-  - Test bot template creation and reuse
-
-LOAD TEST:
-  - 100 bots in list -> assert page renders < 1s
-  - 50 bots updating P&L simultaneously -> no UI freeze
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Bot cards: role="article" + aria-label with name + status
-- Status badges: include text label, not just color (Active, Paused)
-- Action buttons: aria-label="Pause bot Martingale Bot"
-- Filter chips: keyboard navigable, deletable via Backspace
-- Sort dropdown: announces current sort to screen readers
-- Empty state: clear "Create your first bot" CTA with icon
-- Tooltip on health score: explains how it's calculated
-- Reduce motion: disable sparkline animation
-```
-
 
 ---
 
-### PAGE D-5: Bot Creator/Config (`/dashboard/bots/new` & `/dashboard/bots/:id/config`)
+### PAGE D-5: Package Manager (`/dashboard/packages`)
 
 ```
 PURPOSE:
-  Create new bot or edit existing bot configuration.
-  Select strategy, market, parameters, risk management.
+  Define and manage crowdfunding packages. Each package has
+  different investment tiers, durations, expected returns,
+  deadlines, and terms. This is where I set what investors buy.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  BOT CONFIGURATOR (Stepper)                              │
-│                                                          │
-│  ① Basic  ─── ② Strategy  ─── ③ Risk  ─── ④ Review    │
-│  ●━━━━━━━━━○━━━━━━━━━━━━━○━━━━━━━━━━━○━━━━━━━━━━━━━   │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: ACTIVE PACKAGES
+    - Card per package showing:
+      Name, Min Investment, Max Slots/User, Duration, Expected ROI
+      Target Capital, Filled % (progress bar), Investor count
+      Trading period with countdown, Current P&L
+      [View Details] [Edit] [View Investors]
 
-STEP 1: BASIC INFO
-┌─────────────────────────────────────────────────────────┐
-│  Bot Name: [My Martingale Bot          ]                │
-│  Description: [Optional description    ]                │
-│  Market: [Synthetics ▼]                                │
-│  Symbol: [Volatility 10 Index ▼]                       │
-│  Account: [CR1234567 (USD) ▼]                          │
-│                                          [Next →]       │
-└─────────────────────────────────────────────────────────┘
+  SECTION 2: COMPLETED PACKAGES
+    - List of past packages with final ROI, profit, distribution status
 
-STEP 2: STRATEGY SELECTION
-┌─────────────────────────────────────────────────────────┐
-│  Choose Strategy:                                       │
-│                                                          │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │ 📊 Martingale   │  │ 📈 DCA/Average  │              │
-│  │ Double stake on │  │ Lower average   │              │
-│  │ loss            │  │ entry price     │              │
-│  └─────────────────┘  └─────────────────┘              │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │ 🔄 Oscar's Grind│  │ 🎯 Fixed Stake  │              │
-│  │ Grind strategy  │  │ Same stake each │              │
-│  └─────────────────┘  └─────────────────┘              │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │ 📜 Custom Script│  │ 🧠 AI Adaptive  │              │
-│  │ Write your own  │  │ ML-based adjust │              │
-│  └─────────────────┘  └─────────────────┘              │
-│                                                          │
-│  Or select existing script: [my_strategy.js ▼]          │
-│                                          [← Back] [→]   │
-└─────────────────────────────────────────────────────────┘
+  SECTION 3: NEW PACKAGE FORM (advanced)
+    - Package Name & Code
+    - Investment Terms: Min per Slot, Max Slots/User, Target/Max Capital
+    - Timeline: Booking Opens/Closes, Trading Starts/Ends, Profit Sharing date
+    - Expected Returns: Conservative/Expected/Optimistic ROI
+    - Profit Split: Operator % / Investors %
+    - Trading Config: Markets (checkboxes), Strategies (checkboxes), AI Guardian, Max Drawdown
+    - Terms & Conditions: Upload PDF, auto-reinvest option, early exit penalty
+    - [Save Draft] [Publish Package]
 
-STEP 3: PARAMETERS & RISK MANAGEMENT
-┌─────────────────────────────────────────────────────────┐
-│  Trade Parameters:                                      │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Contract Type:  [Rise/Fall ▼]                    │   │
-│  │ Initial Stake:  [$0.35       ]                   │   │
-│  │ Max Stake:      [$100        ]                   │   │
-│  │ Duration:       [5] [ticks ▼]                    │   │
-│  │ Take Profit:    [$50         ]                   │   │
-│  │ Stop Loss:      [$25         ]                   │   │
-│  │ Max Concurrent: [1           ]                   │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  Martingale Settings:                                   │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Multiplier:     [2.0         ]                   │   │
-│  │ On Win:         [Reset to initial ▼]             │   │
-│  │ On Loss:        [Multiply stake ▼]               │   │
-│  │ Max Steps:      [5           ]                   │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  Risk Limits:                                           │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Max Daily Loss:  [$100        ]                  │   │
-│  │ Max Daily Trades: [500        ]                  │   │
-│  │ Cooldown After N Losses: [3 losses → 5min]      │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                          [← Back] [→]   │
-└─────────────────────────────────────────────────────────┘
+  SECTION 4: PACKAGE COMPARISON TABLE
+    - Side-by-side: Min Slot, Duration, Exp ROI, Markets, Capital, Investors, Status
 
-STEP 4: REVIEW & START
-┌─────────────────────────────────────────────────────────┐
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Bot: My Martingale Bot                           │   │
-│  │ Symbol: R_10 (Volatility 10 Index)              │   │
-│  │ Strategy: Martingale (2x multiplier)            │   │
-│  │ Stake: $0.35 → max $100                        │   │
-│  │ Take Profit: $50 | Stop Loss: $25              │   │
-│  │ Duration: 5 ticks                               │   │
-│  │ Risk: Max daily loss $100, 3-loss cooldown 5m  │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  □ Run backtest before starting (recommended)           │
-│  [Run Backtest]  → Shows quick P&L simulation           │
-│                                                          │
-│  [← Back]  [Save & Start 🟢]  [Save Draft]             │
-└─────────────────────────────────────────────────────────┘
+  SECTION 5: PACKAGE PERFORMANCE HISTORY
+    - Historical results for similar package configs
+    - Average/Best/Worst ROI across past packages
 ```
-
-#### Components Breakdown
-
-```
-BotConfigurator/
-  ├── stepper: StepperComponent
-  │     ├── steps: Step[]
-  │     ├── currentStep: number
-  │     └── completed: Set<number>
-  │
-  ├── Step1_BasicInfo
-  │     ├── name: string
-  │     ├── description: string
-  │     ├── market: string (from active_symbols)
-  │     ├── symbol: string
-  │     └── account: DerivAccount (from connections)
-  │
-  ├── Step2_StrategySelection
-  │     ├── presetStrategies: Strategy[]
-  │     │     ├── id: string
-  │     │     ├── name: string
-  │     │     ├── description: string
-  │     │     ├── icon: string
-  │     │     ├── category: "preset" | "custom" | "ai"
-  │     │     ├── defaultParams: Record<string, any>
-  │     │     └── riskLevel: "low" | "medium" | "high"
-  │     ├── customScripts: Script[] (user's scripts)
-  │     └── selectedStrategy: string
-  │
-  ├── Step3_ParametersRisk
-  │     ├── tradeParams: TradeParams
-  │     │     ├── contractType: string
-  │     │     ├── initialStake: number
-  │     │     ├── maxStake: number
-  │     │     ├── duration: number
-  │     │     ├── durationUnit: string
-  │     │     ├── takeProfit: number
-  │     │     ├── stopLoss: number
-  │     │     └── maxConcurrent: number
-  │     ├── strategyParams: Record<string, any> (dynamic)
-  │     └── riskLimits: RiskLimits
-  │           ├── maxDailyLoss: number
-  │           ├── maxDailyTrades: number
-  │           ├── cooldownAfterLosses: { count: number, duration: number }
-  │           └── maxConsecutiveLosses: number
-  │
-  └── Step4_ReviewStart
-        ├── summary: BotConfig (all steps combined)
-        ├── backtestOption: boolean
-        ├── backtestResult?: BacktestResult
-        │     ├── totalTrades: number
-        │     ├── winRate: number
-        │     ├── totalPnL: number
-        │     ├── maxDrawdown: number
-        │     └── trades: SimulatedTrade[]
-        ├── onStart: () → POST /api/bots (create + start)
-        └── onSaveDraft: () → POST /api/bots (create, status=draft)
-
-PRESET STRATEGIES:
-  1. Martingale    — double stake on loss, reset on win
-  2. Oscar's Grind — increase stake only after win streak
-  3. DCA/Average   — same stake, lower average entry
-  4. Fixed Stake   — consistent stake every trade
-  5. Anti-Marting  — increase stake on win, decrease on loss
-  6. Fibonacci     — stake follows Fibonacci sequence on losses
-```
-
-#### Advanced Features
-
-```
-1. AI STRATEGY ASSISTANT
-   - Natural language -> strategy: "I want a bot that trades R_10 every 5 ticks
-     and doubles stake on loss, max 5 steps"
-   - AI generates config + script draft for review
-   - User can edit before saving
-
-2. STRATEGY MARKETPLACE IMPORT
-   - Browse community strategies (with ratings, backtest results)
-   - One-click import into bot creator
-   - Auto-fills Step 2 and pre-populates Step 3 with sensible defaults
-
-3. LIVE BACKTEST PREVIEW (STEP 4)
-   - Run quick 30-day backtest inline before "Save & Start"
-   - Show equity curve + key metrics in 5 seconds
-   - "What-if" slider: change multiplier and re-run instantly
-
-4. PARAMETER OPTIMIZER
-   - "Optimize" button: grid search over parameter ranges
-   - Finds best (multiplier, maxSteps, duration) combo for last 30 days
-   - Shows top 5 parameter sets with their backtest metrics
-   - User picks one or uses default
-
-5. RISK SCENARIO SIMULATOR
-   - Monte Carlo simulation: 1000 random trade sequences
-   - Shows probability distribution of final balance
-   - "Worst case 5%" / "Expected" / "Best case 5%" bands
-
-6. STRATEGY TEMPLATES WITH VARIABLES
-   - Templates support parameter injection
-   - E.g. Martingale template exposes `multiplier`, `maxSteps`, `initialStake`
-   - User edits via form, not code
-
-7. DRAFT AUTO-SAVE & RESUME
-   - Drafts auto-save every 30s to localStorage + server
-   - Resume from any device
-   - "Recent drafts" section on /dashboard/bots
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-User navigates back from Step 3       Preserve all entered data
-                                      Show "Draft saved" toast
-
-Symbol becomes unavailable mid-config Show warning on Step 1
-                                      Offer "Choose similar symbol" suggestions
-
-Strategy script has syntax error     Block Step 4 until resolved
-                                      Show error line + suggestion
-
-Backtest takes > 10s                  Show progress bar
-                                      Allow "Skip backtest" with warning
-
-Account disconnects during creation   Save as draft
-                                      Show "Reconnect to start bot" notice
-
-Parameter optimizer finds no winner  Suggest default params
-                                      Explain why (e.g. "Insufficient data")
-
-AI-generated script fails validation Show diff vs template
-                                      Highlight what AI changed
-                                      Require explicit approval
-```
-
-#### Performance Considerations
-
-```
-- Stepper component: lazy-load each step (don't render all 4)
-- Strategy cards: precompute risk level badges
-- Backtest runs in Web Worker (don't block UI)
-- Parameter optimizer: stream results (show top-5 as found)
-- Form validation: debounced (300ms) + on blur
-- AI assistant: streaming response (token-by-token)
-- Reduce bundle: Monaco Editor loaded only on /scripts
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Stepper navigation: forward/back preserves state
-  - Form validation rules per step
-  - Risk calculation: max daily loss, cooldown trigger
-  - Strategy parameter schema validation
-
-INTEGRATION:
-  - Save draft -> reload -> assert state restored
-  - Run backtest -> assert result displayed
-  - Start bot -> assert redirect to /dashboard/bots/:id
-
-E2E:
-  - Full flow: Basic Info -> Martingale -> $0.35 stake -> Backtest -> Start
-  - Test AI assistant: type description -> assert config populated
-  - Test parameter optimizer: run -> select top result -> start bot
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Stepper: role="navigation" + aria-current="step"
-- Form fields: associated labels, error messages with aria-describedby
-- Strategy cards: keyboard selectable (arrow keys + Enter)
-- Backtest results: data table with proper scope/headers
-- AI assistant: typing indicator + live region for streaming response
-- Focus management: auto-focus first field of each step on entry
-- "Review" step: read aloud summary via Web Speech API (optional)
-- High-contrast form validation errors
-```
-
 
 ---
 
-### PAGE D-6: Script Editor (`/dashboard/scripts` & `/dashboard/scripts/:id`)
+### PAGE D-6: Investors Management (`/dashboard/investors`)
 
 ```
 PURPOSE:
-  Write, edit, test, and manage custom trading strategy 
-  scripts in JavaScript. Sandboxed execution.
+  All investors who joined packages. Their investments,
+  packages, KYC status, earnings, communications.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  SCRIPTS LIST (when no script selected)                 │
-│                                                          │
-│  "Strategy Scripts"                    [+ New Script]   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 📜 martingale_v2.js          Last edited: 2h ago│   │
-│  │ Used by: 2 bots | Runs: 1,234 | Win: 63%       │   │
-│  │ [Edit] [Duplicate] [Delete]                     │   │
-│  ├──────────────────────────────────────────────────┤   │
-│  │ 📜 custom_rsi.js             Last edited: 1d ago│   │
-│  │ Used by: 0 bots | Runs: 89 | Win: 58%          │   │
-│  │ [Edit] [Duplicate] [Delete]                     │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  TEMPLATE LIBRARY:                                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Martingale   │  │ RSI Strategy │  │ MACD Crossover│ │
-│  │ [Use Template]│  │ [Use Template]│  │ [Use Template]│ │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: INVESTOR SUMMARY
+    - Total, Active, Total Invested, Pending KYC, New Today, Avg Investment, Top Investor
 
-SCRIPT EDITOR (when script selected):
-┌─────────────────────────────────────────────────────────┐
-│  martingale_v2.js  [💾 Save] [▶ Test] [📊 Backtest]   │
-└─────────────────────────────────────────────────────────┘
-┌──────────────────────────────┬──────────────────────────┐
-│  MONACO EDITOR               │  SIDEBAR                │
-│                              │                          │
-│  1 │ // Martingale Strategy  │  📁 API Reference       │
-│  2 │ // Custom parameters    │    ├── tick.price       │
-│  3 │                        │    ├── tick.symbol       │
-│  4 │ function onTick(tick) {│    ├── tick.epoch        │
-│  5 │   const lastResult =   │    ├── balance           │
-│  6 │     getLastResult();   │    ├── placeTrade()      │
-│  7 │                        │    ├── getLastResult()    │
-│  8 │   if (lastResult.win) {│    ├── getHistory()      │
-│  9 │     stake = initStake;│    └── log()              │
-│ 10 │   } else {             │                          │
-│ 11 │     stake *= mult;    │  📁 Snippets              │
-│ 12 │   }                    │    ├── Buy Rise/Fall     │
-│ 13 │                        │    ├── Check RSI         │
-│ 14 │   return {             │    ├── Check MA          │
-│ 15 │     contract: 'RISE', │    └── Martingale Step    │
-│ 16 │     stake: stake,     │                          │
-│ 17 │     duration: 5,     │  📁 Variables             │
-│ 18 │     durationUnit:'t' │    ├── initStake: 0.35   │
-│ 19 │   };                  │    ├── multiplier: 2.0   │
-│ 20 │ }                      │    └── maxSteps: 5       │
-│ 21 │                        │                          │
-│                              │  📁 Test Console        │
-│                              │    > Running test...    │
-│                              │    > Trade #1: RISE    │
-│                              │    > Result: WIN +$0.35│
-│                              │    > Trade #2: RISE    │
-│                              │    > Result: LOSS -$0.35│
-└──────────────────────────────┴──────────────────────────┘
+  SECTION 2: INVESTOR TABLE (TanStack Table)
+    - Columns: ID, Name, Packages, Invested, P&L, KYC, Actions
+    - Actions: View Profile, Message, View Trades, Process Payout, Suspend
+
+  SECTION 3: INVESTOR DETAIL (side panel or modal)
+    - Name, Email, Phone, Joined date, KYC level
+    - Packages with slots, investment, P&L per package
+    - Total invested, total earnings, wallet balance
+    - Recent activity log
+    - [Message] [View Full Trades] [Force Payout]
+
+  SECTION 4: INVESTORS BY PACKAGE
+    - Per package: investor count, fill progress bar, top investors
+
+  SECTION 5: KYC VERIFICATION QUEUE
+    - Pending verifications with document viewer
+    - View ID front/back + selfie
+    - Approve / Reject (with reason)
 ```
-
-#### Script Engine API Reference
-
-```
-AVAILABLE IN SANDBOX:
-
-  onTick(tick: Tick): TradeDecision | null
-    Called on every new tick. Return trade decision or null.
-
-  onResult(result: TradeResult): void
-    Called after each trade completes.
-
-  onComplete(summary: SessionSummary): void
-    Called when bot stops (take profit / stop loss hit).
-
-CONTEXT FUNCTIONS:
-  getLastResult(): TradeResult | null
-  getHistory(limit: number): TradeResult[]
-  getBalance(): number
-  getOpenContracts(): Contract[]
-  log(message: string): void
-
-TRADE DECISION RETURN:
-  {
-    contract: 'CALL' | 'PUT' | 'DIGITOVER' | ...,
-    stake: number,
-    duration: number,
-    durationUnit: 't' | 's' | 'm' | 'h' | 'd',
-    barrier?: number,
-    basis?: 'stake' | 'payout'
-  }
-
-TICK OBJECT:
-  {
-    price: number,
-    symbol: string,
-    epoch: number,
-    pipSize: number
-  }
-
-TRADE RESULT:
-  {
-    win: boolean,
-    profit: number,
-    payout: number,
-    buyPrice: number,
-    sellPrice: number,
-    contractType: string,
-    entrySpot: number,
-    exitSpot: number
-  }
-
-USER-DEFINED PARAMETERS:
-  - Script can declare params with @param comments
-  - These become editable fields in bot config
-  - Example: /** @param {number} multiplier=2.0 Multiplier on loss */
-
-SANDBOX SECURITY:
-  - VM2 / isolated-vm for execution
-  - No access to filesystem, network, process
-  - Memory limit: 128MB
-  - Execution timeout: 100ms per tick
-  - Rate limit: max 1 trade per tick
-```
-
-#### Advanced Features
-
-```
-1. SCRIPT VERSION CONTROL
-   - Git-like versioning: each save creates a commit
-   - Diff viewer between versions
-   - Rollback to any version
-   - Branch + merge (advanced users)
-
-2. SCRIPT TEMPLATES GALLERY
-   - Categorized: trend following / mean reversion / scalping / hedging
-   - "Fork" template -> edit -> save as new script
-   - Community templates (with ratings + backtest benchmarks)
-
-3. INLINE AI ASSISTANT
-   - Type "//ai" -> describe what you want
-   - AI suggests code snippet (Copilot-style)
-   - Accept/reject suggestion
-   - "Explain this function" right-click option
-
-4. LIVE SCRIPT PROFILER
-   - During test run: shows execution time per function
-   - Hot spots highlighted in editor
-   - Memory usage over time
-
-5. SCRIPT DEPENDENCIES
-   - Import other scripts as modules: `const ind = require('my_rsi.js')`
-   - Versioned imports (lock to specific version)
-   - Dependency graph visualization
-
-6. DEBUGGER (BREAKPOINTS)
-   - Set breakpoints in editor
-   - Step through ticks (paused execution)
-   - Inspect variables at each step
-   - Conditional breakpoints (e.g. "stop if stake > $5")
-
-7. TEST SUITE INTEGRATION
-   - Write test cases in script: `// @test { scenario: '5 wins in a row' }`
-   - Run all tests -> see pass/fail
-   - CI: tests run on every script save
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Script syntax error on save           Block save, show error gutter
-                                      Red squiggly underlines
-                                      Hover -> shows error message
-
-Script timeout during test            Abort after 100ms/tick
-                                      Show "Timeout at line N"
-                                      Highlight infinite loop risk
-
-Script uses forbidden API             Block save, show:
-                                      "process.exit() is not allowed"
-                                      List of forbidden APIs
-
-Script imports missing module         Show "Module not found" error
-                                      Offer to create stub
-
-Script memory exceeds 128MB           Abort execution
-                                      Show memory usage chart
-                                      Suggest optimization
-
-Bot currently using script            Warn on save: "3 bots use this script.
-                                      Apply changes will reload them."
-                                      Require explicit confirmation
-```
-
-#### Performance Considerations
-
-```
-- Monaco Editor: lazy-loaded, only on /scripts/:id
-- Syntax highlighting: web worker (don't block main thread)
-- Test run: sandboxed web worker (not main thread)
-- Large scripts (> 1000 lines): enable virtualized scrolling
-- Diff viewer: compute in worker
-- AI assistant: streaming token response
-- Auto-save: debounced 2s, save to IndexedDB
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Script save -> assert version commit created
-  - Rollback -> assert content reverts
-  - Validation: forbidden APIs detected
-  - Test runner executes sample script correctly
-
-INTEGRATION:
-  - Create script -> assign to bot -> start bot -> assert runs
-  - Test breakpoint pauses execution at correct tick
-  - Version diff -> assert correct changes shown
-
-E2E:
-  - Open editor -> type script -> save -> run test -> see results
-  - Use AI assistant -> accept suggestion -> save
-  - Rollback to previous version -> assert content reverted
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Monaco Editor: built-in screen reader support
-- Keyboard shortcuts: documented in help overlay (? key)
-- API reference sidebar: searchable, keyboard navigable
-- Test console output: role="log" + aria-live
-- High-contrast theme for editor
-- "Reduce motion" disables cursor blink, smooth scroll
-- Snippet insertion: keyboard accessible (Ctrl+Space)
-```
-
 
 ---
 
-### PAGE D-7: Automation Hub (`/dashboard/automation`)
+### PAGE D-7: Analytics (`/dashboard/analytics`)
 
 ```
 PURPOSE:
-  Central place for automation rules, scheduled tasks,
-  conditional triggers, and notification rules.
+  Performance analytics factoring in investors, packages,
+  different trade periods per package, and profit allocation.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  "Automation Hub"                      [+ New Rule]     │
-│  [Rules] [Schedules] [Triggers] [Notifications]         │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  AUTOMATION RULES                                       │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 🟢 Rule: "Stop all bots if balance drops 10%"  │   │
-│  │ Condition: balance.change < -10%                │   │
-│  │ Action: Stop all running bots                   │   │
-│  │ Last triggered: 2 days ago                      │   │
-│  │ [⏸ Pause] [Edit] [Delete]                       │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 🟢 Rule: "Start bot at market open"             │   │
-│  │ Condition: market.forex.opens                   │   │
-│  │ Action: Start "DCA Bot"                         │   │
-│  │ Next trigger: Tomorrow 00:00 UTC                │   │
-│  │ [⏸ Pause] [Edit] [Delete]                       │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 🟡 Rule: "Notify on 3 consecutive losses"       │   │
-│  │ Condition: consecutiveLosses >= 3               │   │
-│  │ Action: Send notification (email + push)        │   │
-│  │ [▶ Enable] [Edit] [Delete]                      │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: OVERVIEW METRICS
+    - Total P&L, Overall ROI, Profit Factor, Sharpe Ratio, Max Drawdown, Avg Trade Duration
 
-SCHEDULES TAB:
-┌─────────────────────────────────────────────────────────┐
-│  SCHEDULED TASKS                                        │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ ⏰ Daily: Start Scalper Bot at 09:00 UTC        │   │
-│  │ Stop at: 17:00 UTC                              │   │
-│  │ Symbol: frxEURUSD                               │   │
-│  │ Next run: Tomorrow 09:00 UTC                    │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ ⏰ Weekly: Pause all bots on Saturday 00:00 UTC │   │
-│  │ Resume: Monday 00:00 UTC                        │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+  SECTION 2: PER-PACKAGE ANALYTICS
+    - Each package card showing:
+      Period with countdown, Capital, P&L, Trades, Win Rate
+      Markets and strategies used
+      Time elapsed progress bar
+      Investor impact: count, avg investment, per-investor avg P&L
+      Distributed so far
 
-CREATE RULE MODAL:
-┌─────────────────────────────────────────────────────────┐
-│  New Automation Rule                                     │
-│                                                          │
-│  Name: [Stop on drawdown         ]                      │
-│                                                          │
-│  WHEN (Condition):                                      │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ [balance ▼] [changes by ▼] [more than ▼] [-15%]│   │
-│  │                                                  │   │
-│  │ OR conditions:                                   │   │
-│  │ [consecutiveLosses ▼] [equals ▼] [5           ] │   │
-│  │ [+ Add condition]                               │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  THEN (Action):                                         │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ [Stop bot ▼] [All bots ▼]                      │   │
-│  │ [+ Add action]                                  │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  [Cancel]  [Create Rule]                                │
-└─────────────────────────────────────────────────────────┘
+  SECTION 3: INVESTOR PERFORMANCE RANKING
+    - Table: Rank, Investor, Invested, Earned, Avg ROI
+
+  SECTION 4: MARKET & STRATEGY BREAKDOWN
+    - By Market: Symbol, Trades, P&L, Win Rate
+    - By Strategy: Strategy, Trades, P&L, Win Rate
+
+  SECTION 5: REVENUE & DISTRIBUTION
+    - Total Pool P&L, Operator Share %, Investor Share %
+    - Distributed vs Pending amounts
+    - Per-package breakdown of P&L → operator → investor split
 ```
-
-#### Automation Conditions & Actions
-
-```
-CONDITIONS:
-  balance.change        → percentage or absolute change
-  balance.below         → balance below threshold
-  balance.above         → balance above threshold
-  consecutiveLosses     → N losses in a row
-  consecutiveWins       → N wins in a row
-  trade.count           → total trades today
-  trade.winRate         → win rate drops below X%
-  market.opens          → market opens
-  market.closes         → market closes
-  time.ofDay            → specific time of day
-  time.schedule         → cron schedule
-  bot.profit            → bot reaches profit target
-  bot.loss              → bot reaches loss limit
-  price.above           → price above level
-  price.below           → price below level
-
-ACTIONS:
-  bot.start             → start a specific bot
-  bot.stop              → stop a specific bot
-  bot.pause             → pause a specific bot
-  bot.stopAll           → stop all running bots
-  bot.pauseAll          → pause all running bots
-  notification.email    → send email
-  notification.push     → send push notification
-  notification.webhook  → call webhook URL
-  trade.closeAll        → close all open positions
-  script.run            → execute a one-shot script
-  log.message           → log message to activity
-
-EVALUATION ENGINE:
-  - Rules evaluated on every tick (debounced 1s)
-  - Rules evaluated on every trade result
-  - Rules evaluated on balance change
-  - Rules evaluated on schedule (cron)
-  - Action queue prevents concurrent execution
-  - Failed actions retry 3 times with backoff
-```
-
-#### Advanced Features
-
-```
-1. VISUAL RULE BUILDER (FLOWCHART)
-   - Drag-and-drop nodes: trigger -> condition -> action
-   - Branch with "if/else" nodes
-   - Multi-condition AND/OR logic
-   - Export as JSON or share URL
-
-2. RULE TEMPLATES LIBRARY
-   - Pre-built rules for common scenarios:
-     - "Stop all bots on 20% drawdown"
-     - "Start scalper at market open, stop at close"
-     - "Notify on 3 consecutive losses"
-     - "Pause bot if win rate < 50% over 20 trades"
-   - One-click install + customize
-
-3. RULE CHAINING
-   - Rule A's action can trigger Rule B
-   - Visual chain diagram showing dependencies
-   - Loop detection (prevent infinite chains)
-
-4. DRY-RUN MODE
-   - Test rule without executing actions
-   - Shows "Would have triggered X times in last 7 days"
-   - Logs what would have happened
-
-5. RULE ANALYTICS
-   - Per-rule: trigger count, last triggered, action success rate
-   - Identify rules that never fire (delete candidates)
-   - Identify rules that fire too often (tighten conditions)
-
-6. CALENDAR VIEW
-   - Visual calendar of scheduled tasks
-   - Drag to reschedule
-   - Conflict detection (two rules firing same time)
-
-7. WEBHOOK INTEGRATIONS
-   - Trigger external systems (Slack, Discord, Zapier)
-   - Receive webhooks (e.g. TradingView alerts -> trigger rule)
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Rule action fails (bot already stopped) Log + continue, don't retry
-                                         Notify user (warning, not error)
-
-Rule creates infinite loop              Loop detector kills after 5 cycles
-                                         Disable rule, alert user
-
-Two rules conflict (stop + start same bot) Last-write-wins + warning
-                                         Suggest merging rules
-
-Cron schedule missed (server down)       Catch-up mode: run once on restart
-                                         Don't pile up missed runs
-
-Rule references deleted bot              Auto-disable rule
-                                         Show "Bot no longer exists" notice
-
-Webhook delivery fails (3x)              Mark rule as degraded
-                                         Pause future triggers
-                                         Notify user
-```
-
-#### Performance Considerations
-
-```
-- Rule evaluation: debounced (1s) per rule type
-- Bulk evaluate: process all rules in single pass per event
-- Cron: use BullMQ scheduler, not setInterval
-- Webhook calls: async queue with backpressure
-- Rule analytics: precompute daily in batch job
-- Calendar view: paginate by month
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Rule evaluator: each condition type tested
-  - Action executor: each action type tested
-  - Loop detection: triggers on cyclic chain
-  - Cron parser: handles all cron expressions
-
-INTEGRATION:
-  - Create rule -> trigger condition -> assert action executed
-  - Schedule task -> wait -> assert fires
-  - Webhook send -> mock endpoint -> assert payload correct
-
-E2E:
-  - Create "stop on drawdown" rule -> simulate drawdown -> bot stops
-  - Dry-run -> shows hypothetical triggers
-  - Calendar -> drag task -> assert rescheduled
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Visual rule builder: keyboard-accessible (tab between nodes)
-- Rule list: sortable, filterable via keyboard
-- Calendar: arrow-key navigation between days
-- Status badges: include text (Active/Paused/Error)
-- Action buttons: large tap targets
-- Reduced motion: instant node transitions
-- Drag-and-drop: keyboard alternative (cut/paste via menu)
-```
-
 
 ---
 
-### PAGE D-8: Portfolio / Positions (`/dashboard/portfolio`)
+### PAGE D-8: Funds & Capital (`/dashboard/funds`)
 
 ```
 PURPOSE:
-  View all open and closed positions.
-  Account balance, trade history, profit table.
+  All money flowing through the platform. Deposits received,
+  capital deployed, available balance, fund allocation.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  PORTFOLIO HEADER                                       │
-│  Balance: $1,042.30  |  Today P&L: +$42.30 ▲          │
-│  [Open Positions] [Trade History] [Profit Table]         │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  OPEN POSITIONS TAB                                     │
-│  ┌──────┬────────┬────────┬──────┬──────┬──────┬─────┐ │
-│  │ ID   │ Symbol │ Type   │Entry │Current│ P&L  │Act  │ │
-│  ├──────┼────────┼────────┼──────┼──────┼──────┼─────┤ │
-│  │#1234 │R_10   │Rise 5t│4532  │4535  │+$1.95│[Sell]│ │
-│  │#1235 │EURUSD │Fall 1m│1.0842│1.0838│+$0.30│[Sell]│ │
-│  │#1236 │BTCUSD │Rise 5m│67432 │67380 │-$0.80│[Sell]│ │
-│  └──────┴────────┴────────┴──────┴──────┴──────┴─────┘ │
-│                                                          │
-│  Total Open: 3 | Total Investment: $3.15 | P&L: +$1.45 │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  TRADE HISTORY TAB                                      │
-│  [Date ▼] [Symbol ▼] [Bot ▼] [Result ▼] [Export CSV]  │
-│  ┌──────┬────────┬────────┬──────┬──────┬──────┬─────┐ │
-│  │Date  │Symbol │ Type   │Stake │Payout│ P&L  │ Bot │ │
-│  ├──────┼────────┼────────┼──────┼──────┼──────┼─────┤ │
-│  │12:01 │R_10   │Rise 5t│$0.35 │$0.70 │+$0.35│Mart │ │
-│  │12:00 │R_10   │Rise 5t│$0.35 │$0.00 │-$0.35│Mart │ │
-│  │11:59 │R_10   │Rise 5t│$0.35 │$0.70 │+$0.35│Mart │ │
-│  │...   │       │       │      │      │      │     │ │
-│  └──────┴────────┴────────┴──────┴──────┴──────┴─────┘ │
-│                                                          │
-│  Pagination: [< 1 2 3 ... 156 >]                       │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: CAPITAL OVERVIEW
+    - Total Capital Under Management
+    - Deployed In Trades / Available / Pending Deposits
+    - Deriv Account Balance / Escrow Account
+
+  SECTION 2: DEPOSIT RECORDS
+    - Table: Date, Investor, Amount, Method, Package, Status
+    - Actions: Verify, Reject, Request More Info
+
+  SECTION 3: CAPITAL ALLOCATION BY PACKAGE
+    - Table: Package, Capital, % of Total, Status
+    - [Rebalance Allocations] — adjust % splits
+
+  SECTION 4: FUND FLOW TIMELINE
+    - Chronological log of all money movements
+
+  SECTION 5: RECONCILIATION & AUDIT
+    - Total deposits vs Deriv balance vs payouts
+    - Discrepancy detection
+    - [Run Full Reconciliation] [Export Audit Report]
 ```
-
-#### Components Breakdown
-
-```
-PortfolioPage/
-  ├── PortfolioHeader
-  │     ├── balance: number (real-time via WebSocket)
-  │     ├── todayPnL: number
-  │     └── currency: string
-  │
-  ├── OpenPositions
-  │     ├── positions: Position[]
-  │     │     ├── contractId: string
-  │     │     ├── symbol: string
-  │     │     ├── contractType: string
-  │     │     ├── entrySpot: number
-  │     │     ├── currentSpot: number
-  │     │     ├── pnl: number
-  │     │     ├── buyPrice: number
-  │     │     └── isExpired: boolean
-  │     ├── onSell: (contractId) → sell API
-  │     └── subscription: proposal_open_contract stream
-  │
-  ├── TradeHistory
-  │     ├── trades: Trade[]
-  │     │     ├── date: Date
-  │     │     ├── symbol: string
-  │     │     ├── contractType: string
-  │     │     ├── stake: number
-  │     │     ├── payout: number
-  │     │     ├── pnl: number
-  │     │     └── botName?: string
-  │     ├── filters: TradeFilters
-  │     ├── pagination: Pagination
-  │     └── onExport: () → CSV download
-  │
-  └── ProfitTable
-        ├── data: ProfitEntry[] (from profit_table API)
-        ├── dateRange: { from: Date, to: Date }
-        └── summary: { totalProfit, totalLoss, netPnL }
-
-DERIV API CALLS:
-  - balance (subscribe): real-time balance updates
-  - proposal_open_contract (subscribe): open position updates
-  - statement: transaction history
-  - profit_table: profit/loss history
-```
-
-#### Advanced Features
-
-```
-1. REALIZED vs UNREALIZED P&L BREAKDOWN
-   - Separate columns for realized (closed trades) and unrealized (open)
-   - Tax lot view: which trades contributed to realized P&L
-   - Export as CSV for tax reporting
-
-2. POSITION GROUPING
-   - Group by: symbol, bot, strategy, day, week
-   - Subtotals per group
-   - Collapse/expand groups
-
-3. ADVANCED FILTERS
-   - Filter by: profit range, duration, win/loss, bot, symbol, date range
-   - Save filter presets
-   - Quick filter chips: "Winning trades", "Losses > $5", "Today"
-
-4. RISK METRICS PANEL
-   - Current exposure: total $ at risk across open positions
-   - Correlation matrix: are open positions correlated?
-   - VaR (Value at Risk): 95% confidence, 1-day horizon
-
-5. TRADE EXPORT & API
-   - Export to: CSV, JSON, Google Sheets (live sync)
-   - Public read-only API key for portfolio tracking
-   - Webhook on new closed trade
-
-6. DIVIDEND / SWAP TRACKING (for forex positions)
-   - Track overnight swap costs
-   - Include in P&L calculations
-
-7. TAX LOSS HARVESTING HELPER
-   - Identify losing trades that can offset gains
-   - Suggest optimal closing order
-   - Generate tax report (region-aware)
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Balance WS disconnects                 Show last-known + warning badge
-                                       Don't show $0 (misleading)
-
-Open contract expires (no sell)        Auto-move to Trade History
-                                       Realize P&L
-
-Sell API fails                         Retry 3x with backoff
-                                       If still failing: keep in Open
-                                       Show "Sell failed, retry?" button
-
-Statement API pagination (1000s rows)  Infinite scroll, not pagination
-                                       Lazy-load on scroll
-
-Profit table returns empty             Show friendly empty state:
-                                       "No trades in this period"
-
-Multi-currency positions                Convert to user's base currency
-                                       Show original + converted
-                                       Exchange rate timestamp noted
-```
-
-#### Performance Considerations
-
-```
-- Table virtualization (react-window) for > 100 rows
-- Column sorting: server-side for large datasets
-- Filter debounced (300ms)
-- Real-time updates batched (10/s max)
-- Export: stream to file (don't load all in memory)
-- Cache statement/profit_table in Redis (5 min TTL)
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Filter logic for each filter type
-  - Grouping subtotals calculation
-  - Realized vs unrealized split
-  - Export CSV format correctness
-
-INTEGRATION:
-  - Subscribe to open contracts -> assert UI updates
-  - Sell position -> assert removed from open, added to history
-  - Filter changes -> assert URL params update (shareable)
-
-E2E:
-  - Open trade -> see in Open Positions -> wait for expiry -> see in History
-  - Export CSV -> download -> assert contents
-  - Apply filter -> URL updates -> refresh -> filter persists
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Table: proper thead/tbody, scope="col" on headers
-- Sortable headers: button + aria-sort attribute
-- Filter chips: keyboard removable
-- Inline sell buttons: aria-label="Sell contract #1234, current P&L +$0.50"
-- Empty state: clear illustration + CTA
-- Large numbers: locale-aware formatting (1,234.56 vs 1.234,56)
-```
-
 
 ---
 
-### PAGE D-9: Social / User Monitoring (`/dashboard/social`)
+### PAGE D-9: Withdrawal Requests (`/dashboard/withdrawals`)
 
 ```
 PURPOSE:
-  Monitor other platform users. View their bots, 
-  performance, and activity. Follow/copy traders.
+  Investor payout requests. Approve, reject, process, track.
+  Queue management for batch processing.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  "Social Trading"                                      │
-│  [Leaderboard] [Following] [Activity Feed] [Copy Trade] │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  LEADERBOARD TAB                                       │
-│                                                          │
-│  [Today ▼] [This Week] [This Month] [All Time]         │
-│                                                          │
-│  ┌────┬──────────┬────────┬─────────┬──────┬─────────┐ │
-│  │Rank│ Trader   │ Win %  │ Total P&L│Trades│ Action  │ │
-│  ├────┼──────────┼────────┼─────────┼──────┼─────────┤ │
-│  │ 🥇 │BotMaster │ 78%    │ +$1,234 │ 2.3k │[Follow] │ │
-│  │ 🥈 │TradeKing │ 72%    │ +$890   │ 1.8k │[Follow] │ │
-│  │ 🥉 │CryptoApe │ 69%    │ +$567   │ 956  │[Follow] │ │
-│  │ 4  │FXWizard  │ 65%    │ +$345   │ 2.1k │[Follow] │ │
-│  │ 5  │R10King   │ 63%    │ +$234   │ 4.5k │[Follow] │ │
-│  │... │          │        │         │      │         │ │
-│  └────┴──────────┴────────┴─────────┴──────┴─────────┘ │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  FOLLOWING TAB                                          │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 👤 BotMaster                     [Unfollow] [⚙]  │   │
-│  │    Win: 78% | P&L: +$1,234 | Bots: 3 running   │   │
-│  │    Last trade: R_10 Rise → WIN +$0.70 (2m ago)  │   │
-│  │                                                  │   │
-│  │    ┌────────────────────────────────────────┐    │   │
-│  │    │ [P&L chart - last 30 days]             │    │   │
-│  │    └────────────────────────────────────────┘    │   │
-│  │                                                  │   │
-│  │    Recent Activity:                              │   │
-│  │    • Started "Martingale Bot" on R_10 (5m ago)  │   │
-│  │    • Won trade on R_100: +$1.95 (12m ago)       │   │
-│  │    • Stopped "Scalper Bot" (1h ago)             │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  ACTIVITY FEED TAB                                      │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ 👤 BotMaster won +$1.95 on R_10 Rise (2m ago)  │   │
-│  │ 👤 TradeKing started "DCA Bot" on EURUSD (5m)  │   │
-│  │ 👤 CryptoApe lost -$0.35 on BTCUSD Fall (8m)  │   │
-│  │ 👤 FXWizard won +$3.50 on R_75 Even (12m ago) │   │
-│  │ ...                                              │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: PAYOUT QUEUE SUMMARY
+    - Pending count/amount, Processing, Completed, Total Paid Out
+
+  SECTION 2: PENDING REQUESTS (actionable)
+    - Table: Date, Investor, Amount, Method, Reason, Actions
+    - [✅ Approve] [❌ Reject] per row
+    - Bulk: Approve Selected / Reject Selected
+
+  SECTION 3: PROCESSING (in-flight payouts)
+    - Transfers sent, awaiting confirmation
+    - [Mark Complete] [Mark Failed] [Contact Investor]
+
+  SECTION 4: COMPLETED PAYOUTS
+    - Table: Date, Investor, Amount, Method, Fee, Reference
+
+  SECTION 5: PAYOUT SETTINGS & RULES
+    - Min/max payout, auto-approve threshold, batch processing schedule
+    - Fee structure, default method, processing times
 ```
-
-#### Copy Trade Feature
-
-```
-COPY TRADE MODAL:
-┌─────────────────────────────────────────────────────────┐
-│  Copy Trade Settings for BotMaster                       │
-│                                                          │
-│  Copy Mode:                                             │
-│  ○ Proportional  — Match their stake as % of balance    │
-│  ○ Fixed Amount  — Use your own fixed stake             │
-│  ○ Same Stake    — Copy exact stake amount              │
-│                                                          │
-│  Max Stake Per Trade: [$10.00     ]                     │
-│  Max Daily Copy Trades: [20          ]                  │
-│  Copy Only These Symbols: [All ▼] or [R_10, frxEURUSD] │
-│  Copy Only These Bots: [All ▼] or [Martingale Bot]     │
-│                                                          │
-│  Risk Limits:                                           │
-│  Max Daily Copy Loss: [$50          ]                   │
-│  Stop Copying If Their Win Rate Below: [50%       ]     │
-│                                                          │
-│  [Cancel]  [Start Copying]                              │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### Components & Data Model
-
-```
-SocialPage/
-  ├── Leaderboard
-  │     ├── traders: TraderRanking[]
-  │     │     ├── userId: string
-  │     │     ├── username: string
-  │     │     ├── avatar: string
-  │     │     ├── winRate: number
-  │     │     ├── totalPnL: number
-  │     │     ├── totalTrades: number
-  │     │     ├── isFollowing: boolean
-  │     │     └── isPrivate: boolean
-  │     ├── period: "today" | "week" | "month" | "all"
-  │     └── onFollow: (userId) → POST /api/social/follow
-  │
-  ├── FollowingList
-  │     ├── following: FollowedTrader[]
-  │     │     ├── ...TraderRanking fields
-  │     │     ├── activeBots: number
-  │     │     ├── recentActivity: Activity[]
-  │     │     ├── pnlChart: ChartData[]
-  │     │     └── copySettings?: CopyTradeSettings
-  │     └── onConfigureCopy: (userId) → CopyTradeModal
-  │
-  ├── ActivityFeed
-  │     ├── activities: SocialActivity[]
-  │     │     ├── userId: string
-  │     │     ├── username: string
-  │     │     ├── avatar: string
-  │     │     ├── type: "trade_won" | "trade_lost" | "bot_started" | "bot_stopped"
-  │     │     ├── details: string
-  │     │     └── timestamp: Date
-  │     └── realTime: Socket.IO subscription
-  │
-  └── CopyTradeModal
-        ├── targetUserId: string
-        ├── settings: CopyTradeSettings
-        │     ├── mode: "proportional" | "fixed" | "same"
-        │     ├── maxStakePerTrade: number
-        │     ├── maxDailyCopyTrades: number
-        │     ├── symbolFilter: string[]
-        │     ├── botFilter: string[]
-        │     ├── maxDailyCopyLoss: number
-        │     └── minWinRateThreshold: number
-        └── onStart: () → POST /api/social/copy-trade
-
-PRIVACY:
-  - Users can set profile to private
-  - Private users: only show username, not trade details
-  - Opt-in to leaderboard
-  - Can hide specific bots from social view
-  - GDPR: data deletion request
-
-COPY TRADE ENGINE:
-  - When followed user places a trade via bot
-  - System checks copy trade settings for each follower
-  - Applies filters (symbol, bot, limits)
-  - Executes same trade on follower's Deriv account
-  - Records copy trade linkage in DB
-  - Real-time via Socket.IO between trader instances
-```
-
-#### Advanced Features
-
-```
-1. TRADER PROFILE PAGES
-   - Public profile: bio, strategy description, verified track record
-   - Performance: 7d/30d/90d/all-time returns
-   - Trade history (if public): last 50 trades
-   - "Ask me anything" Q&A section
-
-2. COPY TRADE PERFORMANCE TRACKING
-   - For each copied trader: track YOUR returns from copying them
-   - Compare: if you'd copied trader X 30 days ago, you'd be +12%
-   - Attribution: which of their bots contributed most to your gains
-
-3. SOCIAL SIGNALS
-   - "Trending traders" (most followed this week)
-   - "Hot strategies" (most copied scripts)
-   - "Rising stars" (new traders with strong early performance)
-
-4. TRADER VERIFICATION SYSTEM
-   - Verified track record (Deriv API confirmed)
-   - KYC badge (identity verified)
-   - "Pro" badge (meets performance criteria)
-   - Prevents fake track records
-
-5. PRIVATE TRADING GROUPS
-   - Create invite-only groups
-   - Share strategies within group
-   - Group leaderboard
-   - Group chat (real-time)
-
-6. COPILOT CHAT
-   - DM other traders (opt-in)
-   - Share charts / trade ideas
-   - Block / report spam
-
-7. SOCIAL SENTIMENT INDEX
-   - Aggregate all trader positions per symbol
-   - "Bullish/Bearish sentiment: R_10 = 73% bullish"
-   - Sentiment change alerts
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Followed user deletes account          Remove from Following list
-                                       Stop copy trades gracefully
-                                       Notify user
-
-Followed user goes private             Keep historical data
-                                       Stop new copy trades
-                                       Show "Trader is now private" notice
-
-Copy trade fails (insufficient balance) Skip trade, notify user
-                                       Pause copy trading if balance < threshold
-
-Leaderboard manipulation detected      Flag user for review
-                                       (e.g. wash trading patterns)
-                                       Hide from leaderboard pending review
-
-Trader blocks you                       Hide their profile from search
-                                       Stop following if active
-
-Inappropriate content in profile        Report button -> moderation queue
-                                       Auto-hide pending review
-```
-
-#### Performance Considerations
-
-```
-- Leaderboard: precompute daily, cache in Redis (5 min TTL)
-- Activity feed: paginate, infinite scroll
-- Following list: lazy-load P&L charts (only visible ones)
-- Copy trade execution: priority queue (must be fast)
-- Real-time updates: Socket.IO room per user (only their follows)
-- Trader profile: cache for 1 min
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Leaderboard sorting + period filtering
-  - Follow/unfollow state management
-  - Copy trade settings validation
-  - Privacy rules enforced
-
-INTEGRATION:
-  - Follow trader -> assert appears in Following
-  - Trader places trade -> assert copy executes
-  - Privacy toggle -> assert profile hides
-
-E2E:
-  - Browse leaderboard -> follow trader -> see in Following -> unfollow
-  - Set up copy trade -> wait for leader trade -> assert copied
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Trader cards: role="article" + descriptive aria-label
-- Leaderboard: proper table semantics with rank as row header
-- Follow button: aria-pressed state
-- Activity feed: role="feed" + aria-live="polite"
-- Avatars: alt text with trader name
-- Color: never sole indicator of win/loss (use up/down arrows too)
-- Profile pages: keyboard navigable tabs
-```
-
 
 ---
 
-### PAGE D-10: Analytics / Performance (`/dashboard/analytics`)
+### PAGE D-10: Communications (`/dashboard/comms`)
 
 ```
 PURPOSE:
-  Detailed performance analytics.
-  Charts, statistics, trade analysis.
+  Messages to/from investors. Announcements, bulk notifications,
+  individual messages, email templates.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  "Performance Analytics"                                │
-│  [Overview] [By Bot] [By Market] [By Strategy]          │
-│  Date Range: [Last 7 days ▼]  [Custom range]           │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  OVERVIEW TAB                                           │
-│                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Total P&L    │  │ Win Rate     │  │ Avg Trade    │  │
-│  │ +$142.30     │  │ 64.2%        │  │ +$0.28       │  │
-│  │ ▲ +12% vs    │  │ ▲ +3% vs    │  │ ▲ +$0.05 vs  │  │
-│  │ last period  │  │ last period  │  │ last period  │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ P&L Over Time (area chart)                       │   │
-│  │                                                  │   │
-│  │  $150┤          ╭────╮                           │   │
-│  │  $100┤    ╭────╯    ╰──╮                        │   │
-│  │   $50┤ ╭─╯            ╰──╮                      │   │
-│  │    $0┤─╯                  ╰──                   │   │
-│  │   -$50┤                        ╰╮              │   │
-│  │      └──┬──┬──┬──┬──┬──┬──┬──┬──┬──          │   │
-│  │        Mon Tue Wed Thu Fri Sat Sun Mon Tue      │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌────────────────────┬─────────────────────────────┐   │
-│  │ Win/Loss by Hour   │  Trade Distribution         │   │
-│  │ (heatmap)          │  (by symbol pie chart)      │   │
-│  └────────────────────┴─────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Key Metrics:                                     │   │
-│  │ • Max Drawdown: -$32.40 (-3.2%)                 │   │
-│  │ • Sharpe Ratio: 1.42                            │   │
-│  │ • Profit Factor: 1.85                           │   │
-│  │ • Avg Win: +$0.52 | Avg Loss: -$0.38           │   │
-│  │ • Best Trade: +$12.40 | Worst: -$5.60          │   │
-│  │ • Longest Win Streak: 12                        │   │
-│  │ • Longest Loss Streak: 5                       │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: RECENT MESSAGES
+    - Inbox with unread/read/replied status
+    - [Reply] [View Investor]
+
+  SECTION 2: ANNOUNCEMENTS
+    - Sent announcements with read count
+    - [New Announcement] [Resend to unread]
+
+  SECTION 3: COMPOSE MESSAGE
+    - To: Individual / All / By Package
+    - Rich text editor with variables: {name}, {package}, {investment}, {earnings}
+    - Via: In-app / Email / Telegram / SMS
+    - [Send] [Schedule for later] [Save as Template]
+
+  SECTION 4: EMAIL TEMPLATES
+    - Pre-built: Welcome, Package Confirmation, Trading Started,
+      Earnings Update, Payout Processed, AI Guardian Alert, Package Completed
+    - [Edit] [Preview] [Send Test] per template
+
+  SECTION 5: NOTIFICATION LOG
+    - Table: Date, Type, Sent To, Count, Channel
 ```
-
-#### Components Breakdown
-
-```
-AnalyticsPage/
-  ├── DateRangeSelector
-  │     ├── preset: "today" | "7d" | "30d" | "90d" | "custom"
-  │     └── customRange: { from: Date, to: Date }
-  │
-  ├── OverviewTab
-  │     ├── summaryCards: SummaryCard[]
-  │     ├── pnlChart: AreaChart
-  │     ├── heatmap: HourDayHeatmap (win rate by hour)
-  │     ├── distribution: PieChart (trades by symbol)
-  │     └── keyMetrics: MetricRow[]
-  │
-  ├── ByBotTab
-  │     ├── botPerformance: BotPerformance[]
-  │     │     ├── botName: string
-  │     │     ├── totalPnL: number
-  │     │     ├── winRate: number
-  │     │     ├── totalTrades: number
-  │     │     ├── avgPnL: number
-  │     │     └── pnlChart: LineChart
-  │     └── comparisonChart: MultiLineChart
-  │
-  ├── ByMarketTab
-  │     ├── marketPerformance: MarketPerformance[]
-  │     └── symbolBreakdown: BarChart
-  │
-  └── ByStrategyTab
-        ├── strategyPerformance: StrategyPerformance[]
-        └── strategyComparison: RadarChart
-
-DATA SOURCE:
-  - profit_table API (Deriv)
-  - Internal bot_logs table
-  - Aggregated and cached in Redis
-  - Refreshed on demand or every 5 minutes
-```
-
-#### Advanced Features
-
-```
-1. CUSTOM DASHBOARD BUILDER
-   - Drag-and-drop widget builder
-   - Choose from 20+ widget types
-   - Save layouts per user
-   - Share layouts with team
-
-2. ADVANCED METRICS
-   - Sharpe ratio, Sortino ratio, Calmar ratio
-   - Maximum drawdown + recovery time
-   - Profit factor, expectancy, R-multiple
-   - Win/loss streak analysis
-   - Trade duration distribution
-
-3. ATTRIBUTION ANALYSIS
-   - Which bot contributed most to P&L?
-   - Which market/strategy was most profitable?
-   - Time-of-day heatmap: when do you win most?
-   - Day-of-week analysis
-
-4. BENCHMARK COMPARISON
-   - Compare your performance vs:
-     - Buy & hold (if applicable)
-     - Other platform users (anonymized)
-     - Your past periods
-   - Overlay equity curves
-
-5. TRADE JOURNAL
-   - Per-trade notes + emotion tags
-   - Screenshot attachments
-   - Search/filter journal
-   - Insights: "Your best trades had emotion tag 'Calm'"
-
-6. PREDICTIVE ANALYTICS
-   - "Based on last 30 days, projected month-end P&L: +$120 +/- $40"
-   - Confidence intervals
-   - Trend analysis with warnings
-
-7. EXPORTABLE REPORTS
-   - Weekly/Monthly PDF reports
-   - Custom date ranges
-   - White-label option (for fund managers)
-   - Schedule recurring email reports
-
-8. ALERTING ON METRICS
-   - "Notify me if Sharpe ratio drops below 1.0"
-   - "Alert if drawdown exceeds 5%"
-   - Email + push + webhook
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-No trades in selected period          Show "No data" empty states
-                                      Don't render empty charts (misleading)
-
-Metrics calculation error (divide by 0) Show "N/A" instead of Infinity
-                                      Log to Sentry
-
-Custom dashboard save fails           Retry with backoff
-                                      Preserve layout in localStorage
-
-PDF export fails (large dataset)      Chunk into multiple PDFs
-                                      Or limit to top N entries
-                                      Show progress bar
-
-Date range > 1 year                    Warn: "May be slow"
-                                      Offer to sample or aggregate
-```
-
-#### Performance Considerations
-
-```
-- Heavy aggregations: precompute daily, store in analytics_summary table
-- Charts: use Recharts only for < 1000 points, else canvas (uPlot)
-- Date range picker: prevent ranges > 90 days without confirmation
-- Custom dashboard: lazy-load widgets
-- PDF export: server-side rendering (puppeteer) in queue
-- Web Worker for metric calculations
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Each metric calculation tested with known inputs
-  - Date range filtering correctness
-  - Attribution math correctness
-  - Custom dashboard save/load
-
-INTEGRATION:
-  - Fetch analytics -> assert correct data shape
-  - Schedule PDF report -> assert email sent with attachment
-
-E2E:
-  - Select date range -> switch tabs -> export PDF -> verify download
-  - Build custom dashboard -> save -> reload -> assert preserved
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- All charts: text alternative (data table toggle)
-- Color palette: colorblind-safe (viridis, cividis)
-- Metric cards: aria-label with full description
-- Date picker: keyboard navigable calendar
-- Custom dashboard widgets: keyboard movable (drag handle)
-- Number formatting: locale-aware
-- Reduced motion: disable chart animations
-```
-
 
 ---
 
-### PAGE D-11: API Connections (`/dashboard/connections`)
+### PAGE D-11: Deposit Logs (`/dashboard/deposits`)
 
 ```
 PURPOSE:
-  Manage Deriv account connections.
-  Add/remove accounts, view connection status, token management.
+  Comprehensive deposit tracking. Every payment received,
+  verification status, method details, reconciliation.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  "API Connections"                      [+ Connect Deriv]│
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  CONNECTED ACCOUNTS                                     │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ ✅ Deriv Account: CR1234567                      │   │
-│  │    Currency: USD | Balance: $1,042.30            │   │
-│  │    Connected: Jan 15, 2024                      │   │
-│  │    Last activity: 2 minutes ago                  │   │
-│  │    Status: 🟢 Active                             │   │
-│  │                                                  │   │
-│  │    Permissions: ✓ Read ✓ Trade ✓ Payments        │   │
-│  │                                                  │   │
-│  │    [Test Connection] [Refresh Token] [Disconnect] │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ ✅ Deriv Account: CR7654321                      │   │
-│  │    Currency: EUR | Balance: €520.00              │   │
-│  │    Connected: Feb 01, 2024                      │   │
-│  │    Status: 🟡 Idle (no active bots)              │   │
-│  │                                                  │   │
-│  │    [Test Connection] [Refresh Token] [Disconnect] │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  CONNECTION LOG                                         │
-│  ┌──────┬──────────────┬─────────┬────────────────────┐ │
-│  │ Time │ Account      │ Event   │ Details            │ │
-│  ├──────┼──────────────┼─────────┼────────────────────┤ │
-│  │ 12:01│ CR1234567   │ Trade   │ Buy R_10 Rise $0.35│ │
-│  │ 12:00│ CR1234567   │ Auth    │ Token refreshed    │ │
-│  │ 11:30│ CR7654321   │ Connect │ WebSocket opened   │ │
-│  └──────┴──────────────┴─────────┴────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: DEPOSIT SUMMARY
+    - Total Received, Verified, Pending, Failed, Today, This Week, Avg Verification Time
+
+  SECTION 2: DEPOSIT TABLE (TanStack Table)
+    - Columns: ID, Investor, Amount, Method, Package, Status
+    - Expandable rows with full payment details, reference, verification notes
+
+  SECTION 3: VERIFICATION QUEUE
+    - Pending deposits with [Verify] [Reject] [Request Proof]
+
+  SECTION 4: METHOD BREAKDOWN
+    - Table: Method, Count, Total, Avg Verification Time
+
+  SECTION 5: FAILED & REFUNDED
+    - Failed deposits with reason and retry option
+    - Refunded deposits with confirmation
 ```
-
-#### Components & Implementation
-
-```
-ConnectionsPage/
-  ├── ConnectDerivButton
-  │     └── onClick → Deriv OAuth redirect
-  │
-  ├── ConnectedAccount[]
-  │     ├── derivLoginId: string
-  │     ├── currency: string
-  │     ├── balance: number
-  │     ├── connectedAt: Date
-  │     ├── lastActivity: Date
-  │     ├── status: "active" | "idle" | "error" | "expired"
-  │     ├── permissions: string[]
-  │     ├── onTest: () → ping WebSocket
-  │     ├── onRefresh: () → re-authorize via OAuth
-  │     └── onDisconnect: () → DELETE /api/connections/{id}
-  │
-  └── ConnectionLog
-        ├── logs: ConnectionLog[]
-        │     ├── timestamp: Date
-        │     ├── accountId: string
-        │     ├── event: string
-        │     └── details: string
-        └── pagination
-
-DERIV OAUTH SCOPES REQUESTED:
-  - read:      Read account info, balance, transactions
-  - trade:     Place trades, buy/sell contracts
-  - payments:  Deposit/withdraw (optional, may skip)
-  - admin:     Account settings (optional)
-
-TOKEN MANAGEMENT:
-  - Tokens encrypted with AES-256-GCM before storage
-  - Encryption key from environment variable
-  - Token refresh: redirect through OAuth again
-  - Auto-detect expired tokens on WebSocket error
-  - Prompt re-connection when token expires
-```
-
-#### Advanced Features
-
-```
-1. ACCOUNT GROUPING
-   - Tag accounts: "Personal", "Fund A", "Test"
-   - Filter by tag
-   - Bulk actions on group
-
-2. PERMISSION PRESETS
-   - "Read-only" (read scope only)
-   - "Trader" (read + trade)
-   - "Full access" (read + trade + payments + admin)
-   - Apply preset on connect or update existing
-
-3. HEALTH MONITORING
-   - Per-account: WS latency, API error rate, last successful call
-   - Auto-disable account if 5 consecutive failures
-   - Alert user via notification
-
-4. USAGE STATISTICS
-   - API calls per account (last 24h / 7d / 30d)
-   - Rate limit usage (X / Y calls per minute)
-   - Cost projection (if paid API tier)
-
-5. ACCOUNT SWITCHER (GLOBAL)
-   - Top bar dropdown to switch active account
-   - All dashboard pages respect active account
-   - Per-account UI state preserved
-
-6. TOKEN ROTATION AUTOMATION
-   - Auto-refresh tokens before expiry (24h before)
-   - Failover: if refresh fails, alert + pause bots using that account
-   - Audit log of all token rotations
-
-7. MULTI-REGION SUPPORT
-   - Connect to Deriv EU / Deriv International / Deriv ME
-   - Region-aware routing
-   - Compliance: don't mix regions (regulatory)
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Token expired mid-session              Auto-attempt refresh
-                                      If refresh fails: pause bots, alert user
-                                      Show "Reconnect" CTA prominently
-
-OAuth redirect fails                  Show error page with retry
-                                      Don't leave user in limbo state
-
-Account suspended by Deriv            Detect via API error
-                                      Mark account as "Suspended"
-                                      Stop all bots using account
-                                      Don't auto-retry (manual action needed)
-
-WS disconnects (network)              Auto-reconnect with backoff
-                                      Buffer trades during disconnect
-                                      On reconnect: sync missed events
-
-Two users try same Deriv account      First-come-first-served
-                                      Second user gets "Account in use" notice
-                                      (unless team feature enabled)
-```
-
-#### Performance Considerations
-
-```
-- Connection log: paginate (50 per page)
-- Health checks: every 30s (debounced)
-- Token refresh: batch if multiple accounts expire same day
-- WebSocket: share connection per account (not per bot)
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Permission presets correctly map to scopes
-  - Token rotation timing logic
-  - Account status state machine
-
-INTEGRATION:
-  - Connect Deriv (mock OAuth) -> assert account appears
-  - Disconnect -> assert bots paused + account removed
-  - Token expiry -> assert refresh attempt
-
-E2E:
-  - Full OAuth flow (test Deriv account)
-  - Switch active account -> assert dashboard updates
-  - Health check failure -> assert account disabled
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Account cards: role="article" + status in aria-label
-- Status badges: text + color (Active, Idle, Error)
-- Connect button: large, descriptive label
-- Permission checkboxes: properly grouped + labeled
-- Token refresh action: keyboard accessible
-```
-
 
 ---
 
-### PAGE D-12: Settings / Profile (`/dashboard/settings`)
+### PAGE D-12: Activity & Audit Logs (`/dashboard/logs`)
 
 ```
 PURPOSE:
-  User profile, security settings, preferences,
-  notification settings, and 2FA setup.
+  Complete audit trail. Every action on the platform logged.
+  Who did what, when, from where. Searchable, filterable.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  "Settings"                                             │
-│  [Profile] [Security] [Notifications] [Preferences]     │
-│  [Danger Zone]                                          │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  PROFILE TAB                                            │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Avatar: [📷 Upload]                              │   │
-│  │ Username: [BotMaster42    ]                      │   │
-│  │ Email: user@example.com (✅ verified)            │   │
-│  │ Timezone: [UTC ▼]                                │   │
-│  │                                                  │   │
-│  │ Social Profile:                                  │   │
-│  │ ☐ Show on leaderboard                            │   │
-│  │ ☐ Show trading activity                          │   │
-│  │ ☐ Allow copy trading                             │   │
-│  │                                                  │   │
-│  │ [Save Changes]                                   │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  SECURITY TAB                                           │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Change Password:                                 │   │
-│  │ Current: [__________]                            │   │
-│  │ New:     [__________]                            │   │
-│  │ Confirm: [__________]                            │   │
-│  │ [Update Password]                                │   │
-│  ├──────────────────────────────────────────────────┤   │
-│  │ Two-Factor Authentication:                       │   │
-│  │ Status: ❌ Not enabled                           │   │
-│  │ [Enable 2FA] → Shows QR code for authenticator   │   │
-│  │                                                  │   │
-│  │ Backup Codes: (generated on enable)              │   │
-│  │ [View Backup Codes] [Regenerate]                 │   │
-│  ├──────────────────────────────────────────────────┤   │
-│  │ Active Sessions:                                 │   │
-│  │ 🟢 Chrome / Windows / Current session            │   │
-│  │ ⚪ Safari / iPhone / Last seen: 2h ago           │   │
-│  │ [Revoke all other sessions]                      │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  NOTIFICATIONS TAB                                      │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Email Notifications:                             │   │
-│  │ ☐ Trade completed                               │   │
-│  │ ☐ Bot started/stopped                           │   │
-│  │ ☐ Daily summary                                 │   │
-│  │ ☐ Risk alert (drawdown, stop loss hit)           │   │
-│  │ ☐ New follower                                  │   │
-│  │                                                  │   │
-│  │ Push Notifications:                              │   │
-│  │ ☐ Trade completed                               │   │
-│  │ ☐ Bot status change                             │   │
-│  │ ☐ Risk alerts                                   │   │
-│  │                                                  │   │
-│  │ Webhook URL: [https://...]                       │   │
-│  │ [Save]                                           │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  DANGER ZONE TAB                                        │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ ⚠️ Delete Account                                │   │
-│  │ This will permanently delete your DerivX account.│   │
-│  │ Your Deriv account will NOT be affected.         │   │
-│  │ All bots will be stopped. All data deleted.      │   │
-│  │ [Delete Account] → confirmation modal            │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: LOG STREAM (newest first, real-time)
+    - TRADE, DEPOSIT, SYSTEM, PAYOUT, AUTH, COMM events
+
+  SECTION 2: CATEGORIZED LOGS (tabbed)
+    - Trade Logs, Deposit Logs, Payout Logs, System Logs
+
+  SECTION 3: INVESTOR ACTIVITY
+    - Per-investor activity timeline
+
+  SECTION 4: SYSTEM EVENTS
+    - AI Guardian triggers, Reconciliation, Backups, Cron jobs, Webhook failures
+
+  SECTION 5: EXPORT & COMPLIANCE
+    - [Export All Logs CSV] [Generate Compliance Report] [Tax Report]
+    - Retention policy, last archive date
 ```
-
-#### Advanced Features
-
-```
-1. PROFILE CUSTOMIZATION
-   - Custom avatar (upload or generate from initials)
-   - Bio + trading style description
-   - Social links (Twitter, Discord, TradingView)
-   - Verified trader badge (if eligible)
-
-2. SECURITY DASHBOARD
-   - Login history (last 30 days, with location/device)
-   - Active sessions with revoke button
-   - Password strength meter
-   - 2FA backup codes (one-time view + regenerate)
-   - API key management (for personal API access)
-
-3. NOTIFICATION RULES BUILDER
-   - Per-event-type: email / push / webhook / none
-   - Quiet hours: don't notify between 22:00-08:00 (configurable)
-   - Severity filter: only notify on errors, not info
-   - Custom notification sounds
-
-4. PREFERENCES SYNCHRONIZATION
-   - Sync settings across devices (theme, timezone, formatting)
-   - Export/import preferences as JSON
-   - Reset to defaults button
-
-5. BILLING & SUBSCRIPTION
-   - Plan info (Free / Pro / Enterprise)
-   - Usage this billing cycle
-   - Payment method management
-   - Invoice history download
-
-6. DEVELOPER SETTINGS
-   - API key generation
-   - Webhook URL configuration
-   - Rate limit display
-   - Sandbox mode toggle (paper trading)
-
-7. LOCALIZATION
-   - Language selector (i18n)
-   - Number/date format preference
-   - Currency display preference
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Password change fails (weak)          Show strength meter + requirements
-                                      Don't submit until valid
-
-2FA QR code fails to generate          Retry, fallback to manual key entry
-                                      Log error
-
-Avatar upload too large (> 2MB)        Client-side resize before upload
-                                      Or reject with size limit notice
-
-Email change                           Send verification to new email
-                                      Old email stays until verified
-                                      7-day grace period
-
-Account deletion with active bots     Block deletion
-                                      Show "Stop all bots first" notice
-                                      Offer "Stop all + delete" shortcut
-
-Session revocation on current device  Don't allow (self-lockout prevention)
-                                      Or require 2FA confirmation
-```
-
-#### Performance Considerations
-
-```
-- Form auto-save: debounce 1s
-- Avatar upload: client-side resize (max 512x512)
-- Settings: cache in localStorage for instant load
-- API keys: generate via Web Crypto API (don't send to server in plain)
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Form validation per tab
-  - 2FA flow: secret generation + verification
-  - Notification rules engine
-  - Preferences sync serialization
-
-INTEGRATION:
-  - Save settings -> reload -> assert persisted
-  - Change password -> assert old password rejected
-  - Enable 2FA -> assert backup codes generated
-
-E2E:
-  - Update profile -> assert saved + displayed
-  - Enable 2FA -> logout -> login with 2FA code
-  - Delete account -> confirmation -> assert deleted
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- All forms: proper labels, error messages, aria-describedby
-- Tabs: WAI-ARIA tabs pattern, arrow key navigation
-- 2FA QR code: text alternative (manual key entry)
-- Toggle switches: role="switch" + aria-checked
-- Delete confirmation: typed-text confirmation ("type DELETE to confirm")
-- Color: never sole indicator for status
-- Reduced motion: disable tab transitions
-```
-
 
 ---
 
-### PAGE D-13: Bot Detail / Live Monitor (`/dashboard/bots/:id`)
+### PAGE D-13: Markets & Symbols (`/dashboard/markets`)
 
 ```
 PURPOSE:
-  Real-time view of a single bot's operation.
-  Live trades, performance chart, logs, and controls.
+  Browse available Deriv markets for scheduling trades.
+  Symbol selection, market schedules, tick previews.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  Martingale Bot                          [⏸] [⏹] [⚙]  │
-│  R_10 (Volatility 10) | Running 2h 34m | 🟢 Active    │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  LIVE STATS                                             │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │ P&L      │ │ Win Rate │ │ Trades   │ │ Current  │  │
-│  │ +$23.40  │ │ 64.1%    │ │ 156      │ │ Stake    │  │
-│  │ ▲        │ │ ▲ +2.1%  │ │ last hour│ │ $0.35    │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
-└─────────────────────────────────────────────────────────┘
-┌──────────────────────────────┬──────────────────────────┐
-│  P&L CHART (real-time)       │  CURRENT TRADE           │
-│                              │                          │
-│  ┌────────────────────────┐ │  Type: Rise              │
-│  │ Real-time equity curve │ │  Stake: $0.35            │
-│  │ with each trade marked │ │  Entry: 4532.11          │
-│  │ as win (green) or loss │ │  Current: 4535.22        │
-│  │ (red) dot              │ │  Duration: 3/5 ticks     │
-│  │                        │ │  Status: ⏳ In progress   │
-│  └────────────────────────┘ │                          │
-│                              │  [Sell Early]             │
-└──────────────────────────────┴──────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  RECENT TRADES (live updating)                          │
-│  ┌──────┬────────┬──────┬──────┬──────┬──────┬───────┐ │
-│  │ #    │ Type   │Stake │Entry │Exit  │ P&L  │ Time  │ │
-│  ├──────┼────────┼──────┼──────┼──────┼──────┼───────┤ │
-│  │ 156  │ Rise   │$0.35 │4532  │4535  │+$0.35│ 12:01 │ │
-│  │ 155  │ Rise   │$0.35 │4528  │4526  │-$0.35│ 12:00 │ │
-│  │ 154  │ Rise   │$2.80 │4520  │4528  │+$2.80│ 11:59 │ │
-│  └──────┴────────┴──────┴──────┴──────┴──────┴───────┘ │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  BOT LOG (scrollable)                                   │
-│  [12:01:23] Trade #156: BUY RISE R_10 @ $0.35        │
-│  [12:01:23] Entry spot: 4532.11                       │
-│  [12:01:25] Tick 3/5: 4535.22 (above entry ✓)        │
-│  [12:01:28] Result: WIN | Payout: $0.70 | Profit: $0.35│
-│  [12:01:28] Strategy: Reset stake to initial ($0.35)   │
-│  [12:01:28] Next trade: BUY RISE R_10 @ $0.35         │
-│  [12:00:15] Trade #155: BUY RISE R_10 @ $0.35        │
-│  [12:00:15] Entry spot: 4528.45                       │
-│  [12:00:20] Result: LOSE | Profit: -$0.35             │
-│  [12:00:20] Strategy: Multiply stake by 2.0 → $0.70   │
-│  ...                                                    │
-│                                                          │
-│  [Download Full Log] [Clear Log]                        │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: MARKET TABS & FILTER
+    - Forex, Synthetics, Commodities, Crypto, Indices
+    - Search and favorites filter
+
+  SECTION 2: SYMBOL GRID
+    - Cards with live price, direction, tick timing
+    - Shows which packages use each symbol
+    - [Schedule] button per symbol
+
+  SECTION 3: MARKET SCHEDULE
+    - Open/close times, countdown to close
+
+  SECTION 4: PACKAGE MARKET ASSIGNMENT
+    - Which markets are assigned to which packages
+    - [Edit Assignments]
+
+  SECTION 5: QUICK SCHEDULE FROM MARKET
+    - Inline form: Strategy, Stake, Duration, Assign to Packages, Time
+    - [Schedule Trade]
 ```
-
-#### Advanced Features
-
-```
-1. LIVE TRADE TIMELINE
-   - Vertical timeline of current trade: tick 1/5 -> tick 2/5 -> ...
-   - Each tick shows price + indicator values at that moment
-   - Predictive: "If next tick > 4535: WIN; else: LOSE"
-
-2. STRATEGY DECISION EXPLAINER
-   - For each trade, show why bot decided:
-     - "RSI(14) = 28 (< 30 oversold) -> BUY RISE"
-     - "Last trade won -> reset stake to $0.35"
-   - Hover on decision -> see script line that triggered it
-
-3. INTERACTIVE P&L CHART
-   - Zoom/pan on equity curve
-   - Click any trade dot -> see trade details modal
-   - Annotations: stop loss hit, take profit hit, cooldown started
-
-4. BOT COMPARISON OVERLAY
-   - Compare this bot's P&L against another bot or benchmark
-   - Useful for A/B testing strategy variations
-
-5. LIVE LOG STREAMING WITH FILTERS
-   - Filter by level (INFO / WARN / ERROR)
-   - Search by keyword
-   - Auto-scroll toggle (pauses when user scrolls up)
-
-6. STRATEGY PARAMETERS LIVE-EDIT
-   - Edit multiplier / take profit / stop loss on running bot
-   - Confirm modal: "Apply changes? Affects next trade only."
-   - Audit log entry with old/new values
-
-7. TRADE REPLAY MODE
-   - Replay any past trade tick-by-tick
-   - Useful for post-mortem on losing streaks
-
-8. HEALTH DASHBOARD
-   - Real-time metrics: CPU/memory of bot worker
-   - WS latency, API call latency
-   - Error rate trend
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Bot stopped while viewing             Show "Bot stopped" banner
-                                      Disable live controls
-                                      Keep last-known state visible
-
-WS disconnects                        Show "Live: paused" overlay
-                                      Buffer updates, replay on reconnect
-                                      Don't lose any trades
-
-Trade result delayed > 30s            Show "Verifying result..."
-                                      Don't update P&L until confirmed
-
-Bot crashed                           Show error trace modal
-                                      "Restart bot" button
-                                      Auto-restart if configured
-
-Log flood (> 100 entries/s)           Switch to sampled view
-                                      Show "Showing 1 of 100 entries"
-                                      Full log available via download
-
-Chart data > 10,000 points            Downsample to 1-min candles
-                                      Show "Zoom in for tick detail" hint
-```
-
-#### Performance Considerations
-
-```
-- Subscribe only to this bot's events (filter on client)
-- Chart: append-only updates (don't redraw full series)
-- Log: ring buffer of 1000 entries (older accessible via API)
-- Use `useTransition` for log filtering
-- Debounce strategy param edits (500ms) before applying
-- Web Worker for log search (regex on 10k+ entries)
-- Lazy-load trade replay component
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Trade timeline renders correct tick count
-  - Decision explainer parses script line correctly
-  - Live log filter by level works
-  - Parameter edit modal validates input
-
-INTEGRATION:
-  - Subscribe to bot events -> assert UI updates
-  - Trigger error -> assert error modal appears
-  - Edit running bot params -> assert API called + audit logged
-
-E2E:
-  - Open running bot detail -> watch 1 trade complete -> assert P&L updates
-  - Pause bot from detail page -> assert status changes
-  - Replay last trade -> assert timeline replays
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Live updates: aria-live="polite" on stats, "assertive" on errors
-- Chart: text alternative "Equity curve from $1000 to $1042, 156 trades"
-- Log: role="log" + aria-live="polite" for new entries
-- Controls (pause/stop/config): large tap targets (min 44x44px)
-- Keyboard shortcut: Space to pause/resume log auto-scroll
-- Status changes announced to screen readers
-- Reduced motion: disable chart animations, instant updates
-```
-
 
 ---
 
-### PAGE D-14: Backtest (`/dashboard/backtest`)
+### PAGE D-14: Bot & Automation Config (`/dashboard/bots`)
 
 ```
 PURPOSE:
-  Test strategies against historical data before
-  committing real money.
+  Configure the bots that execute my scheduled trades.
+  These are MY operator bots that trade the pooled capital on Deriv.
 
-LAYOUT:
-┌─────────────────────────────────────────────────────────┐
-│  "Backtest Strategy"                                    │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  CONFIGURATION                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Strategy/Script: [martingale_v2.js ▼]            │   │
-│  │ Symbol: [R_10 (Volatility 10) ▼]                │   │
-│  │ Date Range: [Jan 1] → [Mar 31, 2024]            │   │
-│  │ Initial Balance: [$1,000        ]                │   │
-│  │                                                  │   │
-│  │ Strategy Parameters:                             │   │
-│  │ Initial Stake: [$0.35]  Multiplier: [2.0]       │   │
-│  │ Max Steps: [5]  Duration: [5 ticks]             │   │
-│  │ Take Profit: [$50]  Stop Loss: [$25]            │   │
-│  │                                                  │   │
-│  │ [▶ Run Backtest]                                 │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  RESULTS (after running)                                │
-│                                                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │ Final    │ │ Win Rate │ │ Max      │ │ Total    │  │
-│  │ Balance  │ │          │ │ Drawdown │ │ Trades   │  │
-│  │ $1,142   │ │ 63.4%    │ │ -$32.40  │ │ 1,247    │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Equity Curve (line chart)                        │   │
-│  │ $1142┤                          ╭────            │   │
-│  │ $1000┤─────────────────────╮──╯                 │   │
-│  │  $900┤                   ╰─╯                    │   │
-│  │      └──Jan──Feb──Mar──Apr                     │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Distribution of trade P&L (histogram)            │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ Monthly breakdown (table)                        │   │
-│  │ Month  | Trades | Win% | P&L    | Max DD         │   │
-│  │ Jan    | 412    | 62%  | +$42   | -$18           │   │
-│  │ Feb    | 398    | 64%  | +$58   | -$22           │   │
-│  │ Mar    | 437    | 64%  | +$42   | -$32           │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  [Export Results]  [Save as Preset]  [Start Live Bot]   │
-└─────────────────────────────────────────────────────────┘
+5 SECTIONS:
+  SECTION 1: BOT CARDS
+    - Per bot: status, symbol, strategy, packages served, runtime, trades, win rate, P&L
+    - [Pause] [Stop] [Config]
+
+  SECTION 2: BOT CONFIG (expandable per bot)
+    - Symbol, Contract, Stake settings, Strategy params
+    - Package Capital Allocation (which packages, what %)
+    - Risk Limits, AI Guardian settings
+
+  SECTION 3: AI GUARDIAN STATUS
+    - Global status, rules, recent triggers
+    - [Edit Guardian Rules] [View Full Trigger History]
+
+  SECTION 4: AUTOMATION RULES
+    - Conditional rules: stop on drawdown, notify on trigger, auto-distribute
+    - [+ New Rule]
+
+  SECTION 5: OPERATOR NOTIFICATIONS
+    - Real-time alerts for the operator
+    - [Mark All Read] [Notification Settings]
 ```
-
-#### Backtest Engine Implementation
-
-```
-ENGINE:
-  1. Fetch historical ticks from Deriv ticks_history API
-  2. Load strategy script into sandboxed VM
-  3. Simulate trading:
-     - Feed each tick to onTick()
-     - If trade decision returned, simulate buy
-     - Track contract until "expiry" (based on ticks/duration)
-     - Call onResult() with simulated result
-     - Track balance, drawdown, statistics
-  4. Continue until:
-     - Take profit hit
-     - Stop loss hit
-     - Balance <= 0
-     - All ticks consumed
-  5. Calculate statistics and return results
-
-PERFORMANCE:
-  - Process ~10,000 ticks/second in sandbox
-  - Maximum history: 10,000 ticks (configurable)
-  - Results cached for 1 hour
-  - Multiple backtests can run concurrently (queue)
-```
-
-#### Advanced Features
-
-```
-1. WALK-FORWARD ANALYSIS
-   - Optimize parameters on training window, test on out-of-sample window
-   - Rolling window: 30 days train, 7 days test
-   - Shows true out-of-sample performance, not curve-fit
-
-2. MONTE CARLO SIMULATION
-   - Shuffle trade order 1000 times
-   - Shows distribution of possible outcomes
-   - "Worst 5% drawdown: -$85, expected: -$32"
-
-3. PARAMETER OPTIMIZATION (GRID SEARCH)
-   - Define ranges: multiplier [1.5-3.0 step 0.1], maxSteps [3-7]
-   - Run all combinations
-   - Show top 10 by Sharpe ratio
-   - Heatmap of parameter space
-
-4. MULTI-SYMBOL BACKTEST
-   - Test same strategy across 10 symbols simultaneously
-   - Aggregate results + per-symbol breakdown
-   - Identify which symbols suit the strategy
-
-5. COMPARISON MODE
-   - Run 2-5 backtests side-by-side with different params
-   - Diff equity curves
-   - Statistical significance test
-
-6. LIVE BACKTEST (PAPER TRADING)
-   - Run strategy on live ticks without real money
-   - Compare paper vs historical backtest results
-   - Slippage simulation
-
-7. BACKTEST TEMPLATES
-   - Save backtest config as template
-   - Quick rerun with new data
-   - Share templates
-
-8. DETAILED TRADE-BY-TRADE LOG
-   - Export every simulated trade with entry/exit/P&L
-   - Replay mode: step through trades tick-by-tick
-   - Filter winning/losing trades
-```
-
-#### Edge Cases & Error Handling
-
-```
-SCENARIO                              ACTION
-─────────────────────────────────────────────────────────────────
-Historical data unavailable for symbol Show "Data unavailable"
-                                      Suggest alternative symbols
-
-Backtest takes > 60s                   Show progress + ETA
-                                      Allow background mode (notify on done)
-
-Strategy errors during backtest        Pause backtest, show error
-                                      Resume after fix
-                                      Don't lose partial results
-
-Out-of-memory (large history)         Reduce tick granularity
-                                      Or split into chunks
-                                      Suggest cloud run for huge datasets
-
-Parameter grid too large (> 1000)     Warn user, suggest coarser grid
-                                      Or auto-parallelize via worker pool
-```
-
-#### Performance Considerations
-
-```
-- Sandbox: precompiled strategy function (cache compiled VM)
-- Tick processing: 10k ticks/sec target
-- Grid search: parallel via Web Workers (one per CPU core)
-- Results: stream partial results to UI
-- Cache historical ticks in IndexedDB (avoid re-fetch)
-- Monte Carlo: parallel simulation
-```
-
-#### Testing Strategy
-
-```
-UNIT TESTS:
-  - Backtest engine: known input -> expected output
-  - Walk-forward windowing logic
-  - Monte Carlo shuffle correctness
-  - Parameter grid generation
-
-INTEGRATION:
-  - Run backtest -> assert results stored + retrievable
-  - Background mode -> assert notification fires on completion
-
-E2E:
-  - Configure + run backtest -> see results -> export
-  - Compare 2 backtests -> assert overlay chart
-  - Monte Carlo -> assert distribution shown
-```
-
-#### Accessibility & UX Enhancements
-
-```
-- Progress bars: role="progressbar" with aria-valuenow
-- Results table: sortable headers, proper scope
-- Charts: text alternatives, data table view toggle
-- Form inputs: labeled, validated, error messages announced
-- Long-running ops: status updates via aria-live
-- Keyboard: tab through config form, Enter to run
-```
-
 
 ---
 
-## 6. SHARED COMPONENTS
+### PAGE D-15: Settings (`/dashboard/settings`)
+
+```
+PURPOSE:
+  Operator profile, Deriv connection, platform configuration,
+  payout rules, notification preferences, security.
+
+5 SECTIONS:
+  SECTION 1: OPERATOR PROFILE
+    - Name, Email, Role, Timezone
+
+  SECTION 2: DERIV CONNECTION
+    - Connected account details, balance
+    - [Refresh Token] [Reconnect] [+ Add Second Account]
+
+  SECTION 3: PLATFORM CONFIGURATION
+    - Default package split (operator/investor %)
+    - Default min investment, auto-verify deposits, auto-approve payouts
+    - Batch payout time, earnings calc frequency, max investors per package
+
+  SECTION 4: SECURITY
+    - Change Password, 2FA, Session timeout, IP whitelist
+
+  SECTION 5: NOTIFICATION CHANNELS
+    - Email, Telegram, Push, Webhook
+    - Alert toggles: AI Guardian, Large deposit, Payout request, Drawdown, New investor, KYC
+```
+
+---
+
+## 6. INVESTOR DASHBOARD PAGES (12 PAGES)
+
+---
+
+### PAGE I-1: Investor Overview (`/investor`)
+
+```
+PURPOSE:
+  Main hub for investors. Pool status, investment summary,
+  active trades overview, earnings ticker, quick actions.
+
+6 SECTIONS:
+  SECTION 1: WelcomeEarnings
+    - userName, investorSince, totalInvested, activePools, earnedThisMonth
+
+  SECTION 2: ActivePoolStatus
+    - Per active pool: status, goal/raised, user slots/investment/share
+    - Trading time with countdown, current P&L, user share, ROI
+    - [View Details] [Live Trades]
+
+  SECTION 3: EarningsTicker
+    - Per pool: profit, ROI, last updated
+    - Auto-refresh every 3 minutes with countdown
+    - [🔄 Refresh Now] button
+
+  SECTION 4: UpcomingPools
+    - Pools opening soon with dates, min per slot
+    - [Book Slot] [Set Reminder]
+
+  SECTION 5: RecentActivity
+    - Trade wins/losses, deposits, pool status changes
+
+  SECTION 6: QuickActions
+    - [Book Slot] [View Earnings] [Request Payout] [Calculator]
+```
+
+---
+
+### PAGE I-2: Crowdfunding Pools (`/investor/pools`)
+
+```
+PURPOSE:
+  Browse all pools — past, current, and upcoming.
+  Book slots, view pool details, track history.
+
+5 SECTIONS:
+  SECTION 1: ACTIVE/TRADING POOLS
+    - Pool card with: goal/raised progress, your investment/share
+    - Trading countdown, current P&L, your earnings, AI Guardian status
+
+  SECTION 2: OPEN POOLS (accepting bookings)
+    - Pool card with: opens/closes dates, countdown to close
+    - Your booked slots, payment status, [+ Book More Slots]
+
+  SECTION 3: UPCOMING POOLS
+    - Future pools with dates, min per slot
+    - [Set Reminder] [Pre-book Interest]
+
+  SECTION 4: COMPLETED POOLS
+    - Past pools with final P&L, your earnings, payout status
+
+  SECTION 5: POOL ROADMAP
+    - Visual timeline of all planned pools leading to token launch
+```
+
+---
+
+### PAGE I-3: Pool Detail (`/investor/pools/:id`)
+
+```
+PURPOSE:
+  Deep dive into a single pool from investor perspective.
+
+5 SECTIONS:
+  SECTION 1: POOL OVERVIEW
+    - Goal, raised, slots, dates, countdown timer
+
+  SECTION 2: YOUR INVESTMENT IN THIS POOL
+    - Slots, investment, share %, token allocation
+    - Live earnings with 3-min auto-refresh
+    - Daily earnings breakdown
+
+  SECTION 3: POOL PERFORMANCE (numbers only)
+    - Total P&L, Win Rate, Total Trades, Max Drawdown, AI Guardian triggers, Avg Trade
+
+  SECTION 4: AI GUARDIAN STATUS
+    - Status, settings, recent triggers with details
+
+  SECTION 5: POOL PARTICIPANTS (anonymized)
+    - Total participants, slots filled, averages
+    - Top participants by slots (anonymized)
+```
+
+---
+
+### PAGE I-4: Pool Booking & Payment (`/investor/pools/:id/book`)
+
+```
+PURPOSE:
+  Book slots in a pool, make payment, confirm booking.
+
+5 SECTIONS:
+  SECTION 1: POOL DETAILS
+    - Status, closes countdown, min/max per slot, available slots
+
+  SECTION 2: SELECT SLOTS
+    - Number picker with calculated totals (amount + tokens)
+    - Current bookings + after this booking summary
+
+  SECTION 3: PAYMENT METHOD
+    - Wallet Balance, Bank Transfer, Mobile Money, Card, Crypto
+    - Method-specific form
+
+  SECTION 4: PAYMENT DETAILS & CONFIRM
+    - Order summary, bank transfer instructions (if applicable)
+    - Terms checkboxes, [Confirm Booking]
+
+  SECTION 5: PAYMENT STATUS TRACKER
+    - Step progress: Created → Instructions → Received → Verified → Confirmed
+    - 72-hour reservation window notice
+```
+
+---
+
+### PAGE I-5: Live Trade Tracker (`/investor/live`)
+
+```
+PURPOSE:
+  Real-time live trading feed. NO CHARTS.
+  Just raw numbers, values, and trade results flowing in.
+
+5 SECTIONS:
+  SECTION 1: LIVE RUNNING TOTALS
+    - Running Capital, Current P&L, Pool ROI, Your Share
+    - Trades Executed, Wins, Losses, Win Rate, Last trade time
+
+  SECTION 2: LIVE TRADE FEED (scrolling, newest first)
+    - ✅ WIN / ❌ LOSS with symbol, type, stake, payout, P&L
+    - Entry/exit spots, timestamp
+    - Green/red flash on new entries
+
+  SECTION 3: LIVE NUMBER TICKERS
+    - All symbols with streaming prices and direction arrows
+    - Tick timing shown
+
+  SECTION 4: SESSION STATISTICS
+    - Today's trades/wins/losses, P&L, best/worst trade, streaks
+
+  SECTION 5: ACTIVE BOTS IN POOL
+    - Bot name, symbol, trades, win rate, current stake, P&L
+    - AI Guardian pause indicator
+```
+
+---
+
+### PAGE I-6: My Investments (`/investor/investments`)
+
+```
+PURPOSE:
+  Track all investments across all pools.
+
+5 SECTIONS:
+  SECTION 1: INVESTMENT SUMMARY
+    - Total Invested, Active Investments, Total Earned, Completed Investments, Pending Payouts, Overall ROI
+
+  SECTION 2: ACTIVE INVESTMENTS
+    - Per pool: slots, investment, share, payment status/method
+    - Current value, earnings, ROI, status, time remaining
+
+  SECTION 3: COMPLETED INVESTMENTS
+    - Past pools with final P&L, earnings, payout status
+
+  SECTION 4: BOOKED SLOTS (upcoming pools)
+    - Booked but not yet trading, payment pending/confirmed
+
+  SECTION 5: INVESTMENT TIMELINE
+    - Chronological history of all investment actions
+```
+
+---
+
+### PAGE I-7: Wallet & Finances (`/investor/wallet`)
+
+```
+PURPOSE:
+  Central wallet. Balance, deposit, request payout,
+  transaction history, payment methods.
+
+5 SECTIONS:
+  SECTION 1: WALLET OVERVIEW
+    - Available Balance, Locked In Pools, Pending Payout, Total Account Value
+    - Lifetime deposits/earnings/withdrawals
+
+  SECTION 2: DEPOSIT FUNDS
+    - Amount input with quick buttons ($1k, $3k, $5k, $10k)
+    - Payment method selection: Bank, Mobile Money, Card, Crypto, Stablecoins
+    - Method-specific instructions and form
+    - [Confirm Deposit]
+
+  SECTION 3: REQUEST PAYOUT
+    - Available for withdrawal, minimum, processing time
+    - Amount input, withdrawal method selection
+    - Fee display, [Request Payout]
+    - Recent payouts list
+
+  SECTION 4: TRANSACTION HISTORY
+    - Filterable table: Date, Type, Amount, Method, Status
+    - [Export CSV] [Export PDF]
+
+  SECTION 5: SAVED PAYMENT METHODS
+    - List of saved methods with default indicator
+    - [Remove] [+ Add Payment Method]
+```
+
+---
+
+### PAGE I-8: Investment Calculator (`/investor/calculator`)
+
+```
+PURPOSE:
+  Calculate potential returns, ROI projections, fee calculator.
+
+5 SECTIONS:
+  SECTION 1: ROI CALCULATOR
+    - Investment amount, slots, expected ROI, duration → projected earnings, total return, daily avg, effective APY
+
+  SECTION 2: COMPOUND GROWTH CALCULATOR
+    - Initial investment, per-pool ROI, number of pools → compound growth table
+
+  SECTION 3: FEE CALCULATOR
+    - Deposit fee, platform profit share %, payout fee
+    - Net earnings after all fees
+
+  SECTION 4: SCENARIO COMPARISON
+    - Table comparing 1/2/3 slots at conservative/expected/optimistic ROI
+
+  SECTION 5: HISTORICAL POOL PERFORMANCE
+    - Past pool results for reference
+    - Average/Best/Worst ROI disclaimer
+```
+
+---
+
+### PAGE I-9: Notifications & Activity (`/investor/notifications`)
+
+```
+PURPOSE:
+  All investor notifications and activity log.
+
+5 SECTIONS:
+  SECTION 1: UNREAD NOTIFICATIONS
+  SECTION 2: TRADE ACTIVITY
+  SECTION 3: POOL UPDATES
+  SECTION 4: PAYMENT & PAYOUT ALERTS
+  SECTION 5: SYSTEM & SECURITY
+```
+
+---
+
+### PAGE I-10: Referrals & Rewards (`/investor/referrals`)
+
+```
+PURPOSE:
+  Referral program, daily streaks, rewards, bonus tracking.
+
+5 SECTIONS:
+  SECTION 1: REFERRAL PROGRAM
+    - Referral code/link, sharing buttons, reward structure, stats
+
+  SECTION 2: DAILY STREAKS
+    - Current/best streak, weekly calendar, tier rewards
+
+  SECTION 3: AVAILABLE REWARDS
+    - Claimable rewards with [Claim] buttons
+
+  SECTION 4: REFERRAL LEADERBOARD
+
+  SECTION 5: REWARD HISTORY
+```
+
+---
+
+### PAGE I-11: Earnings & Reports (`/investor/earnings`)
+
+```
+PURPOSE:
+  Detailed earnings breakdown, tax reporting, export.
+
+5 SECTIONS:
+  SECTION 1: EARNINGS OVERVIEW
+    - Total earned, this month, avg per pool, best/worst pool, avg ROI
+
+  SECTION 2: EARNINGS BY POOL
+    - Per-pool breakdown with period detail
+
+  SECTION 3: EARNINGS TIMELINE
+    - Chronological with running total, [Export CSV/PDF]
+
+  SECTION 4: TAX REPORT INFORMATION
+    - Gross earnings/losses, net profit, [Download PDF]
+
+  SECTION 5: PROFIT SHARING BREAKDOWN
+    - How earnings are calculated (formula explanation)
+    - Gross → platform cut → net → your share
+```
+
+---
+
+### PAGE I-12: Investor Settings (`/investor/settings`)
+
+```
+PURPOSE:
+  Profile, security, notification preferences, payout preferences, KYC.
+
+5 SECTIONS:
+  SECTION 1: PROFILE (with role switch option)
+  SECTION 2: SECURITY (password, 2FA, sessions)
+  SECTION 3: NOTIFICATION PREFERENCES (email, push, Telegram)
+  SECTION 4: PAYOUT PREFERENCES (default method, auto-payout, auto-reinvest)
+  SECTION 5: KYC / VERIFICATION STATUS (level, limits, documents)
+```
+
+---
+
+## 7. SHARED COMPONENTS
 
 ```
 LAYOUT:
-  ├── Sidebar          — navigation, user info, connection status
+  ├── Sidebar          — navigation, Deriv status, user info
   ├── TopBar           — search, notifications, user menu
   ├── PageWrapper      — consistent padding, max-width
   └── MobileNav        — bottom navigation for mobile
 
 DATA DISPLAY:
   ├── StatCard         — value + label + trend indicator
-  ├── DataTable        — sortable, filterable, paginated
+  ├── DataTable        — TanStack Table wrapper (sort/filter/page)
   ├── ChartWrapper     — Recharts/LightweightCharts wrapper
   ├── LivePrice       — real-time price with direction arrow
   ├── PnLBadge        — green/red P&L display
   ├── StatusIndicator — 🟢🟡🔴 status dot + text
-  └── TimeAgo         — relative time display ("2m ago")
-
-FORMS:
-  ├── FormInput        — text input with label, error, icon
-  ├── FormSelect       — dropdown with search
-  ├── FormToggle       — switch toggle
-  ├── FormSlider       — range slider (for stake, etc.)
-  └── Stepper          — multi-step form progress
+  ├── CountdownTimer  — live countdown (days, hours, minutes, seconds)
+  ├── ProgressFillBar — percentage fill with label
+  └── TimeAgo         — relative time display
 
 TRADE-SPECIFIC:
   ├── SymbolSelector   — market/symbol dropdown with search
   ├── ContractTypeSelect — contract type dropdown
-  ├── StakeInput       — stake with quick buttons ($0.35, $1, $5...)
+  ├── StakeInput       — stake with quick buttons
   ├── DurationInput    — ticks/seconds/minutes input
-  ├── ProposalDisplay  — live buy price + potential profit
   └── TradeResult      — win/loss display with animation
 
-BOT-SPECIFIC:
-  ├── BotCard          — bot summary card for lists
-  ├── BotStatusBadge   — running/paused/stopped
-  ├── BotControls      — start/pause/stop/config buttons
-  └── MiniPnlChart     — small inline P&L chart
+PACKAGE-SPECIFIC:
+  ├── PackageCard      — package summary for lists
+  ├── PackageStatusBadge — open/trading/completed
+  ├── InvestmentCard   — investor's investment in a package
+  └── EarningsDisplay  — live earnings with auto-refresh
 
-SOCIAL:
-  ├── TraderCard       — user profile card with stats
-  ├── ActivityItem     — single activity feed item
-  ├── LeaderboardTable — ranked table of traders
-  └── CopyTradeBadge   — "copying" indicator
+INVESTOR-SPECIFIC:
+  ├── InvestorCard     — user profile card with stats
+  ├── KYCStatusBadge  — verification level indicator
+  ├── DepositStatusBadge — pending/verified/failed
+  └── PayoutStatusBadge — pending/processing/completed
 
 MODALS:
   ├── ConfirmModal     — "Are you sure?" with custom message
   ├── TradeModal       — quick trade placement
-  ├── BotActionModal   — bot start/stop confirmation
+  ├── PackageBookingModal — slot booking flow
+  ├── PayoutModal      — payout request form
   └── NotificationPopup — toast/notification system
 
 FEEDBACK:
   ├── Toast            — success/error/warning/info
   ├── LoadingSpinner   — loading indicator
   ├── SkeletonCard     — content placeholder while loading
-  └── EmptyState       — "No bots yet" with CTA
-
-STYLING & MOTION (shared base ONLY — page-unique looks stay in per-page CSS):
-  ├── CardBase         — Bootstrap card + hover-lift, gradient-border variant
-  ├── KpiCard          — stat card with count-up + animated trend icon
-  ├── PulseDot         — animated live-status icon (pulse)
-  ├── ShimmerSkeleton  — shimmer loading placeholder
-  ├── StaggerGroup     — wrapper that staggers children's entrance animation
-  ├── AnimatedIcon     — animated SVG icon set (spin/pulse/bounce/draw)
-  └── tokens.scss      — shared design tokens (colors, radii, shadows, motion)
-
-  NOTE: the shared layer = tokens + card base + animation utilities ONLY.
-        Anything visually unique to one page goes in that page's scoped
-        stylesheet (see 1.4) — never added here, never shared to other pages.
+  └── EmptyState       — "No data yet" with CTA
 ```
 
 ---
 
-## 7. STATE MANAGEMENT
+## 8. STATE MANAGEMENT
 
-### 7.1 Zustand Stores (Client State)
+### 8.1 Zustand Stores (Client State)
 
 ```
 useAuthStore:
   ├── user: User | null
   ├── isAuthenticated: boolean
-  ├── isLoading: boolean
-  ├── login: (credentials) => Promise<void>
-  ├── logout: () => void
-  ├── refreshToken: () => Promise<void>
-  └── updateUser: (partial) => void
+  ├── role: "operator" | "investor" | "both"
+  ├── login, logout, refreshToken, updateUser
 
 useDerivStore:
   ├── connections: DerivConnection[]
   ├── activeConnectionId: string | null
   ├── websockets: Map<connectionId, WebSocket>
-  ├── balance: Map<connectionId, number>
-  ├── isConnected: boolean
-  ├── connect: (token) => void
-  ├── disconnect: (connectionId) => void
-  ├── subscribe: (params) => void
-  ├── unsubscribe: (subscriptionId) => void
-  └── send: (request) => Promise<response>
+  ├── balance, isConnected
+  ├── connect, disconnect, subscribe, unsubscribe, send
 
 useMarketStore:
   ├── symbols: Symbol[]
   ├── favorites: string[]
   ├── tickSubscriptions: Map<symbol, tickData>
-  ├── activeSymbols: () => Symbol[]
-  ├── toggleFavorite: (symbol) => void
-  └── getSymbol: (symbol) => Symbol | undefined
+  ├── activeSymbols, toggleFavorite, getSymbol
 
 useBotStore:
   ├── bots: Bot[]
   ├── activeBots: Bot[]
-  ├── isLoading: boolean
-  ├── fetchBots: () => Promise<void>
-  ├── startBot: (id) => Promise<void>
-  ├── pauseBot: (id) => Promise<void>
-  ├── stopBot: (id) => Promise<void>
-  └── deleteBot: (id) => Promise<void>
+  ├── fetchBots, startBot, pauseBot, stopBot, deleteBot
 
 useTradeStore:
   ├── openContracts: Contract[]
   ├── recentTrades: Trade[]
   ├── proposals: Map<key, Proposal>
-  ├── buy: (params) => Promise<Contract>
-  ├── sell: (contractId) => Promise<void>
-  └── subscribeOpenContracts: () => void
+  ├── buy, sell, subscribeOpenContracts
 
-useSocialStore:
-  ├── following: FollowedTrader[]
-  ├── leaderboard: TraderRanking[]
-  ├── activityFeed: Activity[]
-  ├── fetchLeaderboard: () => Promise<void>
-  ├── follow: (userId) => Promise<void>
-  ├── unfollow: (userId) => Promise<void>
-  └── configureCopyTrade: (userId, settings) => Promise<void>
+usePackageStore:
+  ├── packages: Package[]
+  ├── activePackages: Package[]
+  ├── fetchPackages, createPackage, updatePackage
+  ├── getPackageInvestors, getPackagePerformance
+
+useInvestorStore:
+  ├── investors: Investor[]
+  ├── fetchInvestors, getInvestorDetail
+  ├── approveKYC, rejectKYC
+
+useScheduleStore:
+  ├── schedules: ScheduledTrade[]
+  ├── todaySchedule: ScheduledTrade[]
+  ├── fetchSchedules, createSchedule, updateSchedule, deleteSchedule
+
+useFundsStore:
+  ├── totalCapital, deployedCapital, availableCapital
+  ├── deposits: Deposit[]
+  ├── payouts: PayoutRequest[]
+  ├── fetchDeposits, verifyDeposit, rejectDeposit
+  ├── fetchPayouts, approvePayout, rejectPayout
 
 useUIStore:
-  ├── sidebarOpen: boolean
-  ├── theme: "light" | "dark"
-  ├── notifications: Notification[]
-  └── activeModal: string | null
+  ├── sidebarOpen, theme, notifications, activeModal
 ```
 
-### 7.2 TanStack Query (Server State)
+### 8.2 React Query Keys
 
 ```
 QUERY KEYS:
   ["user"]                    → current user
-  ["bots"]                    → all bots
-  ["bots", id]                → single bot
-  ["bots", id, "trades"]      → bot trades
-  ["bots", id, "logs"]        → bot logs
-  ["scripts"]                 → all scripts
-  ["scripts", id]             → single script
-  ["connections"]             → Deriv connections
-  ["portfolio", "open"]       → open positions
-  ["portfolio", "history"]    → trade history
-  ["social", "leaderboard"]   → leaderboard
-  ["social", "following"]     → following list
-  ["social", "feed"]          → activity feed
+  ["packages"]                → all packages
+  ["packages", id]            → single package
+  ["packages", id, "investors"] → package investors
+  ["packages", id, "performance"] → package analytics
+  ["investors"]               → all investors
+  ["investors", id]           → single investor
+  ["schedules"]               → trade schedules
+  ["trades"]                  → trade log
+  ["trades", "summary"]       → trade summary
+  ["deposits"]                → deposit records
+  ["payouts"]                 → payout requests
+  ["funds", "overview"]       → funds overview
   ["analytics", period]       → analytics data
-  ["automation", "rules"]     → automation rules
+  ["logs", type]              → audit logs
 
 MUTATIONS:
-  useCreateBot()              → POST /api/bots
-  useUpdateBot()              → PATCH /api/bots/:id
-  useStartBot()               → POST /api/bots/:id/start
-  usePauseBot()               → POST /api/bots/:id/pause
-  useStopBot()                → POST /api/bots/:id/stop
-  useDeleteBot()              → DELETE /api/bots/:id
-  useCreateScript()           → POST /api/scripts
-  useUpdateScript()           → PATCH /api/scripts/:id
+  useCreatePackage()          → POST /api/packages
+  useUpdatePackage()          → PATCH /api/packages/:id
+  useCreateSchedule()         → POST /api/schedules
   usePlaceTrade()             → Deriv buy via WebSocket
-  useSellContract()           → Deriv sell via WebSocket
-  useConnectDeriv()           → POST /api/connections
-  useFollowUser()             → POST /api/social/follow
-  useCreateAutomationRule()   → POST /api/automation/rules
+  useVerifyDeposit()          → POST /api/deposits/:id/verify
+  useApprovePayout()          → POST /api/payouts/:id/approve
+  useDistributeProfits()      → POST /api/packages/:id/distribute
 ```
 
 ---
 
-## 8. DATABASE SCHEMA
+## 9. DATABASE SCHEMA
 
-### 8.1 PostgreSQL Tables (Prisma)
+### 9.1 Core Tables (Prisma)
 
 ```prisma
-// ============ AUTH & USERS ============
-
 model User {
   id              String    @id @default(cuid())
   email           String    @unique
@@ -4315,20 +1586,12 @@ model User {
   username        String    @unique
   avatar          String?
   timezone        String    @default("UTC")
-  
-  // Subscription
-  subscriptionTier  String  @default("free") // free, pro, team
-  subscriptionId   String?
-  
-  // Social
-  isPublic         Boolean @default(true)
-  showOnLeaderboard Boolean @default(true)
-  allowCopyTrading Boolean @default(true)
+  role            String    @default("operator") // operator, investor, both
   
   // Security
   twoFactorEnabled Boolean  @default(false)
-  twoFactorSecret  String?  // encrypted
-  backupCodes      String?  // JSON array, hashed
+  twoFactorSecret  String?
+  backupCodes      String?
   
   // Timestamps
   createdAt       DateTime  @default(now())
@@ -4337,185 +1600,168 @@ model User {
   
   // Relations
   derivConnections  DerivConnection[]
-  bots             Bot[]
-  scripts          Script[]
-  automationRules  AutomationRule[]
-  followers        Follow[]  @relation("Following")
-  following        Follow[]  @relation("Followers")
-  copyTradeSettings CopyTradeSetting[]
-  notifications    Notification[]
-  settings         UserSettings?
-  sessions         Session[]
+  investments       Investment[]
+  wallet            Wallet?
+  kyc               KYCVerification?
+  referralCode      String    @unique @default(cuid())
+  referrals         Referral[]  @relation("Referrer")
+  referredBy        Referral?   @relation("Referred")
+  dailyStreak       DailyStreak?
+  rewards           Reward[]
+  paymentMethods    PaymentMethod[]
 }
-
-model Session {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  token       String   @unique
-  refreshToken String @unique
-  expiresAt   DateTime
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-}
-
-model UserSettings {
-  id                      String  @id @default(cuid())
-  userId                  String  @unique
-  user                    User    @relation(fields: [userId], references: [id])
-  
-  // Notifications
-  emailTradeCompleted     Boolean @default(true)
-  emailBotStatus          Boolean @default(true)
-  emailDailySummary       Boolean @default(false)
-  emailRiskAlert          Boolean @default(true)
-  pushTradeCompleted      Boolean @default(false)
-  pushBotStatus           Boolean @default(true)
-  pushRiskAlert           Boolean @default(true)
-  webhookUrl              String?
-  
-  // Preferences
-  defaultSymbol           String  @default("R_10")
-  defaultStake           Float   @default(0.35)
-  defaultDuration         Int     @default(5)
-  defaultDurationUnit     String  @default("t")
-  chartTheme              String  @default("dark")
-  
-  // Favorite symbols
-  favoriteSymbols         String  @default("[]") // JSON array
-}
-
-// ============ DERIV CONNECTIONS ============
 
 model DerivConnection {
   id              String    @id @default(cuid())
   userId          String
   user            User      @relation(fields: [userId], references: [id])
-  
-  derivLoginId    String    // e.g. CR1234567
-  derivAppId      String    // our registered app ID
-  encryptedToken  String    // AES-256-GCM encrypted
-  currency        String    // USD, EUR, etc.
+  derivLoginId    String
+  derivAppId      String
+  encryptedToken  String
+  currency        String
   balance         Float     @default(0)
-  
-  status          String    @default("active") // active, expired, revoked
-  permissions     String    @default("[]") // JSON: ["read","trade"]
-  
+  status          String    @default("active")
+  permissions     String    @default("[]")
   lastActivityAt  DateTime?
   connectedAt     DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
-  // Relations
   bots            Bot[]
-  
   @@unique([userId, derivLoginId])
 }
 
-// ============ BOTS ============
+// ──── PACKAGES ────
 
-model Bot {
-  id              String    @id @default(cuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id])
-  connectionId    String
-  connection      DerivConnection @relation(fields: [connectionId], references: [id])
+model Package {
+  id                String    @id @default(cuid())
+  code              String    @unique  // "PKG-01", "PKG-02"
+  name              String    // "Basic Growth"
+  description       String?
+  status            String    @default("draft")
+  // draft → open → closed → trading → profit_sharing → completed
   
-  name            String
-  description     String?
-  symbol          String    // e.g. R_10, frxEURUSD
-  strategyType    String    // martingale, dca, oscar, fixed, custom, ai
-  scriptId        String?   // if custom script
-  script          Script?   @relation(fields: [scriptId], references: [id])
+  // Investment Terms
+  slotPrice         Float     @default(3000)
+  maxSlotsPerUser   Int       @default(20)
+  targetCapital     Float
+  maxCapital        Float?    // oversubscribe limit
   
-  // Status
-  status          String    @default("draft") // draft, running, paused, stopped, error
-  statusMessage   String?   // error message if status=error
+  // Timeline
+  bookingOpensAt    DateTime
+  bookingClosesAt   DateTime
+  tradingStartsAt   DateTime
+  tradingEndsAt     DateTime
+  profitShareDate   DateTime
   
-  // Trade Parameters
-  contractType    String    @default("CALL") // CALL, PUT, DIGITOVER, etc.
-  initialStake    Float     @default(0.35)
-  currentStake    Float     @default(0.35)
-  maxStake       Float     @default(100)
-  duration        Int       @default(5)
-  durationUnit    String    @default("t") // t, s, m, h, d
+  // Expected Returns
+  conservativeROI  Float     @default(8)
+  expectedROI      Float     @default(15)
+  optimisticROI    Float     @default(25)
   
-  // Strategy Parameters (JSON - varies by strategy)
-  strategyParams  String    @default("{}")
-  // e.g. { "multiplier": 2.0, "onWin": "reset", "onLoss": "multiply", "maxSteps": 5 }
+  // Profit Split
+  operatorSharePercent Float  @default(20)
+  investorSharePercent Float @default(80)
   
-  // Risk Management
-  takeProfit      Float?
-  stopLoss        Float?
-  maxDailyLoss    Float     @default(100)
-  maxDailyTrades  Int       @default(500)
-  cooldownLosses  Int       @default(3)
-  cooldownDuration Int      @default(300) // seconds
-  maxConcurrent   Int       @default(1)
+  // Trading Config
+  markets           String    @default("[]")  // JSON: ["R_10", "R_75"]
+  strategies        String    @default("[]")  // JSON: ["martingale", "even_odd"]
+  aiGuardianEnabled Boolean   @default(true)
+  aiGuardianConfig  String    @default("{}")
+  maxDrawdown       Float     @default(5)
   
-  // Statistics (updated in real-time)
-  totalTrades     Int       @default(0)
-  totalWins       Int       @default(0)
-  totalLosses     Int       @default(0)
-  totalPnL        Float     @default(0)
-  currentStreak   Int       @default(0) // positive=win, negative=loss
-  dailyPnL        Float     @default(0)
-  dailyTrades     Int       @default(0)
-  dailyLosses     Int       @default(0)
+  // Token Allocation
+  tokensPerSlot     Float     @default(30000)
+  tokenName         String    @default("bmX")
   
-  // Runtime
-  startedAt       DateTime?
-  runtimeSeconds  Int       @default(0)
-  jobId           String?   // BullMQ job ID
+  // Terms
+  termsUrl          String?
+  autoReinvestOption Boolean  @default(false)
+  earlyExitPenalty  Float     @default(0)
   
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  // Stats (updated in real-time)
+  filledSlots       Int       @default(0)
+  totalCapital      Float     @default(0)
+  totalTrades       Int       @default(0)
+  totalWins         Int       @default(0)
+  totalLosses       Int       @default(0)
+  currentPnL        Float     @default(0)
+  maxDrawdownHit    Float     @default(0)
+  peakCapital       Float     @default(0)
+  aiGuardianTriggers Int      @default(0)
+  distributedPnL    Float     @default(0)
+  
+  // Schedule assignments
+  scheduleIds       String    @default("[]")  // JSON: schedule IDs
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   
   // Relations
-  trades          Trade[]
-  logs            BotLog[]
+  investments       Investment[]
+  packageTrades     PackageTrade[]
+  earningsLogs      PackageEarningsLog[]
+  aiGuardianLogs    AIGuardianLog[]
 }
 
-// ============ SCRIPTS ============
+// ──── INVESTMENTS ────
 
-model Script {
-  id              String    @id @default(cuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id])
+model Investment {
+  id                String    @id @default(cuid())
+  packageId         String
+  package           Package   @relation(fields: [packageId], references: [id])
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
   
-  name            String
-  code            String    // JavaScript source code
-  description     String?
-  isTemplate      Boolean   @default(false)
+  slots             Int
+  amount            Float
+  tokenAllocation   Float
+  sharePercent      Float
   
-  // Statistics
-  totalRuns       Int       @default(0)
-  winRate         Float     @default(0)
+  paymentMethod     String
+  paymentDetails    String?
+  paymentStatus     String    @default("pending")
+  // pending → submitted → received → verified → failed → refunded
+  paymentReference  String?
+  paidAt            DateTime?
+  verifiedAt        DateTime?
   
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  status            String    @default("booked")
+  // booked → confirmed → active → completed → cancelled
   
-  // Relations
-  bots            Bot[]
+  grossEarnings     Float     @default(0)
+  netEarnings       Float     @default(0)
+  currentPnL        Float     @default(0)
+  currentROI        Float     @default(0)
+  
+  payoutStatus      String    @default("pending")
+  payoutAmount      Float?
+  payoutMethod      String?
+  payoutRequestedAt DateTime?
+  payoutCompletedAt DateTime?
+  
+  autoReinvest      Boolean   @default(false)
+  reinvestPercent   Float     @default(0)
+  
+  bookedAt          DateTime  @default(now())
+  confirmedAt       DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  
+  @@unique([packageId, userId])
 }
 
-// ============ TRADES ============
+// ──── TRADES ────
 
-model Trade {
+model PackageTrade {
   id              String    @id @default(cuid())
-  botId           String
-  bot             Bot       @relation(fields: [botId], references: [id])
-  userId          String
-  
-  // Deriv trade data
-  derivContractId String?   // contract_id from Deriv
+  packageId       String
+  package         Package   @relation(fields: [packageId], references: [id])
+  derivContractId String?
   symbol          String
   contractType    String
   stake           Float
   duration        Int
   durationUnit    String
-  
-  // Results
   entrySpot       Float?
   exitSpot        Float?
   buyPrice        Float?
@@ -4524,1057 +1770,802 @@ model Trade {
   profit          Float?
   isWin           Boolean?
   isSold          Boolean   @default(false)
-  
-  // Copy trade tracking
-  copiedFromUserId String?
-  copiedFromTradeId String?
-  
+  botId           String?
+  botName         String?
+  scheduleId      String?
   boughtAt        DateTime?
   soldAt          DateTime?
   createdAt       DateTime  @default(now())
+  @@index([packageId, createdAt])
 }
 
-// ============ BOT LOGS ============
+// ──── SCHEDULES ────
 
-model BotLog {
-  id        String   @id @default(cuid())
-  botId     String
-  bot       Bot      @relation(fields: [botId], references: [id])
-  level     String   @default("info") // info, warn, error, trade
-  message   String
-  data      String?  // JSON additional data
-  timestamp DateTime @default(now())
-  
-  @@index([botId, timestamp])
+model TradeSchedule {
+  id              String    @id @default(cuid())
+  name            String
+  date            DateTime
+  startTime       String    // "09:00"
+  endTime         String    // "12:00"
+  symbol          String
+  strategy        String
+  initialStake    Float
+  maxTrades       Int
+  packageIds      String    @default("[]")  // JSON
+  packageAllocation String  @default("{}")  // JSON: { pkgId: percent }
+  recurrence      String    @default("one_time") // one_time, daily, weekdays, cron
+  cronExpression  String?
+  stopLoss        Float?
+  takeProfit      Float?
+  maxDrawdown     Float?
+  cooldownAfter   Int       @default(3)
+  cooldownDuration Int      @default(300)
+  status          String    @default("active") // active, paused, completed, cancelled
+  lastRunAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
-// ============ AUTOMATION ============
+// ──── BOTS ────
+
+model Bot {
+  id              String    @id @default(cuid())
+  connectionId    String
+  connection      DerivConnection @relation(fields: [connectionId], references: [id])
+  name            String
+  symbol          String
+  strategyType    String
+  scriptId        String?
+  status          String    @default("draft")
+  contractType    String    @default("CALL")
+  initialStake    Float     @default(0.35)
+  currentStake    Float     @default(0.35)
+  maxStake        Float     @default(100)
+  duration        Int       @default(5)
+  durationUnit    String    @default("t")
+  strategyParams  String    @default("{}")
+  takeProfit      Float?
+  stopLoss        Float?
+  maxDailyLoss    Float     @default(100)
+  maxDailyTrades  Int       @default(500)
+  cooldownLosses  Int       @default(3)
+  cooldownDuration Int      @default(300)
+  maxConcurrent   Int       @default(1)
+  packageIds      String    @default("[]")
+  packageAllocation String  @default("{}")
+  totalTrades     Int       @default(0)
+  totalWins       Int       @default(0)
+  totalLosses     Int       @default(0)
+  totalPnL        Float     @default(0)
+  startedAt       DateTime?
+  runtimeSeconds  Int       @default(0)
+  jobId           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ──── SCRIPTS ────
+
+model Script {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  name            String
+  code            String
+  description     String?
+  isTemplate      Boolean   @default(false)
+  totalRuns       Int       @default(0)
+  winRate         Float     @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  bots            Bot[]
+}
+
+// ──── EARNINGS LOGS ────
+
+model PackageEarningsLog {
+  id                  String    @id @default(cuid())
+  packageId           String
+  package             Package   @relation(fields: [packageId], references: [id])
+  totalCapital        Float
+  currentPnL          Float
+  poolROI             Float
+  investmentSnapshots String    // JSON
+  timestamp           DateTime  @default(now())
+  @@index([packageId, timestamp])
+}
+
+model AIGuardianLog {
+  id              String    @id @default(cuid())
+  packageId       String
+  package         Package   @relation(fields: [packageId], references: [id])
+  triggerType     String
+  triggerDetails  String
+  action          String
+  botsAffected    String    @default("[]")
+  resumedAt       DateTime?
+  timestamp       DateTime  @default(now())
+}
+
+// ──── WALLET ────
+
+model Wallet {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  balance         Float     @default(0)
+  lockedBalance   Float     @default(0)
+  totalDeposited  Float     @default(0)
+  totalWithdrawn  Float     @default(0)
+  totalEarned     Float     @default(0)
+  updatedAt       DateTime  @updatedAt
+}
+
+model WalletTransaction {
+  id              String    @id @default(cuid())
+  walletId        String
+  wallet          Wallet    @relation(fields: [walletId], references: [id])
+  userId          String
+  type            String    // deposit, payout, earning, fee, refund, referral_bonus
+  amount          Float
+  balance         Float
+  method          String
+  methodDetails   String?
+  reference       String?
+  poolId          String?
+  investmentId    String?
+  status          String    @default("pending")
+  description     String?
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  @@index([walletId, createdAt])
+}
+
+model PaymentMethod {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  type            String    // bank_account, mobile_money, card, crypto_wallet
+  label           String
+  isDefault       Boolean   @default(false)
+  encryptedData   String
+  isVerified      Boolean   @default(false)
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+}
+
+// ──── KYC ────
+
+model KYCVerification {
+  id                      String    @id @default(cuid())
+  userId                  String    @unique
+  user                    User      @relation(fields: [userId], references: [id])
+  level                   Int       @default(1)
+  emailVerified           Boolean   @default(false)
+  phoneVerified           Boolean   @default(false)
+  idDocType               String?
+  idDocFrontUrl           String?
+  idDocBackUrl            String?
+  selfieUrl               String?
+  proofOfAddressUrl       String?
+  idVerifiedAt            DateTime?
+  sourceOfFundsDeclaration String?
+  enhancedDueDiligence    String?
+  level3VerifiedAt        DateTime?
+  reviewStatus            String    @default("pending")
+  reviewerNotes           String?
+  reviewedAt              DateTime?
+  depositLimitPerTx       Float     @default(1000)
+  depositLimitDaily       Float     @default(5000)
+  depositLimitMonthly     Float     @default(50000)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+// ──── REFERRALS & REWARDS ────
+
+model Referral {
+  id              String    @id @default(cuid())
+  referrerId      String
+  referrer        User      @relation("Referrer", fields: [referrerId], references: [id])
+  referredId      String
+  referred        User      @relation("Referred", fields: [referredId], references: [id])
+  referralCode    String
+  rewardAmount    Float?
+  rewardStatus    String    @default("pending")
+  createdAt       DateTime  @default(now())
+  @@unique([referredId])
+}
+
+model DailyStreak {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  currentStreak   Int       @default(0)
+  bestStreak      Int       @default(0)
+  lastClaimDate   DateTime?
+  claimedDays     String    @default("[]")
+}
+
+model Reward {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  type            String    // referral, streak, early_bird, bonus
+  amount          Float
+  description     String
+  status          String    @default("available")
+  claimedAt       DateTime?
+  creditedAt      DateTime?
+  expiresAt       DateTime?
+  relatedId       String?
+  createdAt       DateTime  @default(now())
+}
+
+// ──── AUTOMATION ────
 
 model AutomationRule {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  
-  name        String
-  description String?
-  isEnabled   Boolean  @default(true)
-  
-  // Conditions (JSON array)
-  conditions  String   // [{ field: "balance.change", operator: "less_than", value: "-10%" }]
-  // Operator: less_than, greater_than, equals, changes_by
-  
-  // Actions (JSON array)
-  actions     String   // [{ type: "bot.stopAll", params: {} }]
-  // Action types: bot.start, bot.stop, bot.pause, bot.stopAll,
-  //   notification.email, notification.push, notification.webhook,
-  //   trade.closeAll, script.run, log.message
-  
-  // Schedule (cron expression, optional)
-  schedule    String?  // if set, rule is time-based
-  
+  id              String    @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  isEnabled       Boolean   @default(true)
+  conditions      String    // JSON
+  actions         String    // JSON
+  schedule        String?
   lastTriggeredAt DateTime?
-  triggerCount    Int      @default(0)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  triggerCount    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
-// ============ SOCIAL ============
+// ──── AUDIT LOGS ────
 
-model Follow {
-  id            String   @id @default(cuid())
-  followerId    String
-  follower      User     @relation("Following", fields: [followerId], references: [id])
-  followingId   String
-  following     User     @relation("Followers", fields: [followingId], references: [id])
-  
-  createdAt     DateTime @default(now())
-  
-  @@unique([followerId, followingId])
-}
-
-model CopyTradeSetting {
-  id                    String  @id @default(cuid())
-  userId                String  // the copier
-  user                  User    @relation(fields: [userId], references: [id])
-  targetUserId          String  // the trader being copied
-  
-  mode                  String  @default("proportional") // proportional, fixed, same
-  maxStakePerTrade      Float   @default(10)
-  maxDailyCopyTrades    Int     @default(20)
-  maxDailyCopyLoss      Float   @default(50)
-  minWinRateThreshold   Float   @default(50)
-  symbolFilter          String  @default("[]") // JSON: empty = all
-  botFilter             String  @default("[]") // JSON: empty = all
-  
-  isEnabled             Boolean @default(true)
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
-  @@unique([userId, targetUserId])
-}
-
-// ============ NOTIFICATIONS ============
-
-model Notification {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  
-  type        String   // trade_won, trade_lost, bot_started, risk_alert, new_follower
-  title       String
-  message     String
-  data        String?  // JSON
-  isRead      Boolean  @default(false)
-  
-  createdAt   DateTime @default(now())
-  
-  @@index([userId, isRead, createdAt])
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String?
+  category        String    // trade, deposit, payout, system, auth, comm
+  action          String
+  details         String?
+  ipAddress       String?
+  userAgent       String?
+  metadata        String?   // JSON
+  createdAt       DateTime  @default(now())
+  @@index([category, createdAt])
+  @@index([userId, createdAt])
 }
 ```
 
 ---
 
-## 9. AUTOMATION & BOT ENGINE
+## 10. AUTOMATION & BOT ENGINE
 
-### 9.1 Bot Execution Engine
+### 10.1 Bot Execution Engine
 
 ```
-ARCHITECTURE:
-  ┌──────────────────────────────────────────────────┐
-  │  Bot Engine (runs on server)                     │
-  │                                                  │
-  │  ┌────────────┐    ┌────────────────────────┐   │
-  │  │ BullMQ     │    │  Worker Process        │   │
-  │  │ Queue      │───▶│  - Loads script in VM  │   │
-  │  │            │    │  - Subscribes to ticks │   │
-  │  │            │    │  - Executes onTick()   │   │
-  │  │            │    │  - Places trades       │   │
-  │  │            │    │  - Handles results     │   │
-  │  │            │    │  - Checks risk limits  │   │
-  │  └────────────┘    └────────────────────────┘   │
-  │                                                  │
-  │  ┌────────────┐    ┌────────────────────────┐   │
-  │  │ Redis      │    │  Pub/Sub               │   │
-  │  │            │◀──▶│  - Bot status updates  │   │
-  │  │            │    │  - Trade notifications │   │
-  │  │            │    │  - Copy trade signals  │   │
-  │  └────────────┘    └────────────────────────┘   │
-  └──────────────────────────────────────────────────┘
-
 BOT LIFECYCLE:
   1. START:
      - Validate bot config
-     - Check Deriv connection is active
+     - Check Deriv connection
      - Create BullMQ job
-     - Worker picks up job
-     - Initialize VM with script
-     - Subscribe to symbol ticks via Deriv WebSocket
+     - Worker picks up job → Initialize VM → Subscribe to ticks
      - Update bot status → "running"
-     - Emit start event via Socket.IO
 
   2. TICK:
      - Receive tick from Deriv WebSocket
-     - Check if previous trade completed → call onResult()
-     - Execute script.onTick(tick) in VM
-     - If trade decision returned:
-       - Check risk limits (daily loss, max trades, cooldown)
-       - If limits OK: place trade via Deriv buy API
-       - If limits hit: stop bot, notify user
-     - Update bot statistics in DB
-     - Emit tick event for real-time dashboard
+     - Execute script.onTick(tick) in sandboxed VM
+     - If trade decision returned: check risk limits → place trade
+     - Update stats
 
   3. TRADE RESULT:
      - Receive contract settlement from Deriv
-     - Call script.onResult(result) in VM
-     - Update bot stats (wins, losses, P&L, streak)
-     - Check take profit / stop loss
-     - If TP/SL hit: stop bot, call script.onComplete()
-     - Log trade to bot_logs table
-     - Emit trade event for real-time dashboard
-     - If user has copy traders: emit copy trade signal
+     - Call script.onResult(result)
+     - Update stats, check TP/SL
+     - Log trade, emit real-time event
 
-  4. PAUSE:
-     - Stop processing new ticks
-     - Let current trade complete
-     - Keep WebSocket subscriptions active
-     - Update status → "paused"
+  4. PAUSE: Stop processing ticks, let current trade complete
+  5. STOP: Unsubscribe, terminate VM, remove job
+  6. ERROR: Log, auto-pause or stop, notify operator
 
-  5. STOP:
-     - Unsubscribe from ticks
-     - Close WebSocket subscriptions
-     - Terminate VM
-     - Remove BullMQ job
-     - Close any open contracts (optional)
-     - Update status → "stopped"
-     - Emit stop event
-
-  6. ERROR:
-     - Log error to bot_logs
-     - If recoverable: pause bot, retry after delay
-     - If not recoverable: stop bot, notify user
-     - Common errors:
-       - WebSocket disconnected
-       - Token expired
-       - VM execution error
-       - Insufficient balance
-       - Rate limit hit
+RISK CHECKS (before every trade):
+  1. Balance >= stake
+  2. Stake <= maxStake
+  3. Daily loss < maxDailyLoss
+  4. Daily trades < maxDailyTrades
+  5. Cooldown check
+  6. Take profit / Stop loss check
+  7. Concurrent trades check
+  8. Market open check
 ```
 
-### 9.2 Risk Management Engine
+### 10.2 AI Guardian
 
 ```
-CHECKS (before every trade):
-  1. Balance check: stake <= balance
-  2. Max stake: stake <= maxStake
-  3. Daily loss limit: dailyPnL > -maxDailyLoss
-  4. Daily trade limit: dailyTrades < maxDailyTrades
-  5. Cooldown: if consecutiveLosses >= cooldownLosses
-     → wait cooldownDuration seconds
-  6. Take profit: totalPnL < takeProfit (if set)
-  7. Stop loss: totalPnL > -stopLoss (if set)
-  8. Concurrent trades: openContracts < maxConcurrent
-  9. Market open: check trading_times if not synthetic
+SETTINGS:
+  - Max consecutive losses (odd/even): 8
+  - Max consecutive losses (digits): 10
+  - Max bulk runs: 1-2
+  - Random market rotation: ON
+  - Per-package drawdown limit: 5%
 
-ACTIONS (when limit hit):
-  - Stop bot gracefully
-  - Send notification (email + push)
-  - Log event
-  - Update bot status with reason
-  - Trigger automation rules (if any match)
+ON TRIGGER:
+  1. Halt all active bot processes for affected package
+  2. Send notification to operator (Telegram + in-app)
+  3. Log trigger with details
+  4. Wait cooldown period
+  5. Resume bots (or wait for manual resume)
 ```
 
 ---
 
-## 10. SCRIPT ENGINE
+## 11. SCRIPT ENGINE
 
-### 10.1 Sandbox Implementation
-
-```
-ARCHITECTURE:
-  ┌──────────────────────────────────────────────────┐
-  │  Script Execution Pipeline                       │
-  │                                                  │
-  │  Source Code (JS)                                │
-  │       │                                          │
-  │       ▼                                          │
-  │  ┌─────────────┐                                │
-  │  │ Validator   │ Check syntax, forbidden calls  │
-  │  └──────┬──────┘                                │
-  │         ▼                                        │
-  │  ┌─────────────┐                                │
-  │  │ Compiler    │ Wrap in sandbox, inject API    │
-  │  └──────┬──────┘                                │
-  │         ▼                                        │
-  │  ┌─────────────┐                                │
-  │  │ VM2/ivm     │ Execute in isolated context    │
-  │  └──────┬──────┘                                │
-  │         ▼                                        │
-  │  ┌─────────────┐                                │
-  │  │ Result      │ Return trade decision or null  │
-  │  └─────────────┘                                │
-  └──────────────────────────────────────────────────┘
-```
-
-### 10.2 Sandbox API Injection
+### 11.1 Sandbox API
 
 ```
-INJECTED GLOBALS (available inside script):
+AVAILABLE IN SANDBOX:
+  onTick(tick): TradeDecision | null
+  onResult(result): void
+  onComplete(summary): void
 
-  // ──── Market Data ────
-  tick.price          → current tick price (number)
-  tick.symbol         → current symbol (string)
-  tick.epoch          → tick timestamp (number)
-  tick.pipSize        → pip/spot size for symbol
+CONTEXT:
+  getLastResult(), getHistory(limit), getBalance()
+  getOpenContracts(), log(message)
 
-  // ──── Account Data ────
-  balance             → current account balance (number)
-  currency            → account currency (string)
+TECHNICAL INDICATORS:
+  getTicks(limit), getSMA(period), getEMA(period)
+  getRSI(period), getMACD(fast, slow, signal)
+  getBollingerBands(period, stdDev), getStochastic(k, d)
 
-  // ──── History ────
-  getLastResult()     → last trade result or null
-    returns: { win: boolean, profit: number, payout: number,
-              buyPrice: number, sellPrice: number,
-              contractType: string, entrySpot: number, exitSpot: number }
+TRADE DECISION:
+  { contract, stake, duration, durationUnit, barrier?, basis? }
 
-  getHistory(limit)   → array of last N trade results
-    returns: TradeResult[]
-
-  getOpenContracts()  → currently open positions
-    returns: Contract[]
-
-  // ──── Technical Indicators ────
-  getTicks(limit)     → last N raw tick prices
-    returns: number[]
-
-  getSMA(period)      → Simple Moving Average
-  getEMA(period)      → Exponential Moving Average
-  getRSI(period)      → Relative Strength Index (default 14)
-  getMACD(fast, slow, signal) → MACD line, signal, histogram
-  getBollingerBands(period, stdDev) → upper, middle, lower
-  getStochastic(kPeriod, dPeriod) → %K, %D
-
-  // ──── Utility ────
-  log(message)        → log to bot console (rate limited)
-  sleep(ms)           → async wait (max 5000ms)
-  storage.get(key)    → persistent key-value (per bot)
-  storage.set(key, val) → set persistent value
-
-  // ──── Constants ────
-  CONTRACTS           → { CALL, PUT, DIGITOVER, DIGITUNDER,
-                          DIGITMATCH, DIGITDIFF, DIGITEVEN,
-                          DIGITODD, TOUCH, NOTOUCH,
-                          HIGHER, LOWER, ... }
-  DURATION_UNITS      → { TICK, SECOND, MINUTE, HOUR, DAY }
+SECURITY:
+  - VM2 sandbox, no filesystem/network/process access
+  - Memory: 128MB, Timeout: 100ms per tick
+  - Max 1 trade per tick
 ```
 
-### 10.3 Script Templates
+### 11.2 Preset Strategies
 
 ```
-TEMPLATE 1: MARTINGALE
-─────────────────────────────────────────────
-/**
- * Martingale Strategy
- * @param {number} initialStake=0.35 Starting stake
- * @param {number} multiplier=2.0 Loss multiplier
- * @param {number} maxSteps=5 Max martingale steps
- */
-function onTick(tick) {
-  const last = getLastResult();
-  
-  if (!last || last.win) {
-    storage.set('currentStep', 0);
-    storage.set('currentStake', initialStake);
-  } else {
-    const step = Math.min(storage.get('currentStep') + 1, maxSteps);
-    storage.set('currentStep', step);
-    storage.set('currentStake', storage.get('currentStake') * multiplier);
-  }
-  
-  return {
-    contract: CONTRACTS.CALL,
-    stake: storage.get('currentStake'),
-    duration: 5,
-    durationUnit: DURATION_UNITS.TICK
-  };
-}
-
-function onResult(result) {
-  log(`Trade ${result.win ? 'WON' : 'LOST'}: ${result.profit > 0 ? '+' : ''}$${result.profit.toFixed(2)}`);
-}
-
-TEMPLATE 2: RSI OVERSOLD/OVERBOUGHT
-─────────────────────────────────────────────
-/**
- * RSI Strategy
- * @param {number} rsiPeriod=14 RSI calculation period
- * @param {number} oversold=30 Oversold threshold
- * @param {number} overbought=70 Overbought threshold
- * @param {number} stake=0.35 Trade stake
- */
-function onTick(tick) {
-  const rsi = getRSI(rsiPeriod);
-  
-  if (rsi < oversold) {
-    log(`RSI: ${rsi.toFixed(2)} — Oversold, buying RISE`);
-    return {
-      contract: CONTRACTS.CALL,
-      stake: stake,
-      duration: 5,
-      durationUnit: DURATION_UNITS.TICK
-    };
-  }
-  
-  if (rsi > overbought) {
-    log(`RSI: ${rsi.toFixed(2)} — Overbought, buying FALL`);
-    return {
-      contract: CONTRACTS.PUT,
-      stake: stake,
-      duration: 5,
-      durationUnit: DURATION_UNITS.TICK
-    };
-  }
-  
-  return null; // No trade
-}
-
-TEMPLATE 3: OSCAR'S GRIND
-─────────────────────────────────────────────
-/**
- * Oscar's Grind Strategy
- * @param {number} initialStake=0.35 Base stake
- * @param {number} targetUnits=1 Profit units to achieve
- */
-function onTick(tick) {
-  const last = getLastResult();
-  let cycleProfit = storage.get('cycleProfit') || 0;
-  let currentStake = storage.get('currentStake') || initialStake;
-  
-  if (last) {
-    cycleProfit += last.profit;
-    
-    if (cycleProfit >= targetUnits * initialStake) {
-      cycleProfit = 0;
-      currentStake = initialStake;
-      log('Cycle complete! Resetting.');
-    } else if (last.win) {
-      // Keep same stake after win
-    } else {
-      // Increase stake only after a win recovers some loss
-      currentStake = currentStake + initialStake;
-    }
-  }
-  
-  storage.set('cycleProfit', cycleProfit);
-  storage.set('currentStake', currentStake);
-  
-  return {
-    contract: CONTRACTS.CALL,
-    stake: currentStake,
-    duration: 5,
-    durationUnit: DURATION_UNITS.TICK
-  };
-}
-
-TEMPLATE 4: BOLLINGER BANDS BOUNCE
-─────────────────────────────────────────────
-/**
- * Bollinger Bands Strategy
- * @param {number} period=20 BB period
- * @param {number} stdDev=2 Standard deviations
- * @param {number} stake=0.35 Trade stake
- */
-function onTick(tick) {
-  const bb = getBollingerBands(period, stdDev);
-  const price = tick.price;
-  
-  if (price <= bb.lower) {
-    log(`Price touching lower band — buying RISE`);
-    return {
-      contract: CONTRACTS.CALL,
-      stake: stake,
-      duration: 3,
-      durationUnit: DURATION_UNITS.TICK
-    };
-  }
-  
-  if (price >= bb.upper) {
-    log(`Price touching upper band — buying FALL`);
-    return {
-      contract: CONTRACTS.PUT,
-      stake: stake,
-      duration: 3,
-      durationUnit: DURATION_UNITS.TICK
-    };
-  }
-  
-  return null;
-}
-
-TEMPLATE 5: MACD CROSSOVER
-─────────────────────────────────────────────
-/**
- * MACD Crossover Strategy
- * @param {number} fast=12 Fast EMA period
- * @param {number} slow=26 Slow EMA period
- * @param {number} signal=9 Signal line period
- * @param {number} stake=0.35 Trade stake
- */
-function onTick(tick) {
-  const macd = getMACD(fast, slow, signal);
-  const prevHistogram = storage.get('prevHistogram');
-  
-  storage.set('prevHistogram', macd.histogram);
-  
-  if (prevHistogram !== undefined) {
-    // Bullish crossover: histogram crosses from negative to positive
-    if (prevHistogram < 0 && macd.histogram > 0) {
-      log('MACD bullish crossover — buying RISE');
-      return {
-        contract: CONTRACTS.CALL,
-        stake: stake,
-        duration: 10,
-        durationUnit: DURATION_UNITS.TICK
-      };
-    }
-    // Bearish crossover: histogram crosses from positive to negative
-    if (prevHistogram > 0 && macd.histogram < 0) {
-      log('MACD bearish crossover — buying FALL');
-      return {
-        contract: CONTRACTS.PUT,
-        stake: stake,
-        duration: 10,
-        durationUnit: DURATION_UNITS.TICK
-      };
-    }
-  }
-  
-  return null;
-}
-```
-
-### 10.4 Script Validation & Security
-
-```
-VALIDATION (before saving):
-  1. Syntax check: esprima.parse() or acorn
-  2. Forbidden patterns:
-     - require(), import, eval()
-     - process, __dirname, __filename
-     - fetch, XMLHttpRequest, WebSocket
-     - setTimeout, setInterval (use sleep() instead)
-     - Math.random with no seed (warn, not block)
-  3. Size limit: max 50KB source code
-  4. Complexity limit: max 500 AST nodes
-  5. Must export or define onTick function
-  6. onResult and onComplete are optional
-
-EXECUTION SAFETY:
-  - VM2 sandbox with separate v8 context
-  - Memory limit: 128MB per script instance
-  - CPU timeout: 100ms per onTick call
-  - Infinite loop detection (opcount limit)
-  - No access to Node.js APIs
-  - No access to network
-  - No access to filesystem
-  - storage.get/set isolated per bot instance
-  - Rate limit: max 1 trade decision per tick
-
-ERROR HANDLING:
-  - Syntax error: block save, show in editor
-  - Runtime error: log to bot_logs, pause bot
-  - Timeout error: skip tick, continue
-  - Memory error: stop bot, notify user
-  - 3 consecutive errors: auto-pause bot
+1. Martingale    — double stake on loss, reset on win
+2. Oscar's Grind — increase only after win recovers loss
+3. DCA/Average   — same stake, lower average entry
+4. Fixed Stake   — consistent stake every trade
+5. Anti-Marting  — increase on win, decrease on loss
+6. Fibonacci     — stake follows Fibonacci on losses
 ```
 
 ---
 
-## 11. SOCIAL / USER MONITORING
-
-### 11.1 Activity Tracking
+## 12. CROWDFUNDING POOL DATA MODEL
 
 ```
-TRACKED EVENTS:
-  trade_placed      → { userId, symbol, contractType, stake, botId }
-  trade_won         → { userId, symbol, profit, botId }
-  trade_lost        → { userId, symbol, loss, botId }
-  bot_started       → { userId, botName, symbol, strategy }
-  bot_stopped       → { userId, botName, reason, totalPnL }
-  bot_paused        → { userId, botName, reason }
-  user_followed     → { followerId, followingId }
-  copy_trade_placed → { copierId, sourceUserId, symbol, stake }
+POOL LIFECYCLE (per package):
+  SCHEDULED → OPEN → CLOSED → TRADING → PROFIT_SHARING → COMPLETED
 
-PRIVACY CONTROLS (per user):
-  isPublic: boolean               → profile visible to others
-  showOnLeaderboard: boolean      → appear in rankings
-  showTradingActivity: boolean    → trades visible in feed
-  allowCopyTrading: boolean       → others can copy trades
-  hiddenBots: string[]            → bot IDs hidden from social
+  SCHEDULED:  Package announced, dates set
+  OPEN:       Accepting slot bookings and payments
+  CLOSED:     No more bookings, preparing for trading
+  TRADING:    Bots actively trading pooled capital
+  PROFIT_SHARING: Calculating & distributing profits
+  COMPLETED:  All payouts processed, package closed
 
-EVENT FLOW:
-  1. Event occurs (trade, bot action)
-  2. Check user privacy settings
-  3. If allowed: publish to Redis channel
-  4. Socket.IO pushes to followers' feeds
-  5. Store in activity_log table (24h TTL)
-  6. Copy trade engine checks for copy signals
-```
+COUNTDOWN TIMERS:
+  - If OPEN:    countdown to close date
+  - If TRADING:  countdown to trading end date
+  - If PROFIT_SHARING: countdown to payout date
 
-### 11.2 Leaderboard Calculation
+PROFIT CALCULATION:
+  For each investor in a package:
+    investorShare = investment.amount / package.totalCapital
+    grossEarnings = package.currentPnL × investorShare
+    platformCut = grossEarnings × (operatorSharePercent / 100)
+    netEarnings = grossEarnings - platformCut
+    currentROI = (netEarnings / investment.amount) × 100
 
-```
-RANKING CRITERIA:
-  Primary:   totalPnL (descending)
-  Secondary: winRate (if PnL tied)
-  Tertiary:  totalTrades (minimum threshold)
-
-FILTERS:
-  Period:  today, this_week, this_month, all_time
-  Market:  all, forex, synthetics, crypto, commodities
-  Strategy: all, martingale, dca, custom, etc.
-
-CALCULATION:
-  - Cached in Redis, recalculated every 5 minutes
-  - Uses trade aggregation query:
-    SELECT 
-      u.id, u.username, u.avatar,
-      COUNT(t.id) as total_trades,
-      SUM(CASE WHEN t.isWin THEN 1 ELSE 0 END) as wins,
-      SUM(t.profit) as total_pnl
-    FROM users u
-    JOIN trades t ON t.userId = u.id
-    WHERE u.showOnLeaderboard = true
-      AND t.createdAt >= {periodStart}
-    GROUP BY u.id
-    HAVING COUNT(t.id) >= {minTrades}
-    ORDER BY total_pnl DESC
-    LIMIT 100
-
-MINIMUM THRESHOLDS:
-  - Today:       10 trades minimum
-  - This Week:   50 trades minimum
-  - This Month:  200 trades minimum
-  - All Time:    500 trades minimum
-```
-
-### 11.3 Copy Trade Engine
-
-```
-FLOW:
-  ┌──────────────────────────────────────────────────┐
-  │  Source Trader places trade via bot              │
-  │         │                                        │
-  │         ▼                                        │
-  │  ┌─────────────┐                                │
-  │  │ Event       │ Trade placed event              │
-  │  │ Publisher   │ with all details                │
-  │  └──────┬──────┘                                │
-  │         │                                        │
-  │         ▼                                        │
-  │  ┌─────────────┐                                │
-  │  │ Copy Engine │ Find all active copy settings   │
-  │  │             │ targeting this user              │
-  │  └──────┬──────┘                                │
-  │         │                                        │
-  │         ▼                                        │
-  │  ┌──────────────────────────────────────────┐   │
-  │  │ For each copier:                          │   │
-  │  │  1. Check copy settings (filters, limits)│   │
-  │  │  2. Check copier's balance               │   │
-  │  │  3. Calculate stake (proportional/fixed) │   │
-  │  │  4. Place same trade on copier's account │   │
-  │  │  5. Record copy trade linkage            │   │
-  │  │  6. Notify copier                        │   │
-  │  └──────────────────────────────────────────┘   │
-  └──────────────────────────────────────────────────┘
-
-STAKE CALCULATION:
-  Proportional:  copierStake = (copierBalance / sourceBalance) * sourceStake
-  Fixed:         copierStake = copier's fixed amount setting
-  Same:          copierStake = sourceStake (exact copy)
-
-SAFEGUARDS:
-  - Max stake per trade limit
-  - Max daily copy trades limit
-  - Max daily copy loss limit
-  - Min win rate threshold (stop copying if source drops below)
-  - Symbol filter (only copy certain markets)
-  - Bot filter (only copy certain bots)
-  - Delay: configurable 0-5 second delay before copying
-  - Manual approval mode: require copier to confirm each trade
-
-FAILURE HANDLING:
-  - If copier's Deriv connection down: skip, log error
-  - If copier insufficient balance: skip, notify
-  - If trade fails: log, don't retry (market moved)
-  - If 5 consecutive failures: disable copy, notify copier
+  Auto-calculation every 3 minutes (or manual refresh)
 ```
 
 ---
 
-## 12. DEPLOYMENT & ENVIRONMENT
-
-### 12.1 Environment Variables
+## 13. LIVE TRADE TRACKER ENGINE
 
 ```
-# ──── Application ────
+DATA FLOW:
+  Deriv WebSocket → Trade Event → Process & Aggregate
+  → Redis Pub/Sub → Socket.IO Broadcast → All investors in pool
+
+INVESTOR SOCKET EVENTS:
+  "investor:earnings_update"  → { packageId, pnl, roi, lastUpdated }
+  "investor:pool_status"      → { packageId, status, timeLeft }
+  "investor:trade_result"     → { packageId, trade, yourShareImpact }
+  "investor:payout_status"    → { payoutId, status, amount }
+  "investor:ai_guardian"      → { packageId, triggerType, action }
+
+OPERATOR SOCKET EVENTS:
+  "operator:trade_result"     → { trade, packageId }
+  "operator:balance_update"   → { balance }
+  "operator:bot_status"       → { botId, status }
+  "operator:ai_guardian"      → { packageId, triggerType }
+  "operator:deposit"          → { deposit }
+  "operator:payout_request"   → { payout }
+
+THROTTLING:
+  - Trade results: batch per 10 seconds for investors
+  - Running totals: update every 5 seconds
+  - Earnings: every 3 minutes (or manual refresh)
+  - AI Guardian: immediate
+  - Pool status changes: immediate
+```
+
+---
+
+## 14. WALLET & FINANCE ENGINE
+
+```
+DEPOSIT FLOW:
+  1. Investor selects amount + payment method
+  2. Create WalletTransaction (pending)
+  3. Generate payment reference
+  4. Show instructions
+  5. Investor completes payment
+  6. Webhook/manual verification
+  7. Transaction → verified → completed
+  8. Credit wallet, confirm investment
+
+PAYOUT FLOW:
+  1. Investor requests payout
+  2. Check wallet balance >= amount
+  3. Create WalletTransaction (payout)
+  4. Lock amount from wallet
+  5. Process via payment provider
+  6. Transaction → completed
+  7. Deduct from locked balance
+  8. Notify investor
+
+EARNING CREDITING (after profit sharing):
+  1. Package status → profit_sharing
+  2. Calculate final P&L per investment
+  3. Credit wallet.balance for each investor
+  4. Notify all investors
+  5. Package → completed
+
+PAYMENT METHODS:
+  Bank Transfer: ACH, SEPA, SWIFT, Wire (1-3 days, $0 fee)
+  Mobile Money: MTN, Vodafone, M-Pesa, Airtel (instant-30min, 1.5% fee)
+  Card: Visa, Mastercard via Stripe (instant, 2.9%+$0.30)
+  Crypto: BTC, ETH, USDT, USDC (15-60min, network fee only)
+```
+
+---
+
+## 15. PROFIT CALCULATION ENGINE
+
+```
+REAL-TIME (every 3 minutes):
+  For each package:
+    1. Read package.currentPnL from bot engine
+    2. For each investment in package:
+       a. investorShare = investment.amount / package.totalCapital
+       b. grossEarnings = package.currentPnL × investorShare
+       c. platformCut = grossEarnings × (package.operatorSharePercent / 100)
+       d. netEarnings = grossEarnings - platformCut
+       e. currentROI = (netEarnings / investment.amount) × 100
+       f. Update investment.currentPnL and investment.currentROI
+    3. Create PackageEarningsLog snapshot
+    4. Broadcast to all investors via Socket.IO
+
+PER-PACKAGE P&L SPLIT:
+  Package P&L is split proportional to capital allocation:
+  PKG-01 (40% capital): gets 40% of total P&L
+  PKG-02 (35% capital): gets 35% of total P&L
+  PKG-03 (25% capital): gets 25% of total P&L
+
+DISPLAY:
+  - Investor sees NET earnings (after platform cut) by default
+  - "View breakdown" link shows gross → platform cut → net
+  - Operator sees both operator share AND investor distributions
+```
+
+---
+
+## 16. DEPLOYMENT & ENVIRONMENT
+
+### 16.1 Environment Variables
+
+```
 NODE_ENV=production
 APP_URL=https://app.derivx.com
-APP_NAME=DerivX
 APP_PORT=3000
 
-# ──── Database ────
 DATABASE_URL=postgresql://user:pass@host:5432/derivx
 REDIS_URL=redis://host:6379
 
-# ──── Authentication ────
 NEXTAUTH_SECRET=<random-32-chars>
-NEXTAUTH_URL=https://app.derivx.com
 JWT_ACCESS_EXPIRY=15m
 JWT_REFRESH_EXPIRY=7d
 
-# ──── Deriv API ────
 DERIV_APP_ID=<registered-app-id>
 DERIV_OAUTH_URL=https://oauth.deriv.com
 DERIV_WS_URL=wss://ws.derivws.com/websockets/v3
 DERIV_CALLBACK_URL=https://app.derivx.com/api/auth/deriv/callback
 
-# ──── Encryption ────
 TOKEN_ENCRYPTION_KEY=<aes-256-gcm-key>
-TOKEN_ENCRYPTION_IV=<initialization-vector>
 
-# ──── Email ────
 SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
-SMTP_USER=apikey
-SMTP_PASS=<sendgrid-api-key>
 EMAIL_FROM=noreply@derivx.com
 
-# ──── Push Notifications ────
 VAPID_PUBLIC_KEY=<key>
 VAPID_PRIVATE_KEY=<key>
-VAPID_SUBJECT=mailto:noreply@derivx.com
 
-# ──── Rate Limiting ────
 RATE_LIMIT_API_WINDOW=60000
 RATE_LIMIT_API_MAX=100
-RATE_LIMIT_TRADE_WINDOW=1000
-RATE_LIMIT_TRADE_MAX=10
 
-# ──── Bot Engine ────
-BOT_MAX_CONCURRENT_PER_USER=5
+BOT_MAX_CONCURRENT=10
 BOT_VM_MEMORY_LIMIT_MB=128
 BOT_VM_TIMEOUT_MS=100
-BOT_TICK_DEBOUNCE_MS=50
 
-# ──── Monitoring ────
+EARNINGS_CALC_INTERVAL_MS=180000
+DEFAULT_OPERATOR_SHARE_PERCENT=20
+DEFAULT_INVESTOR_SHARE_PERCENT=80
+
 SENTRY_DSN=<sentry-dsn>
-LOG_LEVEL=info
-PROMETHEUS_PORT=9090
 ```
 
-### 12.2 Docker Compose
-
-```
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    depends_on:
-      - postgres
-      - redis
-    env_file: .env.production
-    restart: always
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-
-  worker:
-    build: .
-    command: node dist/workers/bot-worker.js
-    depends_on:
-      - postgres
-      - redis
-    env_file: .env.production
-    restart: always
-    deploy:
-      replicas: 3
-      resources:
-        limits:
-          memory: 2G
-
-  postgres:
-    image: postgres:16-alpine
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: derivx
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redisdata:/data
-    command: redis-server --appendonly yes
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - app
-
-volumes:
-  pgdata:
-  redisdata:
-```
-
-### 12.3 API Route Map
+### 16.2 API Route Map
 
 ```
 AUTH:
-  POST   /api/auth/register          → Create account
-  POST   /api/auth/login             → Sign in
-  POST   /api/auth/logout            → Sign out
-  POST   /api/auth/refresh           → Refresh JWT
-  POST   /api/auth/forgot-password   → Request reset
-  POST   /api/auth/reset-password    → Reset password
-  GET    /api/auth/verify-email      → Verify email token
-  POST   /api/auth/resend-verify     → Resend verification
+  POST   /api/auth/register
+  POST   /api/auth/login
+  POST   /api/auth/logout
+  POST   /api/auth/refresh
+  POST   /api/auth/forgot-password
+  POST   /api/auth/reset-password
+  GET    /api/auth/verify-email
+  POST   /api/auth/deriv/connect
 
-DERIV CONNECTIONS:
-  GET    /api/connections             → List connections
-  POST   /api/connections             → Connect Deriv (OAuth callback)
-  DELETE /api/connections/:id         → Disconnect
-  POST   /api/connections/:id/test    → Test connection
-  POST   /api/connections/:id/refresh → Refresh token
+DERIV:
+  GET    /api/connections
+  POST   /api/connections
+  DELETE /api/connections/:id
+  POST   /api/connections/:id/test
 
-BOTS:
-  GET    /api/bots                   → List bots (with filters)
-  POST   /api/bots                   → Create bot
-  GET    /api/bots/:id               → Get bot detail
-  PATCH  /api/bots/:id               → Update bot config
-  DELETE /api/bots/:id               → Delete bot
-  POST   /api/bots/:id/start         → Start bot
-  POST   /api/bots/:id/pause         → Pause bot
-  POST   /api/bots/:id/stop          → Stop bot
-  GET    /api/bots/:id/trades        → Bot trade history
-  GET    /api/bots/:id/logs          → Bot logs
-  GET    /api/bots/:id/stats         → Bot statistics
+PACKAGES:
+  GET    /api/packages
+  POST   /api/packages
+  GET    /api/packages/:id
+  PATCH  /api/packages/:id
+  DELETE /api/packages/:id
+  GET    /api/packages/:id/investors
+  GET    /api/packages/:id/performance
+  POST   /api/packages/:id/distribute
 
-SCRIPTS:
-  GET    /api/scripts                → List scripts
-  POST   /api/scripts               → Create script
-  GET    /api/scripts/:id           → Get script
-  PATCH  /api/scripts/:id           → Update script
-  DELETE /api/scripts/:id           → Delete script
-  POST   /api/scripts/:id/validate  → Validate syntax
-  POST   /api/scripts/:id/test      → Quick test run
+INVESTMENTS:
+  GET    /api/investments
+  POST   /api/investments (book slot)
+  GET    /api/investments/:id
+  PATCH  /api/investments/:id
+  DELETE /api/investments/:id (cancel)
+
+INVESTORS:
+  GET    /api/investors
+  GET    /api/investors/:id
+  PATCH  /api/investors/:id
+  POST   /api/investors/:id/kyc-approve
+  POST   /api/investors/:id/kyc-reject
+
+SCHEDULES:
+  GET    /api/schedules
+  POST   /api/schedules
+  PATCH  /api/schedules/:id
+  DELETE /api/schedules/:id
 
 TRADES:
-  POST   /api/trades/buy            → Place trade (via Deriv)
-  POST   /api/trades/sell           → Sell contract (via Deriv)
-  GET    /api/trades/open           → Open positions
-  GET    /api/trades/history        → Trade history
-  GET    /api/trades/summary        → Trade summary/stats
+  POST   /api/trades/buy
+  POST   /api/trades/sell
+  GET    /api/trades/history
+  GET    /api/trades/summary
+
+BOTS:
+  GET    /api/bots
+  POST   /api/bots
+  GET    /api/bots/:id
+  PATCH  /api/bots/:id
+  POST   /api/bots/:id/start
+  POST   /api/bots/:id/pause
+  POST   /api/bots/:id/stop
+
+SCRIPTS:
+  GET    /api/scripts
+  POST   /api/scripts
+  GET    /api/scripts/:id
+  PATCH  /api/scripts/:id
+  DELETE /api/scripts/:id
+  POST   /api/scripts/:id/validate
 
 MARKETS:
-  GET    /api/markets/active        → Active symbols (cached)
-  GET    /api/markets/schedule      → Trading times
-  GET    /api/markets/ticks/:symbol → Tick history
+  GET    /api/markets/active
+  GET    /api/markets/schedule
+  GET    /api/markets/ticks/:symbol
 
-PORTFOLIO:
-  GET    /api/portfolio/balance     → Account balance
-  GET    /api/portfolio/statement   → Account statement
-  GET    /api/portfolio/profit      → Profit table
+WALLET:
+  GET    /api/wallet
+  POST   /api/wallet/deposit
+  POST   /api/wallet/payout
+  GET    /api/wallet/transactions
+  GET    /api/wallet/payment-methods
+  POST   /api/wallet/payment-methods
+  DELETE /api/wallet/payment-methods/:id
 
-AUTOMATION:
-  GET    /api/automation/rules      → List rules
-  POST   /api/automation/rules      → Create rule
-  PATCH  /api/automation/rules/:id  → Update rule
-  DELETE /api/automation/rules/:id  → Delete rule
-  POST   /api/automation/rules/:id/toggle → Enable/disable
+DEPOSITS:
+  GET    /api/deposits
+  POST   /api/deposits/:id/verify
+  POST   /api/deposits/:id/reject
 
-SOCIAL:
-  GET    /api/social/leaderboard    → Leaderboard
-  GET    /api/social/following      → Following list
-  POST   /api/social/follow/:userId → Follow user
-  DELETE /api/social/follow/:userId → Unfollow user
-  GET    /api/social/feed           → Activity feed
-  GET    /api/social/profile/:id    → User public profile
-  GET    /api/social/copy-settings  → List copy settings
-  POST   /api/social/copy-settings  → Create/update copy setting
-  DELETE /api/social/copy-settings/:id → Remove copy setting
+PAYOUTS:
+  GET    /api/payouts
+  POST   /api/payouts/:id/approve
+  POST   /api/payouts/:id/reject
+  POST   /api/payouts/:id/complete
+  POST   /api/payouts/batch-process
 
 ANALYTICS:
-  GET    /api/analytics/overview    → Overview stats
-  GET    /api/analytics/by-bot     → Per-bot breakdown
-  GET    /api/analytics/by-market  → Per-market breakdown
-  GET    /api/analytics/by-strategy→ Per-strategy breakdown
+  GET    /api/analytics/overview
+  GET    /api/analytics/by-package
+  GET    /api/analytics/by-investor
+  GET    /api/analytics/by-market
 
-BACKTEST:
-  POST   /api/backtest/run         → Run backtest
-  GET    /api/backtest/:id/results → Get results
-  GET    /api/backtest/:id/status  → Check status
+COMMUNICATIONS:
+  GET    /api/comms/messages
+  POST   /api/comms/messages
+  GET    /api/comms/announcements
+  POST   /api/comms/announcements
+  GET    /api/comms/templates
+  PATCH  /api/comms/templates/:id
+
+LOGS:
+  GET    /api/logs
+  GET    /api/logs/audit
+  POST   /api/logs/export
+
+AUTOMATION:
+  GET    /api/automation/rules
+  POST   /api/automation/rules
+  PATCH  /api/automation/rules/:id
+  DELETE /api/automation/rules/:id
 
 USER:
-  GET    /api/user/profile         → Current user
-  PATCH  /api/user/profile         → Update profile
-  PATCH  /api/user/password        → Change password
-  POST   /api/user/2fa/enable      → Enable 2FA
-  POST   /api/user/2fa/verify      → Verify 2FA setup
-  DELETE /api/user/2fa             → Disable 2FA
-  GET    /api/user/2fa/backup-codes→ Get backup codes
-  GET    /api/user/settings        → Get settings
-  PATCH  /api/user/settings        → Update settings
-  GET    /api/user/sessions        → Active sessions
-  DELETE /api/user/sessions/:id    → Revoke session
-  DELETE /api/user/account         → Delete account
-
-NOTIFICATIONS:
-  GET    /api/notifications        → List notifications
-  PATCH  /api/notifications/:id    → Mark as read
-  POST   /api/notifications/read-all → Mark all read
-  POST   /api/notifications/push/subscribe → Push subscription
-```
-
-### 12.4 WebSocket Event Map
-
-```
-DERIV WEBSOCKET (outbound → Deriv API):
-  { "authorize": "<token>" }
-  { "active_symbols": "brief", "product_type": "basic" }
-  { "trading_times": "<date>" }
-  { "tick": "<symbol>", "subscribe": 1 }
-  { "ticks_history": "<symbol>", "count": 1000, "end": "latest", "style": "candles", "granularity": 60 }
-  { "proposal": { "amount": 0.35, "basis": "stake", "contract_type": "CALL", "currency": "USD", "symbol": "R_10", "duration": 5, "duration_unit": "t" }, "subscribe": 1 }
-  { "buy": "<proposal_id>", "price": 0.35 }
-  { "sell": "<contract_id>", "price": <sell_price> }
-  { "balance": 1, "subscribe": 1 }
-  { "proposal_open_contract": 1, "subscribe": 1 }
-  { "statement": { "limit": 50, "offset": 0 } }
-  { "profit_table": { "limit": 50, "offset": 0, "description": 1, "sort": "ASC" } }
-  { "forget": "<subscription_id>" }
-  { "ping" }
-
-DERIV WEBSOCKET (inbound ← Deriv API):
-  { "authorize": { "loginid", "balance", "currency", "email", ... } }
-  { "active_symbols": [{ "symbol", "display_name", "market", ... }] }
-  { "tick": { "symbol", "quote", "epoch", "id" } }
-  { "ohlc": { "open", "high", "low", "close", "epoch", ... } }
-  { "proposal": { "ask_price", "payout", "spot", "id", ... } }
-  { "buy": { "contract_id", "purchase_time", "balance_after", ... } }
-  { "sell": { "balance_after", "sell_price", "profit", ... } }
-  { "balance": { "balance", "currency", "id" } }
-  { "proposal_open_contract": { "contract_id", "is_sold", "profit", ... } }
-
-INTERNAL SOCKET.IO (server → client):
-  "bot:status"         → { botId, status, message }
-  "bot:trade"          → { botId, trade }
-  "bot:tick"           → { botId, tick }
-  "bot:log"            → { botId, level, message }
-  "bot:pnl"            → { botId, pnl, totalTrades }
-  "trade:result"       → { contractId, isWin, profit }
-  "balance:update"     → { balance, currency }
-  "social:activity"    → { userId, action, details }
-  "notification:new"   → { notification }
-  "automation:triggered" → { ruleId, ruleName }
-
-INTERNAL SOCKET.IO (client → server):
-  "bot:subscribe"      → { botId }        (watch bot updates)
-  "bot:unsubscribe"    → { botId }
-  "ticks:subscribe"    → { symbol[] }     (watch market prices)
-  "ticks:unsubscribe"  → { symbol[] }
-  "social:subscribe"   → { userId[] }     (watch user activity)
+  GET    /api/user/profile
+  PATCH  /api/user/profile
+  PATCH  /api/user/password
+  POST   /api/user/2fa/enable
+  DELETE /api/user/2fa
+  GET    /api/user/settings
+  PATCH  /api/user/settings
 ```
 
 ---
 
-## COMPLETE PAGE INDEX
+## 17. COMPLETE PAGE INDEX
 
 ```
 HOME PAGES (3):
-  H-1  /                          Landing Page
-  H-2  /features                  Features Deep Dive
-  H-3  /pricing                   Pricing & Plans
+  H-1  /                              Landing
+  H-2  /features                      Features
+  H-3  /pricing                       Pricing
 
-AUTH PAGES (7):
-  A-1  /auth/signup               Sign Up
-  A-2  /auth/signin               Sign In
-  A-3  /auth/deriv/callback       Deriv OAuth Callback
-  A-4  /auth/forgot-password      Forgot Password
-  A-5  /auth/reset-password       Reset Password
-  A-6  /auth/verify-email         Email Verification
-  A-7  /auth/2fa                  Two-Factor Auth
+AUTH PAGES (8):
+  A-1  /auth/signup                   Sign Up (role: operator/investor)
+  A-2  /auth/signin                   Sign In (role routing)
+  A-3  /auth/onboarding/investor      Investor Onboarding (4 steps)
+  A-4  /auth/forgot-password          Forgot Password
+  A-5  /auth/reset-password           Reset Password
+  A-6  /auth/verify-email             Email Verification
+  A-7  /auth/2fa                      Two-Factor Auth
+  A-8  /auth/deriv/callback           Deriv OAuth Callback
 
-DASHBOARD PAGES (14 — each with 5+ sections):
-  D-1   /dashboard                Overview Hub
-       Sections: Purpose, Layout, Components, Data Flow,
-                 Advanced Features, Edge Cases, Performance,
-                 Testing, Accessibility (8 total)
-  D-2   /dashboard/markets        Markets Browser
-  D-3   /dashboard/trade          Trade Execution
-  D-4   /dashboard/bots           Bot Management
-  D-5   /dashboard/bots/new       Bot Creator (covers new + config)
-  D-6   /dashboard/scripts        Script List & Editor (covers list + :id)
-  D-7   /dashboard/automation     Automation Hub
-  D-8   /dashboard/portfolio      Portfolio / Positions
-  D-9   /dashboard/social         Social / User Monitoring
-  D-10  /dashboard/analytics      Performance Analytics
-  D-11  /dashboard/connections    API Connections
-  D-12  /dashboard/settings       Settings / Profile
-  D-13  /dashboard/bots/:id       Bot Detail / Live Monitor
-  D-14  /dashboard/backtest       Backtest Runner
+OPERATOR DASHBOARD (15):
+  D-1   /dashboard                    Command Center
+  D-2   /dashboard/schedules          Trade Scheduler
+  D-3   /dashboard/live               Live Trading
+  D-4   /dashboard/trades             Trade Log & Records
+  D-5   /dashboard/packages           Package Manager
+  D-6   /dashboard/investors          Investors Management
+  D-7   /dashboard/analytics          Analytics
+  D-8   /dashboard/funds              Funds & Capital
+  D-9   /dashboard/withdrawals        Withdrawal Requests
+  D-10  /dashboard/comms              Communications
+  D-11  /dashboard/deposits           Deposit Logs
+  D-12  /dashboard/logs               Activity & Audit Logs
+  D-13  /dashboard/markets            Markets & Symbols
+  D-14  /dashboard/bots               Bot & Automation Config
+  D-15  /dashboard/settings           Settings
 
-NOTE: All 14 pages enhanced with 5 additional advanced sections each
-      (Advanced Features, Edge Cases & Error Handling, Performance
-      Considerations, Testing Strategy, Accessibility & UX Enhancements).
+INVESTOR DASHBOARD (12):
+  I-1   /investor                     Overview
+  I-2   /investor/pools               Pools Browser
+  I-3   /investor/pools/:id           Pool Detail
+  I-4   /investor/pools/:id/book      Book Slots & Payment
+  I-5   /investor/live                Live Trade Tracker
+  I-6   /investor/investments         My Investments
+  I-7   /investor/wallet              Wallet & Finances
+  I-8   /investor/calculator          Investment Calculator
+  I-9   /investor/notifications       Notifications & Activity
+  I-10  /investor/referrals           Referrals & Rewards
+  I-11  /investor/earnings            Earnings & Reports
+  I-12  /investor/settings            Settings
 
-GLOBAL UI RULE: all 27 trading pages + 12 investor pages (39 total) follow the
-      Bootstrap 5.3 responsive system + page-scoped CSS + animation/animated-icon
-      conventions defined in section 1.4 (and 1.6 in investorMO.md).
-
-INVESTOR MODULE PAGES (see investorMO.md, 12 pages):
-  I-1   /investors                Investor Dashboard Hub
-  I-2   /investors/pools          Pool Trade Plans
-  I-3   /investors/pools/new      Create Pool Plan
-  I-4   /investors/pools/:id      Pool Detail / Live Monitor
-  I-5   /investors/schedules      Trade Schedule Manager
-  I-6   /investors/funds          Funds / Paid-In Finances
-  I-7   /investors/investors      Investor Directory
-  I-8   /investors/payouts        Payout Manager
-  I-9   /investors/analytics      Investor Analytics
-  I-10  /investors/documents      Documents & Compliance
-  I-11  /investors/communications Communications
-  I-12  /investors/settings       Investor Portal Settings
-
-TOTAL: 27 PAGES (Trading) + 12 PAGES (Investor Module) = 39 PAGES
+TOTAL: 38 PAGES
 ```
 
 ---
 
-## IMPLEMENTATION PRIORITY / PHASES
+## 18. IMPLEMENTATION PHASES
 
 ```
 PHASE 1 — MVP (Weeks 1-4):
   ✓ Landing page (H-1)
-  ✓ Auth: signup, signin, deriv callback (A-1, A-2, A-3)
-  ✓ Dashboard overview (D-1)
-  ✓ Markets browser (D-2)
-  ✓ Trade page (D-3)
-  ✓ API connections (D-15)
+  ✓ Auth with role selection (A-1, A-2, A-8)
+  ✓ Investor onboarding (A-3)
+  ✓ Command center (D-1) — basic KPIs
+  ✓ Package manager (D-5) — create/list packages
+  ✓ Markets browser (D-13)
   ✓ Deriv WebSocket connection
-  ✓ Basic buy/sell via WebSocket
+  ✓ Basic buy/sell
 
-PHASE 2 — Bots & Scripts (Weeks 5-8):
-  ✓ Bot management (D-4)
-  ✓ Bot creator (D-5)
-  ✓ Bot detail/monitor (D-6)
-  ✓ Script editor (D-8, D-9)
+PHASE 2 — Scheduling & Trading (Weeks 5-8):
+  ✓ Trade scheduler (D-2)
+  ✓ Live trading (D-3)
+  ✓ Bot config (D-14)
   ✓ Bot execution engine (BullMQ + VM2)
-  ✓ Preset strategies (martingale, DCA, fixed)
-  ✓ Risk management engine
-  ✓ Portfolio page (D-11)
+  ✓ Preset strategies
+  ✓ AI Guardian
+  ✓ Trade log (D-4)
 
-PHASE 3 — Automation & Analytics (Weeks 9-11):
-  ✓ Automation hub (D-10)
-  ✓ Analytics page (D-13)
-  ✓ Backtest runner (D-14)
-  ✓ Forgot/reset password (A-4, A-5)
-  ✓ Email verification (A-6)
-  ✓ 2FA (A-7)
+PHASE 3 — Investors & Packages (Weeks 9-12):
+  ✓ Investor overview (I-1)
+  ✓ Pool browser (I-2)
+  ✓ Pool detail (I-3)
+  ✓ Slot booking (I-4)
+  ✓ Investors management (D-6)
+  ✓ Live trade tracker (I-5)
+  ✓ My investments (I-6)
 
-PHASE 4 — Social & Polish (Weeks 12-14):
-  ✓ Social trading (D-12)
-  ✓ Copy trade engine
-  ✓ Leaderboard
-  ✓ Activity feed
-  ✓ Features page (H-2)
-  ✓ Pricing page (H-3)
-  ✓ Settings page (D-16)
-  ✓ Notification system
-  ✓ Bootstrap 5.3 responsive QA pass on all 39 pages (breakpoints, touch
-    targets, offcanvas nav) + motion audit (reduced-motion support)
+PHASE 4 — Funds & Payouts (Weeks 13-15):
+  ✓ Wallet & finances (I-7)
+  ✓ Funds & capital (D-8)
+  ✓ Deposit logs (D-11)
+  ✓ Withdrawal requests (D-9)
+  ✓ Payment method integration
+  ✓ KYC flow
+  ✓ Earnings auto-calculation engine
 
-PHASE 5 — Scale & Optimize (Weeks 15+):
+PHASE 5 — Analytics & Comms (Weeks 16-18):
+  ✓ Analytics (D-7)
+  ✓ Investor earnings (I-11)
+  ✓ Investment calculator (I-8)
+  ✓ Communications (D-10)
+  ✓ Notifications (I-9)
+  ✓ Referrals (I-10)
+
+PHASE 6 — Polish & Scale (Weeks 19+):
+  ✓ Activity & audit logs (D-12)
+  ✓ All settings pages (D-15, I-12)
+  ✓ Email templates & automation
+  ✓ Telegram bot integration
+  ✓ Push notifications
+  ✓ Tax reports
+  ✓ Mobile responsive
+  ✓ Multi-currency support
   ✓ Load testing
-  ✓ Multi-server bot workers
-  ✓ Advanced script templates
-  ✓ AI adaptive strategy
-  ✓ Team features
-  ✓ Public API for external integrations
-  ✓ Mobile app (React Native)
+  ✓ Public API
 ```
 
 ---
 
-This outline gives you the full blueprint — every page, every component, every API call, every database table, the complete Deriv WebSocket integration pattern (matching how BMX Bot connects), the bot execution engine, the sandboxed script engine, the copy trading system, and the deployment architecture. Start with Phase 1 and build incrementally.
+*End of document.*
+```
